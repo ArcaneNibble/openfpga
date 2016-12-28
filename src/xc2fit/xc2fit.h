@@ -18,14 +18,22 @@
 
 #ifndef xc2fit_h
 #define xc2fit_h
- 
+
 #include <cstdio>
+#include <cstring>
 #include <string>
 
 #include <log.h>
+#include <Coolrunner2.h>
 
 //Console help
 void ShowUsage();
 void ShowVersion();
+
+bool ParsePartName(
+	Coolrunner2Device::COOLRUNNER2_PART &part,
+	Coolrunner2Device::COOLRUNNER2_PKG &pkg,
+	Coolrunner2Device::COOLRUNNER2_SPEED &speed,
+	const char *name);
 
 #endif
