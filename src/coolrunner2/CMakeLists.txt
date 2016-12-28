@@ -1,6 +1,7 @@
 add_library(coolrunner2 STATIC
 
 	# Post-PAR netlist
+	Coolrunner2Device.cpp
 
 	# Unplaced (but techmapped) netlist
 )
