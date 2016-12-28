@@ -50,6 +50,9 @@ public:
 		COOLRUNNER2_PKG_PQ208,
 		COOLRUNNER2_PKG_FT256,
 		COOLRUNNER2_PKG_FG324,
+		COOLRUNNER2_PKG_PC44,
+
+		// FIXME: CV64? CV100?
 
 		COOLRUNNER2_PKG_COUNT
 	};
@@ -111,7 +114,8 @@ const char * const COOLRUNNER2_PKG_NAMES[Coolrunner2Device::COOLRUNNER2_PKG_COUN
 	"TQ144",
 	"PQ208",
 	"FT256",
-	"FG324"
+	"FG324",
+	"PC44"
 };
 
 const char * const COOLRUNNER2_SPEED_NAMES[Coolrunner2Device::COOLRUNNER2_SPEED_COUNT] = {
@@ -121,6 +125,210 @@ const char * const COOLRUNNER2_SPEED_NAMES[Coolrunner2Device::COOLRUNNER2_SPEED_
 	"6",
 	"7",
 	"10"
+};
+
+bool const COOLRUNNER2_VALID_COMBINATIONS[Coolrunner2Device::COOLRUNNER2_PART_COUNT][Coolrunner2Device::COOLRUNNER2_PKG_COUNT][Coolrunner2Device::COOLRUNNER2_SPEED_COUNT] =
+{
+	// XC2C32
+	{
+		// QFG32
+		{false},
+		// VQ44
+		{true, true, false, true, false, false},
+		// QFG48
+		{false},
+		// CP56
+		{true, true, false, true, false, false},
+		// VQ100
+		{false},
+		// CP132
+		{false},
+		// TQ144
+		{false},
+		// PQ208
+		{false},
+		// FT256
+		{false},
+		// FG324
+		{false},
+		// PC44
+		{true, true, false, true, false, false},
+	},
+	// XC2C32A
+	{
+		// QFG32
+		{false, true, false, true, false, false},
+		// VQ44
+		{false, true, false, true, false, false},
+		// QFG48
+		{false},
+		// CP56
+		{false, true, false, true, false, false},
+		// VQ100
+		{false},
+		// CP132
+		{false},
+		// TQ144
+		{false},
+		// PQ208
+		{false},
+		// FT256
+		{false},
+		// FG324
+		{false},
+		// PC44
+		{false, true, false, true, false, false},
+	},
+	// XC2C64
+	{
+		// QFG32
+		{false},
+		// VQ44
+		{false, false, true, false, true, false},
+		// QFG48
+		{false},
+		// CP56
+		{false, false, true, false, true, false},
+		// VQ100
+		{false, false, true, false, true, false},
+		// CP132
+		{false},
+		// TQ144
+		{false},
+		// PQ208
+		{false},
+		// FT256
+		{false},
+		// FG324
+		{false},
+		// PC44
+		{false, false, true, false, true, false},
+	},
+	// XC2C64A
+	{
+		// QFG32
+		{false},
+		// VQ44
+		{false, false, true, false, true, false},
+		// QFG48
+		{false, false, true, false, true, false},
+		// CP56
+		{false, false, true, false, true, false},
+		// VQ100
+		{false, false, true, false, true, false},
+		// CP132
+		{false},
+		// TQ144
+		{false},
+		// PQ208
+		{false},
+		// FT256
+		{false},
+		// FG324
+		{false},
+		// PC44
+		{false, false, true, false, true, false},
+	},
+	// XC2C128
+	{
+		// QFG32
+		{false},
+		// VQ44
+		{false},
+		// QFG48
+		{false},
+		// CP56
+		{false},
+		// VQ100
+		{false, false, false, true, true, false},
+		// CP132
+		{false, false, false, true, true, false},
+		// TQ144
+		{false, false, false, true, true, false},
+		// PQ208
+		{false},
+		// FT256
+		{false},
+		// FG324
+		{false},
+		// PC44
+		{false},
+	},
+	// XC2C256
+	{
+		// QFG32
+		{false},
+		// VQ44
+		{false},
+		// QFG48
+		{false},
+		// CP56
+		{false},
+		// VQ100
+		{false, false, false, true, true, false},
+		// CP132
+		{false, false, false, true, true, false},
+		// TQ144
+		{false, false, false, true, true, false},
+		// PQ208
+		{false, false, false, true, true, false},
+		// FT256
+		{false, false, false, true, true, false},
+		// FG324
+		{false},
+		// PC44
+		{false},
+	},
+	// XC2C384
+	{
+		// QFG32
+		{false},
+		// VQ44
+		{false},
+		// QFG48
+		{false},
+		// CP56
+		{false},
+		// VQ100
+		{false},
+		// CP132
+		{false},
+		// TQ144
+		{false, false, false, false, true, true},
+		// PQ208
+		{false, false, false, false, true, true},
+		// FT256
+		{false, false, false, false, true, true},
+		// FG324
+		{false, false, false, false, true, true},
+		// PC44
+		{false},
+	},
+	// XC2C512
+	{
+		// QFG32
+		{false},
+		// VQ44
+		{false},
+		// QFG48
+		{false},
+		// CP56
+		{false},
+		// VQ100
+		{false},
+		// CP132
+		{false},
+		// TQ144
+		{false},
+		// PQ208
+		{false, false, false, false, true, true},
+		// FT256
+		{false, false, false, false, true, true},
+		// FG324
+		{false, false, false, false, true, true},
+		// PC44
+		{false},
+	},
 };
 
 #endif

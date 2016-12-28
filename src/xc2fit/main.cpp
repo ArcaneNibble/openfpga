@@ -115,6 +115,9 @@ int main(int argc, char* argv[])
 		LogNotice("Target package:  %s\n", COOLRUNNER2_PKG_NAMES[pkg]);
 		LogNotice("Target speed:    %s\n", COOLRUNNER2_SPEED_NAMES[speed]);
 	}
+
+	// Create the device data stuctures
+	Coolrunner2Device device(part, pkg, speed);
 }
 
 void ShowUsage()
@@ -213,6 +216,12 @@ bool ParsePartName(
 	free(name_part);
 	free(name_pkg);
 	free(name_speed);
+
+	// Validate the combination
+	if (!COOLRUNNER2_VALID_COMBINATIONS[part][pkg][speed]) {
+		printf("Bad combination of part/package/speed\n");
+		return false;
+	}
 
 	return true;
 
