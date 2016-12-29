@@ -16,11 +16,36 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA                                      *
  **********************************************************************************************************************/
 
-#ifndef Coolrunner2_h
-#define Coolrunner2_h
+#include <Coolrunner2.h>
 
-#include "Coolrunner2BitstreamEntity.h"
-#include "Coolrunner2Device.h"
-#include "Coolrunner2ZIANode.h"
+using namespace std;
 
-#endif
+Coolrunner2ZIANode::Coolrunner2ZIANode(
+    Coolrunner2Device* device,
+    int node_num
+    )
+    : m_device(device)
+    , m_node_num(node_num)
+{
+
+}
+
+Coolrunner2ZIANode::~Coolrunner2ZIANode()
+{
+
+}
+
+bool Coolrunner2ZIANode::isIO()
+{
+    return false;
+}
+
+bool Coolrunner2ZIANode::isFeedback()
+{
+    return false;
+}
+
+std::string Coolrunner2ZIANode::DebugDump()
+{
+    return "FIXME";
+}

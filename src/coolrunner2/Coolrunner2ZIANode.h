@@ -16,11 +16,37 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA                                      *
  **********************************************************************************************************************/
 
-#ifndef Coolrunner2_h
-#define Coolrunner2_h
+#ifndef Coolrunner2ZIANode_h
+#define Coolrunner2ZIANode_h
 
-#include "Coolrunner2BitstreamEntity.h"
-#include "Coolrunner2Device.h"
-#include "Coolrunner2ZIANode.h"
+class Coolrunner2Device;
+
+#include <string>
+
+// Class that describes a possible input in the ZIA (either an I/O pin or
+// feedback from the PLA/macrocells). Does not correspond to any actual bit in
+// the bitstream
+class Coolrunner2ZIANode
+{
+public:
+    Coolrunner2ZIANode(
+        Coolrunner2Device* device,
+        int node_num
+        );
+    virtual ~Coolrunner2ZIANode();
+
+    std::string DebugDump();
+
+    Coolrunner2Device* GetDevice()
+    { return m_device; }
+
+    bool isIO();
+    bool isFeedback();
+
+protected:
+
+    Coolrunner2Device* m_device;
+    int m_node_num;
+};
 
 #endif

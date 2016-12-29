@@ -16,11 +16,31 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA                                      *
  **********************************************************************************************************************/
 
-#ifndef Coolrunner2_h
-#define Coolrunner2_h
+#ifndef Coolrunner2BitstreamEntity_h
+#define Coolrunner2BitstreamEntity_h
 
-#include "Coolrunner2BitstreamEntity.h"
-#include "Coolrunner2Device.h"
-#include "Coolrunner2ZIANode.h"
+class Coolrunner2Device;
+
+#include <string>
+
+// Base class to describe "things" that exist in the bitstream that are
+// programmable (as opposed to hardwired)
+class Coolrunner2BitstreamEntity
+{
+public:
+    Coolrunner2BitstreamEntity(
+        Coolrunner2Device* device
+        );
+    virtual ~Coolrunner2BitstreamEntity();
+
+    virtual std::string DebugDump() =0;
+
+    Coolrunner2Device* GetDevice()
+    { return m_device; }
+
+protected:
+
+    Coolrunner2Device* m_device;
+};
 
 #endif

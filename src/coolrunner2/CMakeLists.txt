@@ -1,7 +1,9 @@
 add_library(coolrunner2 STATIC
 
 	# Post-PAR netlist
+	Coolrunner2BitstreamEntity.cpp
 	Coolrunner2Device.cpp
+	Coolrunner2ZIANode.cpp
 
 	# Unplaced (but techmapped) netlist
 )
