@@ -43,6 +43,12 @@ public:
     bool isIO();
     bool isFeedback();
 
+    // Return a virtual I/O pin number for I/O inputs (or -1)
+    // This needs a table to map to actual I/O pins
+    int getVirtualIONumber();
+    // Return the internal macrocell number for feedback inputs (or -1)
+    int getInternalMCNumber();
+
 protected:
 
     Coolrunner2Device* m_device;
