@@ -35,5 +35,5 @@ Coolrunner2OBuf::~Coolrunner2OBuf()
 
 std::string Coolrunner2OBuf::DebugDump()
 {
-    return "FIXME";
+    return "FIXME\n";
 }

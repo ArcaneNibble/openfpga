@@ -44,6 +44,30 @@ public:
 
 	std::string DebugDump();
 
+	// ZIA NODES (meta)
+
+	Coolrunner2ZIANode* GetZIANode(int i)
+	{ return m_zia_nodes[i]; }
+
+	int GetZIANodeCount()
+	{ return m_zia_nodes.size(); }
+
+	// Input buffers
+
+	Coolrunner2IBuf* GetIBuf(int i)
+	{ return m_ibuf[i]; }
+
+	int GetIBufCount()
+	{ return m_ibuf.size(); }
+
+	// Output buffers
+
+	Coolrunner2OBuf* GetOBuf(int i)
+	{ return m_obuf[i]; }
+
+	int GetOBufCount()
+	{ return m_obuf.size(); }
+
 protected:
 
 	COOLRUNNER2_PART m_part;
@@ -52,6 +76,12 @@ protected:
 
 	// Owning reference to helper nodes representing ZIA inputs
 	std::vector<Coolrunner2ZIANode*> m_zia_nodes;
+
+	// Owning reference to input buffer object
+	std::vector<Coolrunner2IBuf*> m_ibuf;
+
+	// Owning reference to output buffer object
+	std::vector<Coolrunner2OBuf*> m_obuf;
 };
 
 #endif

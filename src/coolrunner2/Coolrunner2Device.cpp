@@ -32,6 +32,16 @@ Coolrunner2Device::Coolrunner2Device(
     for (int i = 0; i < COOLRUNNER2_ZIA_INPUTS[part]; i++) {
         m_zia_nodes.push_back(new Coolrunner2ZIANode(this, i));
     }
+
+    // Create ibuf
+    for (int i = 0; i < COOLRUNNER2_NUM_IBUF[part]; i++) {
+        m_ibuf.push_back(new Coolrunner2IBuf(this));
+    }
+
+    // Create obuf
+    for (int i = 0; i < COOLRUNNER2_NUM_OBUF[part]; i++) {
+        m_obuf.push_back(new Coolrunner2OBuf(this));
+    }
 }
 
 Coolrunner2Device::~Coolrunner2Device()
@@ -41,6 +51,18 @@ Coolrunner2Device::~Coolrunner2Device()
         delete x;
     }
     m_zia_nodes.clear();
+
+    // Delete ibuf
+    for (auto x : m_ibuf) {
+        delete x;
+    }
+    m_ibuf.clear();
+
+    // Delete obuf
+    for (auto x : m_obuf) {
+        delete x;
+    }
+    m_obuf.clear();
 }
 
 std::string Coolrunner2Device::DebugDump()
@@ -56,6 +78,16 @@ std::string Coolrunner2Device::DebugDump()
 
     output += "\n\nZIA input nodes:\n";
     for (auto x : m_zia_nodes) {
+        output += x->DebugDump();
+    }
+
+    output += "\n\nInputs:\n";
+    for (auto x : m_ibuf) {
+        output += x->DebugDump();
+    }
+
+    output += "\n\nOutputs:\n";
+    for (auto x : m_obuf) {
         output += x->DebugDump();
     }
 

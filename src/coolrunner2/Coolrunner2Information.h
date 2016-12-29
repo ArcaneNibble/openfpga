@@ -316,4 +316,26 @@ int const COOLRUNNER2_ZIA_INPUTS[COOLRUNNER2_PART_COUNT] = {
     782
 };
 
+int const COOLRUNNER2_NUM_IBUF[COOLRUNNER2_PART_COUNT] = {
+    33,
+    33,
+    64,
+    64,
+    100,
+    184,
+    240,
+    270
+};
+
+int const COOLRUNNER2_NUM_OBUF[COOLRUNNER2_PART_COUNT] = {
+    32,
+    32,
+    64,
+    64,
+    100,
+    184,
+    240,
+    270
+};
+
 #endif

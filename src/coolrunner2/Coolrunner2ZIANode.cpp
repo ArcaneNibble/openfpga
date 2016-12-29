@@ -39,26 +39,8 @@ Coolrunner2ZIANode::~Coolrunner2ZIANode()
 
 bool Coolrunner2ZIANode::isIO()
 {
-    switch (m_device->GetPart()) {
-        case COOLRUNNER2_XC2C32:
-        case COOLRUNNER2_XC2C32A:
-            return m_node_num <= 32;
-        case COOLRUNNER2_XC2C64:
-        case COOLRUNNER2_XC2C64A:
-            return m_node_num <= 63;
-        case COOLRUNNER2_XC2C128:
-            return m_node_num <= 99;
-        case COOLRUNNER2_XC2C256:
-            return m_node_num <= 183;
-        case COOLRUNNER2_XC2C384:
-            return m_node_num <= 239;
-        case COOLRUNNER2_XC2C512:
-            return m_node_num <= 269;
-        default:
-            // Can't happen
-            LogError("Internal error\n");
-            assert(false);
-    }
+    // Hopefully no exceptions to this?
+    return m_node_num < COOLRUNNER2_NUM_IBUF[m_device->GetPart()];
 }
 
 bool Coolrunner2ZIANode::isFeedback()
@@ -110,24 +92,5 @@ int Coolrunner2ZIANode::getInternalMCNumber()
     if (!isFeedback())
         return -1;
 
-    switch (m_device->GetPart()) {
-        case COOLRUNNER2_XC2C32:
-        case COOLRUNNER2_XC2C32A:
-            return m_node_num - 33;
-        case COOLRUNNER2_XC2C64:
-        case COOLRUNNER2_XC2C64A:
-            return m_node_num - 64;
-        case COOLRUNNER2_XC2C128:
-            return m_node_num - 100;
-        case COOLRUNNER2_XC2C256:
-            return m_node_num - 184;
-        case COOLRUNNER2_XC2C384:
-            return m_node_num - 240;
-        case COOLRUNNER2_XC2C512:
-            return m_node_num - 270;
-        default:
-            // Can't happen
-            LogError("Internal error\n");
-            assert(false);
-    }
+    return m_node_num - COOLRUNNER2_NUM_IBUF[m_device->GetPart()];
 }
