@@ -16,18 +16,30 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA                                      *
  **********************************************************************************************************************/
 
-#ifndef Coolrunner2_h
-#define Coolrunner2_h
+#ifndef Coolrunner2MCFF_h
+#define Coolrunner2MCFF_h
 
-#include "Coolrunner2BitstreamEntity.h"
-#include "Coolrunner2Device.h"
-#include "Coolrunner2FB.h"
-#include "Coolrunner2IBuf.h"
-#include "Coolrunner2MCFF.h"
-#include "Coolrunner2MCXorGate.h"
-#include "Coolrunner2OBuf.h"
-#include "Coolrunner2PTerm.h"
-#include "Coolrunner2STerm.h"
-#include "Coolrunner2ZIANode.h"
+class Coolrunner2Device;
+
+#include <string>
+
+// The flip-flop inside a macrocell
+class Coolrunner2MCFF
+{
+public:
+    Coolrunner2MCFF(
+        Coolrunner2Device* device
+        );
+    virtual ~Coolrunner2MCFF();
+
+    virtual std::string DebugDump();
+
+    Coolrunner2Device* GetDevice()
+    { return m_device; }
+
+protected:
+
+    Coolrunner2Device* m_device;
+};
 
 #endif
