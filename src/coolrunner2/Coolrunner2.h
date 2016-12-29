@@ -19,8 +19,11 @@
 #ifndef Coolrunner2_h
 #define Coolrunner2_h
 
+#include "Coolrunner2Information.h"
+
 #include "Coolrunner2BitstreamEntity.h"
-#include "Coolrunner2Device.h"
+#include "Coolrunner2ZIANode.h"
+
 #include "Coolrunner2FB.h"
 #include "Coolrunner2IBuf.h"
 #include "Coolrunner2MCFF.h"
@@ -28,6 +31,7 @@
 #include "Coolrunner2OBuf.h"
 #include "Coolrunner2PTerm.h"
 #include "Coolrunner2STerm.h"
-#include "Coolrunner2ZIANode.h"
+
+#include "Coolrunner2Device.h"
 
 #endif

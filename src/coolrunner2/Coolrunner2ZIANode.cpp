@@ -47,5 +47,5 @@ bool Coolrunner2ZIANode::isFeedback()
 
 std::string Coolrunner2ZIANode::DebugDump()
 {
-    return "FIXME";
+    return "FIXME\n";
 }

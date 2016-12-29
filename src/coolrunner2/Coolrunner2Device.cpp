@@ -28,10 +28,36 @@ Coolrunner2Device::Coolrunner2Device(
 	, m_pkg(pkg)
 	, m_speed(speed)
 {
-
+    // Create ZIA nodes
+    for (int i = 0; i < COOLRUNNER2_ZIA_INPUTS[part]; i++) {
+        m_zia_nodes.push_back(new Coolrunner2ZIANode(this, i));
+    }
 }
 
 Coolrunner2Device::~Coolrunner2Device()
 {
+    // Delete ZIA nodes
+    for (auto x : m_zia_nodes) {
+        delete x;
+    }
+    m_zia_nodes.clear();
+}
 
+std::string Coolrunner2Device::DebugDump()
+{
+    string output("CoolRunner-II structure dump\n");
+
+    output += "Part name: ";
+    output += COOLRUNNER2_PART_NAMES[this->GetPart()];
+    output += "\nPart package: ";
+    output += COOLRUNNER2_PKG_NAMES[this->GetPkg()];
+    output += "\nPart speed: ";
+    output += COOLRUNNER2_SPEED_NAMES[this->GetSpeed()];
+
+    output += "\n\nZIA input nodes:\n";
+    for (auto x : m_zia_nodes) {
+        output += x->DebugDump();
+    }
+
+    return output;
 }

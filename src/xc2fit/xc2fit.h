@@ -31,9 +31,9 @@ void ShowUsage();
 void ShowVersion();
 
 bool ParsePartName(
-	Coolrunner2Device::COOLRUNNER2_PART &part,
-	Coolrunner2Device::COOLRUNNER2_PKG &pkg,
-	Coolrunner2Device::COOLRUNNER2_SPEED &speed,
+	COOLRUNNER2_PART &part,
+	COOLRUNNER2_PKG &pkg,
+	COOLRUNNER2_SPEED &speed,
 	const char *name);
 
 #endif
