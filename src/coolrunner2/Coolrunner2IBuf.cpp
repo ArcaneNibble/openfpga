@@ -21,11 +21,14 @@
 using namespace std;
 
 Coolrunner2IBuf::Coolrunner2IBuf(
-    Coolrunner2Device* device
+    Coolrunner2Device* device,
+    int num
     )
     : m_device(device)
+    , m_internal_num(num)
 {
-
+    m_schmitt_trigger = false;
+    m_pull_up = false;
 }
 
 Coolrunner2IBuf::~Coolrunner2IBuf()
@@ -35,5 +38,15 @@ Coolrunner2IBuf::~Coolrunner2IBuf()
 
 std::string Coolrunner2IBuf::DebugDump()
 {
-    return "FIXME\n";
+    std::string output("INPUT #");
+    output += to_string(m_internal_num);
+
+    output += "\n Schmitt trigger: ";
+    output += m_schmitt_trigger ? "YES" : "NO";
+
+    output += "\n Pull-up: ";
+    output += m_pull_up ? "YES" : "NO";
+    output += "\n";
+
+    return output;
 }

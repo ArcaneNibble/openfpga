@@ -28,7 +28,8 @@ class Coolrunner2IBuf
 {
 public:
     Coolrunner2IBuf(
-        Coolrunner2Device* device
+        Coolrunner2Device* device,
+        int num
         );
     virtual ~Coolrunner2IBuf();
 
@@ -37,9 +38,26 @@ public:
     Coolrunner2Device* GetDevice()
     { return m_device; }
 
+    void SetSchmittTrigger(bool state)
+    { m_schmitt_trigger = state; }
+
+    bool GetSchmittTrigger()
+    { return m_schmitt_trigger; }
+
+    void SetPullUp(bool state)
+    { m_pull_up = state; }
+
+    bool GetPullUp()
+    { return m_pull_up; }
+
 protected:
 
     Coolrunner2Device* m_device;
+
+    int m_internal_num;
+
+    bool m_schmitt_trigger;
+    bool m_pull_up;
 };
 
 #endif

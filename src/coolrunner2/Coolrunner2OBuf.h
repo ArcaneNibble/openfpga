@@ -28,7 +28,8 @@ class Coolrunner2OBuf
 {
 public:
     Coolrunner2OBuf(
-        Coolrunner2Device* device
+        Coolrunner2Device* device,
+        int num
         );
     virtual ~Coolrunner2OBuf();
 
@@ -40,6 +41,8 @@ public:
 protected:
 
     Coolrunner2Device* m_device;
+
+    int m_internal_num;
 };
 
 #endif

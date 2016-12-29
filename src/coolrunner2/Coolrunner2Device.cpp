@@ -35,12 +35,12 @@ Coolrunner2Device::Coolrunner2Device(
 
     // Create ibuf
     for (int i = 0; i < COOLRUNNER2_NUM_IBUF[part]; i++) {
-        m_ibuf.push_back(new Coolrunner2IBuf(this));
+        m_ibuf.push_back(new Coolrunner2IBuf(this, i));
     }
 
     // Create obuf
     for (int i = 0; i < COOLRUNNER2_NUM_OBUF[part]; i++) {
-        m_obuf.push_back(new Coolrunner2OBuf(this));
+        m_obuf.push_back(new Coolrunner2OBuf(this, i));
     }
 }
 

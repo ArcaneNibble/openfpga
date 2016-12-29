@@ -21,9 +21,11 @@
 using namespace std;
 
 Coolrunner2OBuf::Coolrunner2OBuf(
-    Coolrunner2Device* device
+    Coolrunner2Device* device,
+    int num
     )
     : m_device(device)
+    , m_internal_num(num)
 {
 
 }
@@ -35,5 +37,9 @@ Coolrunner2OBuf::~Coolrunner2OBuf()
 
 std::string Coolrunner2OBuf::DebugDump()
 {
-    return "FIXME\n";
+    std::string output("OUTPUT #");
+    output += to_string(m_internal_num);
+    output += "\n";
+
+    return output;
 }
