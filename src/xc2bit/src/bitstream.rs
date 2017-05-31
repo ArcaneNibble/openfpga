@@ -28,7 +28,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 use std::io::Write;
 
 use *;
-use fb::{read_32_fb_logical};
+use fb::{read_32_fb_logical, get_ctc, get_ctr, get_cts, get_cte, get_pta, get_ptb, get_ptc};
 use mc::{read_32_iob_logical, read_32_extra_ibuf_logical, fb_ff_num_to_iob_num_32, iob_num_to_fb_ff_num_32};
 use zia::{encode_32_zia_choice};
 
@@ -94,6 +94,16 @@ impl XC2Bitstream {
 
                     for i in 0..16 {
                         write!(writer, "wire orterm_fb{}_{};\n", fb + 1, i + 1).unwrap();
+                    }
+                    write!(writer, "\n").unwrap();
+
+                    for i in 0..16 {
+                        write!(writer, "wire xorterm_fb{}_{};\n", fb + 1, i + 1).unwrap();
+                    }
+                    write!(writer, "\n").unwrap();
+
+                    for i in 0..16 {
+                        write!(writer, "wire ffout_fb{}_{};\n", fb + 1, i + 1).unwrap();
                     }
                     write!(writer, "\n").unwrap();
 
@@ -481,6 +491,41 @@ impl XC2BitstreamBits {
                 write!(writer, "assign gck2 = {};\n", if global_nets.gck_enable[2] {"io2_7"} else {"0"}).unwrap();
                 write!(writer, "\n").unwrap();
 
+                write!(writer, "assign gsr = {};\n\n", if global_nets.gsr_enable {
+                    if global_nets.gsr_invert {"io1_8"} else {"~io1_8"}
+                } else {"0"}).unwrap();
+
+                write!(writer, "assign gts0 = {};\n", if global_nets.gts_enable[0] {
+                    if global_nets.gts_invert[0] {"~io1_5"} else {"io1_5"}
+                } else {"0"}).unwrap();
+                write!(writer, "assign gts1 = {};\n", if global_nets.gts_enable[1] {
+                    if global_nets.gts_invert[1] {"~io1_4"} else {"io1_4"}
+                } else {"0"}).unwrap();
+                write!(writer, "assign gts2 = {};\n", if global_nets.gts_enable[2] {
+                    if global_nets.gts_invert[2] {"~io1_7"} else {"io1_7"}
+                } else {"0"}).unwrap();
+                write!(writer, "assign gts3 = {};\n", if global_nets.gts_enable[3] {
+                    if global_nets.gts_invert[3] {"~io1_6"} else {"io1_6"}
+                } else {"0"}).unwrap();
+                write!(writer, "\n").unwrap();
+
+                write!(writer, "// global termination is {}\n\n",
+                    if global_nets.global_pu {"pull-up"} else {"bus hold"}).unwrap();
+
+                write!(writer, "// legacy output voltage range: {}\n",
+                    if *legacy_ovoltage {"high"} else {"low"}).unwrap();
+                write!(writer, "// legacy input voltage range: {}\n",
+                    if *legacy_ivoltage {"high"} else {"low"}).unwrap();
+                write!(writer, "// bank 0 output voltage range: {}\n",
+                    if ovoltage[0] {"high"} else {"low"}).unwrap();
+                write!(writer, "// bank 1 output voltage range: {}\n",
+                    if ovoltage[1] {"high"} else {"low"}).unwrap();
+                write!(writer, "// bank 0 input voltage range: {}\n",
+                    if ivoltage[0] {"high"} else {"low"}).unwrap();
+                write!(writer, "// bank 1 input voltage range: {}\n",
+                    if ivoltage[1] {"high"} else {"low"}).unwrap();
+                write!(writer, "\n").unwrap();
+
                 // Each FB
                 for fb_i in 0..2 {
                     // ZIA
@@ -525,6 +570,18 @@ impl XC2BitstreamBits {
                             }
                         }
                         write!(writer, ";\n").unwrap();
+                    }
+                    write!(writer, "\n").unwrap();
+
+                    // XOR gates
+                    for i in 0..16 {
+                        write!(writer, "assign xorterm_fb{0}_{1} = orterm_fb{0}_{1} ^ {2};\n", fb_i + 1, i + 1,
+                            match fb[fb_i].ffs[i].xor_mode {
+                            XC2MCXorMode::ZERO => String::from("0"),
+                            XC2MCXorMode::PTCB => format!("~andterm_fb{}_{}", fb_i + 1, get_ptc(i as u32)),
+                            XC2MCXorMode::PTC => format!("andterm_fb{}_{}", fb_i + 1, get_ptc(i as u32)),
+                            XC2MCXorMode::ONE => String::from("1")
+                        }).unwrap();
                     }
                     write!(writer, "\n").unwrap();
                 }
