@@ -82,7 +82,7 @@ pub fn read_or_term_logical(fuses: &[bool], block_idx: usize, term_idx: usize) -
     let mut input = [false; 56];
 
     for i in 0..56 {
-        input[i] = !fuses[block_idx + i * 56 + term_idx];
+        input[i] = !fuses[block_idx + term_idx +i * 16];
     }
 
     XC2PLAOrTerm {
