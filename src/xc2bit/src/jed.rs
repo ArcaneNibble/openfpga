@@ -198,13 +198,14 @@ pub fn read_jed(in_bytes: &[u8]) -> Result<(Vec<bool>, Option<String>), &'static
         }
     }
 
-    if default_fuse == Ternary::Undef {
-        return Err("missing F field")
-    }
-
     // Fill in the default values
     for x in &mut fuses_ternary {
         if *x == Ternary::Undef {
+            // There cannot be undefined fuses if there isn't an F field
+            if default_fuse == Ternary::Undef {
+                return Err("missing F field")
+            }
+
             *x = default_fuse;
         }
     }
