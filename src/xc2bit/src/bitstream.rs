@@ -74,7 +74,7 @@ impl XC2Bitstream {
                 write!(writer, "module XC2C32A(\n").unwrap();
                 for fb in 0..2 {
                     for i in 0..16 {
-                        write!(writer, "    inout wire io{}_{},\n", fb, i + 1).unwrap();
+                        write!(writer, "    inout wire io{}_{},\n", fb + 1, i + 1).unwrap();
                     }
                 }
                 write!(writer, "    input wire dedicated_ibuf\n").unwrap();
@@ -83,22 +83,22 @@ impl XC2Bitstream {
                 // Intermediates
                 for fb in 0..2 {
                     for i in 0..40 {
-                        write!(writer, "wire zia_fb{}_{};\n", fb, i).unwrap();
+                        write!(writer, "wire zia_fb{}_{};\n", fb + 1, i).unwrap();
                     }
                     write!(writer, "\n").unwrap();
 
                     for i in 0..56 {
-                        write!(writer, "wire andterm_fb{}_{};\n", fb, i).unwrap();
+                        write!(writer, "wire andterm_fb{}_{};\n", fb + 1, i).unwrap();
                     }
                     write!(writer, "\n").unwrap();
 
                     for i in 0..16 {
-                        write!(writer, "wire orterm_fb{}_{};\n", fb, i + 1).unwrap();
+                        write!(writer, "wire orterm_fb{}_{};\n", fb + 1, i + 1).unwrap();
                     }
                     write!(writer, "\n").unwrap();
 
                     for i in 0..16 {
-                        write!(writer, "reg mc_feedback_fb{}_{};\n", fb, i + 1).unwrap();
+                        write!(writer, "reg mc_feedback_fb{}_{};\n", fb + 1, i + 1).unwrap();
                     }
                     write!(writer, "\n").unwrap();
                 }
@@ -476,23 +476,23 @@ impl XC2BitstreamBits {
                 ref ivoltage, ref ovoltage} => {
 
                 // FIXME: Is this the right place to read from?
-                write!(writer, "assign gck0 = {};\n", if global_nets.gck_enable[0] {"io1_5"} else {"0"}).unwrap();
-                write!(writer, "assign gck1 = {};\n", if global_nets.gck_enable[1] {"io1_6"} else {"0"}).unwrap();
-                write!(writer, "assign gck2 = {};\n", if global_nets.gck_enable[2] {"io1_7"} else {"0"}).unwrap();
+                write!(writer, "assign gck0 = {};\n", if global_nets.gck_enable[0] {"io2_5"} else {"0"}).unwrap();
+                write!(writer, "assign gck1 = {};\n", if global_nets.gck_enable[1] {"io2_6"} else {"0"}).unwrap();
+                write!(writer, "assign gck2 = {};\n", if global_nets.gck_enable[2] {"io2_7"} else {"0"}).unwrap();
                 write!(writer, "\n").unwrap();
 
                 // Each FB
                 for fb_i in 0..2 {
                     // ZIA
                     for i in 0..40 {
-                        write!(writer, "assign zia_fb{}_{} = {};\n", fb_i, i, match fb[fb_i].zia_bits[i].selected {
+                        write!(writer, "assign zia_fb{}_{} = {};\n", fb_i + 1, i, match fb[fb_i].zia_bits[i].selected {
                             // FIXME: Owned strings here are silly
                             XC2ZIAInput::Zero => String::from("0"),
                             XC2ZIAInput::One => String::from("1"),
-                            XC2ZIAInput::Macrocell{fb, ff} => format!("mc_feedback_fb{}_{}", fb, ff + 1),
+                            XC2ZIAInput::Macrocell{fb, ff} => format!("mc_feedback_fb{}_{}", fb + 1, ff + 1),
                             XC2ZIAInput::IBuf{ibuf} => {
                                 match iob_num_to_fb_ff_num_32(ibuf) {
-                                    Some((fb, ff)) =>  format!("io{}_{}", fb, ff + 1),
+                                    Some((fb, ff)) =>  format!("io{}_{}", fb + 1, ff + 1),
                                     // FIXME: This is ugly
                                     None => String::from("dedicated_ibuf"),
                                 }
@@ -503,13 +503,13 @@ impl XC2BitstreamBits {
 
                     // AND terms
                     for i in 0..56 {
-                        write!(writer, "assign andterm_fb{}_{} = 1", fb_i, i).unwrap();
+                        write!(writer, "assign andterm_fb{}_{} = 1", fb_i + 1, i).unwrap();
                         for j in 0..40 {
                             if fb[fb_i].and_terms[i].input[j] {
-                                write!(writer, " & zia_fb{}_{}", fb_i, j).unwrap();
+                                write!(writer, " & zia_fb{}_{}", fb_i + 1, j).unwrap();
                             }
                             if fb[fb_i].and_terms[i].input_b[j] {
-                                write!(writer, " & ~zia_fb{}_{}", fb_i, j).unwrap();
+                                write!(writer, " & ~zia_fb{}_{}", fb_i + 1, j).unwrap();
                             }
                         }
                         write!(writer, ";\n").unwrap();
@@ -518,10 +518,10 @@ impl XC2BitstreamBits {
 
                     // OR terms
                     for i in 0..16 {
-                        write!(writer, "assign orterm_fb{}_{} = 0", fb_i, i + 1).unwrap();
+                        write!(writer, "assign orterm_fb{}_{} = 0", fb_i + 1, i + 1).unwrap();
                         for j in 0..56 {
                             if fb[fb_i].or_terms[i].input[j] {
-                                write!(writer, " | andterm_fb{}_{}", fb_i, j).unwrap();
+                                write!(writer, " | andterm_fb{}_{}", fb_i + 1, j).unwrap();
                             }
                         }
                         write!(writer, ";\n").unwrap();
