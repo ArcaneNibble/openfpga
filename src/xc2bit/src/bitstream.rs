@@ -29,7 +29,7 @@ use std::io::Write;
 
 use *;
 use fb::{read_32_fb_logical};
-use mc::{read_32_iob_logical, read_32_extra_ibuf_logical, fb_ff_num_to_iob_num_32};
+use mc::{read_32_iob_logical, read_32_extra_ibuf_logical, fb_ff_num_to_iob_num_32, iob_num_to_fb_ff_num_32};
 use zia::{encode_32_zia_choice};
 
 pub struct XC2Bitstream {
@@ -61,6 +61,63 @@ impl XC2Bitstream {
         self.bits.write_jed(writer);
 
         write!(writer, "\x030000\n").unwrap();
+    }
+
+    pub fn write_verilog(&self, writer: &mut Write) {
+        write!(writer, "// .v file written by xc2bit\n").unwrap();
+        write!(writer, "// https://github.com/azonenberg/openfpga\n\n").unwrap();
+        write!(writer, "// Part speed grade: {}\n", self.speed_grade).unwrap();
+        write!(writer, "// Part package: {}\n", self.package).unwrap();
+
+        match self.bits {
+            XC2BitstreamBits::XC2C32A{..} => {
+                write!(writer, "module XC2C32A(\n").unwrap();
+                for fb in 0..2 {
+                    for i in 0..16 {
+                        write!(writer, "    inout wire io{}_{},\n", fb, i + 1).unwrap();
+                    }
+                }
+                write!(writer, "    input wire dedicated_ibuf\n").unwrap();
+                write!(writer, ");\n\n").unwrap();
+
+                // Intermediates
+                for fb in 0..2 {
+                    for i in 0..40 {
+                        write!(writer, "wire zia_fb{}_{};\n", fb, i).unwrap();
+                    }
+                    write!(writer, "\n").unwrap();
+
+                    for i in 0..56 {
+                        write!(writer, "wire andterm_fb{}_{};\n", fb, i).unwrap();
+                    }
+                    write!(writer, "\n").unwrap();
+
+                    for i in 0..16 {
+                        write!(writer, "wire orterm_fb{}_{};\n", fb, i + 1).unwrap();
+                    }
+                    write!(writer, "\n").unwrap();
+
+                    for i in 0..16 {
+                        write!(writer, "reg mc_feedback_fb{}_{};\n", fb, i + 1).unwrap();
+                    }
+                    write!(writer, "\n").unwrap();
+                }
+            },
+        }
+
+        write!(writer, "wire gck0;\n").unwrap();
+        write!(writer, "wire gck1;\n").unwrap();
+        write!(writer, "wire gck2;\n").unwrap();
+        write!(writer, "wire gts0;\n").unwrap();
+        write!(writer, "wire gts1;\n").unwrap();
+        write!(writer, "wire gts2;\n").unwrap();
+        write!(writer, "wire gts3;\n").unwrap();
+        write!(writer, "wire gsr;\n\n").unwrap();
+
+        self.bits.write_verilog(writer);
+
+        write!(writer, "endmodule\n").unwrap();
+
     }
 
     pub fn blank_bitstream(device: &str, speed_grade: &str, package: &str) -> Result<XC2Bitstream, &'static str> {
@@ -408,6 +465,69 @@ impl XC2BitstreamBits {
                 write!(writer, "L012275 {}*\n", if ovoltage[0] {"0"} else {"1"}).unwrap();
                 write!(writer, "L012276 {}*\n", if ivoltage[1] {"0"} else {"1"}).unwrap();
                 write!(writer, "L012277 {}*\n", if ovoltage[1] {"0"} else {"1"}).unwrap();
+            }
+        }
+    }
+
+    pub fn write_verilog(&self, writer: &mut Write) {
+        match self {
+            &XC2BitstreamBits::XC2C32A{
+                ref fb, ref iobs, ref inpin, ref global_nets, ref legacy_ivoltage, ref legacy_ovoltage,
+                ref ivoltage, ref ovoltage} => {
+
+                // FIXME: Is this the right place to read from?
+                write!(writer, "assign gck0 = {};\n", if global_nets.gck_enable[0] {"io1_5"} else {"0"}).unwrap();
+                write!(writer, "assign gck1 = {};\n", if global_nets.gck_enable[1] {"io1_6"} else {"0"}).unwrap();
+                write!(writer, "assign gck2 = {};\n", if global_nets.gck_enable[2] {"io1_7"} else {"0"}).unwrap();
+                write!(writer, "\n").unwrap();
+
+                // Each FB
+                for fb_i in 0..2 {
+                    // ZIA
+                    for i in 0..40 {
+                        write!(writer, "assign zia_fb{}_{} = {};\n", fb_i, i, match fb[fb_i].zia_bits[i].selected {
+                            // FIXME: Owned strings here are silly
+                            XC2ZIAInput::Zero => String::from("0"),
+                            XC2ZIAInput::One => String::from("1"),
+                            XC2ZIAInput::Macrocell{fb, ff} => format!("mc_feedback_fb{}_{}", fb, ff + 1),
+                            XC2ZIAInput::IBuf{ibuf} => {
+                                match iob_num_to_fb_ff_num_32(ibuf) {
+                                    Some((fb, ff)) =>  format!("io{}_{}", fb, ff + 1),
+                                    // FIXME: This is ugly
+                                    None => String::from("dedicated_ibuf"),
+                                }
+                            },
+                        }).unwrap();
+                    }
+                    write!(writer, "\n").unwrap();
+
+                    // AND terms
+                    for i in 0..56 {
+                        write!(writer, "assign andterm_fb{}_{} = 1", fb_i, i).unwrap();
+                        for j in 0..40 {
+                            if fb[fb_i].and_terms[i].input[j] {
+                                write!(writer, " & zia_fb{}_{}", fb_i, j).unwrap();
+                            }
+                            if fb[fb_i].and_terms[i].input_b[j] {
+                                write!(writer, " & ~zia_fb{}_{}", fb_i, j).unwrap();
+                            }
+                        }
+                        write!(writer, ";\n").unwrap();
+                    }
+                    write!(writer, "\n").unwrap();
+
+                    // OR terms
+                    for i in 0..16 {
+                        write!(writer, "assign orterm_fb{}_{} = 0", fb_i, i + 1).unwrap();
+                        for j in 0..56 {
+                            if fb[fb_i].or_terms[i].input[j] {
+                                write!(writer, " | andterm_fb{}_{}", fb_i, j).unwrap();
+                            }
+                        }
+                        write!(writer, ";\n").unwrap();
+                    }
+                    write!(writer, "\n").unwrap();
+                }
             }
         }
     }
