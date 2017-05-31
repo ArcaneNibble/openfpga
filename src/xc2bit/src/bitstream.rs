@@ -103,12 +103,12 @@ impl XC2Bitstream {
                     write!(writer, "\n").unwrap();
 
                     for i in 0..16 {
-                        write!(writer, "wire ffout_fb{}_{};\n", fb + 1, i + 1).unwrap();
+                        write!(writer, "reg ffout_fb{}_{};\n", fb + 1, i + 1).unwrap();
                     }
                     write!(writer, "\n").unwrap();
 
                     for i in 0..16 {
-                        write!(writer, "reg mc_feedback_fb{}_{};\n", fb + 1, i + 1).unwrap();
+                        write!(writer, "wire mc_feedback_fb{}_{};\n", fb + 1, i + 1).unwrap();
                     }
                     write!(writer, "\n").unwrap();
                 }
@@ -482,8 +482,8 @@ impl XC2BitstreamBits {
     pub fn write_verilog(&self, writer: &mut Write) {
         match self {
             &XC2BitstreamBits::XC2C32A{
-                ref fb, ref iobs, ref inpin, ref global_nets, ref legacy_ivoltage, ref legacy_ovoltage,
-                ref ivoltage, ref ovoltage} => {
+                ref fb, ref iobs, ref global_nets, ref legacy_ivoltage, ref legacy_ovoltage,
+                ref ivoltage, ref ovoltage, ..} => {
 
                 // FIXME: Is this the right place to read from?
                 write!(writer, "assign gck0 = {};\n", if global_nets.gck_enable[0] {"io2_5"} else {"0"}).unwrap();
@@ -577,11 +577,207 @@ impl XC2BitstreamBits {
                     for i in 0..16 {
                         write!(writer, "assign xorterm_fb{0}_{1} = orterm_fb{0}_{1} ^ {2};\n", fb_i + 1, i + 1,
                             match fb[fb_i].ffs[i].xor_mode {
-                            XC2MCXorMode::ZERO => String::from("0"),
-                            XC2MCXorMode::PTCB => format!("~andterm_fb{}_{}", fb_i + 1, get_ptc(i as u32)),
-                            XC2MCXorMode::PTC => format!("andterm_fb{}_{}", fb_i + 1, get_ptc(i as u32)),
-                            XC2MCXorMode::ONE => String::from("1")
-                        }).unwrap();
+                                XC2MCXorMode::ZERO => String::from("0"),
+                                XC2MCXorMode::PTCB => format!("~andterm_fb{}_{}", fb_i + 1, get_ptc(i as u32)),
+                                XC2MCXorMode::PTC => format!("andterm_fb{}_{}", fb_i + 1, get_ptc(i as u32)),
+                                XC2MCXorMode::ONE => String::from("1")
+                            }).unwrap();
+                    }
+                    write!(writer, "\n").unwrap();
+
+                    // init states
+                    for i in 0..16 {
+                        write!(writer, "initial ffout_fb{}_{} = {};\n", fb_i + 1, i + 1,
+                            if fb[fb_i].ffs[i].init_state {"1"} else {"0"}).unwrap();
+                    }
+                    write!(writer, "\n").unwrap();
+
+                    // FFs
+                    for i in 0..16 {
+                        let clk_src = match fb[fb_i].ffs[i].clk_src {
+                            XC2MCFFClkSrc::GCK0 => String::from("gck0"),
+                            XC2MCFFClkSrc::GCK1 => String::from("gck1"),
+                            XC2MCFFClkSrc::GCK2 => String::from("gck2"),
+                            XC2MCFFClkSrc::CTC => format!("andterm_fb{}_{}", fb_i + 1, get_ctc()),
+                            XC2MCFFClkSrc::PTC => format!("andterm_fb{}_{}", fb_i + 1, get_ptc(i as u32)),
+                        };
+
+                        match fb[fb_i].ffs[i].ff_mode {
+                            XC2MCFFMode::DFF | XC2MCFFMode::DFFCE | XC2MCFFMode::TFF => {
+                                if fb[fb_i].ffs[i].is_ddr {
+                                    write!(writer, "always @(posedge {0} or negedge {0}", clk_src).unwrap();
+                                } else {
+                                    write!(writer, "always @({}edge {}",
+                                        if fb[fb_i].ffs[i].falling_edge {"neg"} else {"pos"}, clk_src).unwrap();
+                                }
+                                match fb[fb_i].ffs[i].s_src {
+                                    XC2MCFFSetSrc::Disabled => {},
+                                    XC2MCFFSetSrc::PTA =>
+                                        write!(writer, " or posedge andterm_fb{}_{}", fb_i + 1, get_pta(i as u32))
+                                        .unwrap(),
+                                    XC2MCFFSetSrc::CTS =>
+                                        write!(writer, " or posedge andterm_fb{}_{}", fb_i + 1, get_cts()).unwrap(),
+                                    XC2MCFFSetSrc::GSR =>
+                                        write!(writer, " or posedge gsr").unwrap(),
+                                }
+                                match fb[fb_i].ffs[i].r_src {
+                                    XC2MCFFResetSrc::Disabled => {},
+                                    XC2MCFFResetSrc::PTA =>
+                                        write!(writer, " or posedge andterm_fb{}_{}", fb_i + 1, get_pta(i as u32))
+                                        .unwrap(),
+                                    XC2MCFFResetSrc::CTR =>
+                                        write!(writer, " or posedge andterm_fb{}_{}", fb_i + 1, get_ctr()).unwrap(),
+                                    XC2MCFFResetSrc::GSR =>
+                                        write!(writer, " or posedge gsr").unwrap(),
+                                }
+                                write!(writer, ")\n    ").unwrap();
+
+                                // set
+                                match fb[fb_i].ffs[i].s_src {
+                                    XC2MCFFSetSrc::Disabled => {},
+                                    XC2MCFFSetSrc::PTA => {
+                                        write!(writer, "if (andterm_fb{}_{})\n", fb_i + 1, get_pta(i as u32))
+                                            .unwrap();
+
+                                        write!(writer, "        ffout_fb{}_{} <= 1; else\n    ", fb_i + 1, i + 1)
+                                            .unwrap();
+                                    },
+                                    XC2MCFFSetSrc::CTS => {
+                                        write!(writer, "if (andterm_fb{}_{})\n", fb_i + 1, get_cts()).unwrap();
+
+                                        write!(writer, "        ffout_fb{}_{} <= 1; else\n"    , fb_i + 1, i + 1)
+                                            .unwrap();
+                                    },
+                                    XC2MCFFSetSrc::GSR => {
+                                        write!(writer, "if (gsr)\n").unwrap();
+
+                                        write!(writer, "        ffout_fb{}_{} <= 1; else\n    ", fb_i + 1, i + 1)
+                                            .unwrap();
+                                    },
+                                }
+
+                                // reset
+                                match fb[fb_i].ffs[i].r_src {
+                                    XC2MCFFResetSrc::Disabled => {},
+                                    XC2MCFFResetSrc::PTA => {
+                                        write!(writer, "if (andterm_fb{}_{})\n", fb_i + 1, get_pta(i as u32))
+                                            .unwrap();
+
+                                        write!(writer, "        ffout_fb{}_{} <= 0; else\n    ", fb_i + 1, i + 1)
+                                            .unwrap();
+                                    },
+                                    XC2MCFFResetSrc::CTR => {
+                                        write!(writer, "if (andterm_fb{}_{})\n", fb_i + 1, get_ctr()).unwrap();
+
+                                        write!(writer, "        ffout_fb{}_{} <= 0; else\n"    , fb_i + 1, i + 1)
+                                            .unwrap();
+                                    },
+                                    XC2MCFFResetSrc::GSR => {
+                                        write!(writer, "if (gsr)\n").unwrap();
+
+                                        write!(writer, "        ffout_fb{}_{} <= 0; else\n    ", fb_i + 1, i + 1)
+                                            .unwrap();
+                                    },
+                                }
+
+                                // Clock enable
+                                if fb[fb_i].ffs[i].ff_mode == XC2MCFFMode::DFFCE {
+                                    write!(writer, "if (andterm_fb{}_{})\n        ", fb_i + 1, get_ptc(i as u32))
+                                        .unwrap();
+                                }
+
+                                // actual thing
+                                if fb[fb_i].ffs[i].ff_mode == XC2MCFFMode::TFF {
+                                    write!(writer, "if ({0}) ffout_fb{1}_{2} <= ~ffout_fb{1}_{2};\n",
+                                        if fb[fb_i].ffs[i].ff_in_ibuf {
+                                            format!("io{}_{}", fb_i + 1, i + 1)
+                                        } else {
+                                            format!("xorterm_fb{}_{}", fb_i + 1, i + 1)
+                                        },
+                                        fb_i + 1, i + 1).unwrap();
+                                } else {
+                                    write!(writer, "ffout_fb{}_{} <= {};\n", fb_i + 1, i + 1,
+                                        if fb[fb_i].ffs[i].ff_in_ibuf {
+                                            format!("io{}_{}", fb_i + 1, i + 1)
+                                        } else {
+                                            format!("xorterm_fb{}_{}", fb_i + 1, i + 1)
+                                        }).unwrap();
+                                }
+
+                                write!(writer, "\n").unwrap();
+                            },
+                            XC2MCFFMode::LATCH => {
+                                write!(writer, "always @(*)\n    ").unwrap();
+
+                                // set
+                                match fb[fb_i].ffs[i].s_src {
+                                    XC2MCFFSetSrc::Disabled => {},
+                                    XC2MCFFSetSrc::PTA => {
+                                        write!(writer, "if (andterm_fb{}_{})\n", fb_i + 1, get_pta(i as u32))
+                                            .unwrap();
+
+                                        write!(writer, "        ffout_fb{}_{} <= 1; else\n    ", fb_i + 1, i + 1)
+                                            .unwrap();
+                                    },
+                                    XC2MCFFSetSrc::CTS => {
+                                        write!(writer, "if (andterm_fb{}_{})\n", fb_i + 1, get_cts()).unwrap();
+
+                                        write!(writer, "        ffout_fb{}_{} <= 1; else\n"    , fb_i + 1, i + 1)
+                                            .unwrap();
+                                    },
+                                    XC2MCFFSetSrc::GSR => {
+                                        write!(writer, "if (gsr)\n").unwrap();
+
+                                        write!(writer, "        ffout_fb{}_{} <= 1; else\n    ", fb_i + 1, i + 1)
+                                            .unwrap();
+                                    },
+                                }
+
+                                // reset
+                                match fb[fb_i].ffs[i].r_src {
+                                    XC2MCFFResetSrc::Disabled => {},
+                                    XC2MCFFResetSrc::PTA => {
+                                        write!(writer, "if (andterm_fb{}_{})\n", fb_i + 1, get_pta(i as u32))
+                                            .unwrap();
+
+                                        write!(writer, "        ffout_fb{}_{} <= 0; else\n    ", fb_i + 1, i + 1)
+                                            .unwrap();
+                                    },
+                                    XC2MCFFResetSrc::CTR => {
+                                        write!(writer, "if (andterm_fb{}_{})\n", fb_i + 1, get_ctr()).unwrap();
+
+                                        write!(writer, "        ffout_fb{}_{} <= 0; else\n"    , fb_i + 1, i + 1)
+                                            .unwrap();
+                                    },
+                                    XC2MCFFResetSrc::GSR => {
+                                        write!(writer, "if (gsr)\n").unwrap();
+
+                                        write!(writer, "        ffout_fb{}_{} <= 0; else\n    ", fb_i + 1, i + 1)
+                                            .unwrap();
+                                    },
+                                }
+
+                                // actual thing
+                                write!(writer, "if ({}) ", clk_src).unwrap();
+                                write!(writer, "ffout_fb{}_{} <= {};\n", fb_i + 1, i + 1,
+                                    if fb[fb_i].ffs[i].ff_in_ibuf {
+                                        format!("io{}_{}", fb_i + 1, i + 1)
+                                    } else {
+                                        format!("xorterm_fb{}_{}", fb_i + 1, i + 1)
+                                    }).unwrap();
+                            },
+                        }
+                    }
+
+                    // feedback
+                    for i in 0..16 {
+                        write!(writer, "assign mc_feedback_fb{}_{} = ", fb_i + 1, i + 1).unwrap();
+                        match fb[fb_i].ffs[i].fb_mode {
+                            // FIXME: Check this
+                            XC2MCFeedbackMode::Disabled => write!(writer, "0;\n").unwrap(),
+                            XC2MCFeedbackMode::COMB => write!(writer, "xorterm_fb{}_{};\n", fb_i + 1, i + 1).unwrap(),
+                            XC2MCFeedbackMode::REG => write!(writer, "ffout_fb{}_{};\n", fb_i + 1, i + 1).unwrap(),
+                        }
                     }
                     write!(writer, "\n").unwrap();
                 }

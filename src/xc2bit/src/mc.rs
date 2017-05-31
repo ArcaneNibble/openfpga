@@ -52,7 +52,7 @@ pub enum XC2MCFFSetSrc {
     CTS,
 }
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Eq, PartialEq)]
 pub enum XC2MCFFMode {
     DFF,
     LATCH,
