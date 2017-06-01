@@ -482,8 +482,7 @@ impl XC2BitstreamBits {
     pub fn write_verilog(&self, writer: &mut Write) {
         match self {
             &XC2BitstreamBits::XC2C32A{
-                ref fb, ref iobs, ref global_nets, ref legacy_ivoltage, ref legacy_ovoltage,
-                ref ivoltage, ref ovoltage, ..} => {
+                ref fb, ref iobs, ref global_nets, ..} => {
 
                 // FIXME: Is this the right place to read from?
                 write!(writer, "assign gck0 = {};\n", if global_nets.gck_enable[0] {"io2_5"} else {"0"}).unwrap();
@@ -509,23 +508,6 @@ impl XC2BitstreamBits {
                 } else {"0"}).unwrap();
                 write!(writer, "\n").unwrap();
 
-                write!(writer, "// global termination is {}\n\n",
-                    if global_nets.global_pu {"pull-up"} else {"bus hold"}).unwrap();
-
-                write!(writer, "// legacy output voltage range: {}\n",
-                    if *legacy_ovoltage {"high"} else {"low"}).unwrap();
-                write!(writer, "// legacy input voltage range: {}\n",
-                    if *legacy_ivoltage {"high"} else {"low"}).unwrap();
-                write!(writer, "// bank 0 output voltage range: {}\n",
-                    if ovoltage[0] {"high"} else {"low"}).unwrap();
-                write!(writer, "// bank 1 output voltage range: {}\n",
-                    if ovoltage[1] {"high"} else {"low"}).unwrap();
-                write!(writer, "// bank 0 input voltage range: {}\n",
-                    if ivoltage[0] {"high"} else {"low"}).unwrap();
-                write!(writer, "// bank 1 input voltage range: {}\n",
-                    if ivoltage[1] {"high"} else {"low"}).unwrap();
-                write!(writer, "\n").unwrap();
-
                 // Each FB
                 for fb_i in 0..2 {
                     // ZIA
@@ -537,7 +519,14 @@ impl XC2BitstreamBits {
                             XC2ZIAInput::Macrocell{fb, ff} => format!("mc_feedback_fb{}_{}", fb + 1, ff + 1),
                             XC2ZIAInput::IBuf{ibuf} => {
                                 match iob_num_to_fb_ff_num_32(ibuf) {
-                                    Some((fb, ff)) =>  format!("io{}_{}", fb + 1, ff + 1),
+                                    Some((fb, ff)) =>  {
+                                        let iob = fb_ff_num_to_iob_num_32(fb as u32, ff as u32).unwrap() as usize;
+                                        if iobs[iob].ibuf_to_zia {
+                                            format!("io{}_{}", fb + 1, ff + 1)
+                                        } else {
+                                            String::from("0")
+                                        }
+                                    },
                                     // FIXME: This is ugly
                                     None => String::from("dedicated_ibuf"),
                                 }
@@ -778,6 +767,34 @@ impl XC2BitstreamBits {
                             XC2MCFeedbackMode::COMB => write!(writer, "xorterm_fb{}_{};\n", fb_i + 1, i + 1).unwrap(),
                             XC2MCFeedbackMode::REG => write!(writer, "ffout_fb{}_{};\n", fb_i + 1, i + 1).unwrap(),
                         }
+                    }
+                    write!(writer, "\n").unwrap();
+
+                    // outputs
+                    for i in 0..16 {
+                        let iob = fb_ff_num_to_iob_num_32(fb_i as u32, i as u32).unwrap() as usize;
+                        write!(writer, "assign io{}_{} = ", fb_i + 1, i + 1).unwrap();
+                        let obuf_source = if iobs[iob].obuf_uses_ff {
+                            format!("ffout_fb{}_{}", fb_i + 1, i + 1)
+                        } else {
+                            format!("xorterm_fb{}_{}", fb_i + 1, i + 1)
+                        };
+                        match iobs[iob].obuf_mode {
+                            XC2MCOBufMode::PushPull => write!(writer, "{}", obuf_source).unwrap(),
+                            // FIXME: check these
+                            XC2MCOBufMode::OpenDrain => write!(writer, "{} ? 0 : 1'bz", obuf_source).unwrap(),
+                            XC2MCOBufMode::TriStateGTS1 => write!(writer, "gts1 ? 1'bz : {}", obuf_source).unwrap(),
+                            XC2MCOBufMode::TriStatePTB => write!(writer, "andterm_fb{}_{} ? 1'bz : {}",
+                                fb_i + 1, get_ptb(i), obuf_source).unwrap(),
+                            XC2MCOBufMode::TriStateGTS3 => write!(writer, "gts3 ? 1'bz : {}", obuf_source).unwrap(),
+                            XC2MCOBufMode::TriStateCTE => write!(writer, "andterm_fb{}_{} ? 1'bz : {}",
+                                fb_i + 1, get_cte(), obuf_source).unwrap(),
+                            XC2MCOBufMode::TriStateGTS2 => write!(writer, "gts2 ? 1'bz : {}", obuf_source).unwrap(),
+                            XC2MCOBufMode::TriStateGTS0 => write!(writer, "gts0 ? 1'bz : {}", obuf_source).unwrap(),
+                            XC2MCOBufMode::CGND => write!(writer, "0").unwrap(),
+                            XC2MCOBufMode::Disabled => write!(writer, "1'bz").unwrap(),
+                        }
+                        write!(writer, ";\n").unwrap();
                     }
                     write!(writer, "\n").unwrap();
                 }
