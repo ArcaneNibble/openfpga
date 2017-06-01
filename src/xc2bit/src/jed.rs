@@ -147,7 +147,7 @@ pub fn read_jed(in_bytes: &[u8]) -> Result<(Vec<bool>, Option<String>), &'static
                     return Err("missing QF field");
                 }
 
-                let mut fuse_field_splitter = l.split(|c| c == ' ' || c == '\r' || c == '\n');
+                let mut fuse_field_splitter = l.splitn(2, |c| c == ' ' || c == '\r' || c == '\n');
                 let fuse_idx_str = fuse_field_splitter.next();
                 let (_, fuse_idx_str) = fuse_idx_str.unwrap().split_at(1);
                 let fuse_idx_maybe = u32::from_str_radix(fuse_idx_str, 10);
