@@ -376,4 +376,11 @@ mod tests {
 
         assert_eq!(ret, Err("invalid fuse checksum"));
     }
+
+    #[test]
+    fn read_two_fuses_space() {
+        let ret = read_jed(b"\x02F0*QF2*L0 0 1*\x030000");
+
+        assert_eq!(ret, Ok((vec![false, true], None)));
+    }
 }
