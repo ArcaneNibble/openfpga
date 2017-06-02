@@ -39,6 +39,8 @@ protected:
 
 	virtual bool CanMoveNode(PARGraphNode* node, PARGraphNode* old_mate, PARGraphNode* new_mate);
 
+	virtual const char* GetLabelName(uint32_t label) const;
+
 	bool CantMoveSrc(Greenpak4BitstreamEntity* src);
 	bool CantMoveDst(Greenpak4BitstreamEntity* dst);
 
