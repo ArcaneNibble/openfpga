@@ -313,6 +313,7 @@ pub trait PAREngineImpl<'a> {
 
     // Overloads
     fn sanity_check(&self) -> bool;
+    fn initial_placement(&mut self) -> bool;
 }
 
 pub struct BasePAREngine (
@@ -325,6 +326,12 @@ impl<'a> PAREngineImpl<'a> for BasePAREngine {
     fn sanity_check(&self) -> bool {
         unsafe {
             ffi::xbpar_PAREngine_base_SanityCheck(self as *const BasePAREngine as *const c_void) != 0
+        }
+    }
+
+    fn initial_placement(&mut self) -> bool {
+        unsafe {
+            ffi::xbpar_PAREngine_base_InitialPlacement(self as *mut BasePAREngine as *mut c_void) != 0
         }
     }
 }
@@ -364,7 +371,7 @@ impl<'a, 'b, 'c, T: 'c + PAREngineImpl<'c>> PAREngine<'a, 'b, 'c, T> {
                 None,
                 None,
                 Some(PAREngine::<T>::sanity_check),
-                None,
+                Some(PAREngine::<T>::initial_placement),
                 None,
                 None,
                 None,
@@ -395,7 +402,11 @@ impl<'a, 'b, 'c, T: 'c + PAREngineImpl<'c>> PAREngine<'a, 'b, 'c, T> {
     }
 
     // Overloads
-    unsafe extern "C" fn sanity_check(ffiengine: *mut c_void) -> i32 {
-        (*(ffiengine as *mut T)).sanity_check() as i32
+    unsafe extern "C" fn sanity_check(ffiengine: *const c_void) -> i32 {
+        (*(ffiengine as *const T)).sanity_check() as i32
+    }
+
+    unsafe extern "C" fn initial_placement(ffiengine: *mut c_void) -> i32 {
+        (*(ffiengine as *mut T)).initial_placement() as i32
     }
 }

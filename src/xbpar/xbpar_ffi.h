@@ -88,26 +88,26 @@ typedef PARGraphNode* (*t_GetNewPlacementForNode)(void* ffiengine, const PARGrap
 typedef void (*t_FindSubOptimalPlacements)(void* ffiengine, PARGraphNode*const** bad_nodes_ptr, size_t* bad_nodes_len);
 typedef int (*t_InitialPlacement_core)(void* ffiengine);
 //Return value is borrowed and must live for some amount of time until the next operation
-typedef const char* (*t_GetLabelName)(void* ffiengine, uint32_t label);
-typedef int (*t_CanMoveNode)(void* ffiengine, const PARGraphNode* node,
+typedef const char* (*t_GetLabelName)(const void* ffiengine, uint32_t label);
+typedef int (*t_CanMoveNode)(const void* ffiengine, const PARGraphNode* node,
 	const PARGraphNode* old_mate, const PARGraphNode* new_mate);
 //Gives out ownership; will be freed
-typedef uint32_t (*t_ComputeAndPrintScore)(void* ffiengine,
+typedef uint32_t (*t_ComputeAndPrintScore)(const void* ffiengine,
 	const PARGraphEdge*const** unroutes_ptr, size_t *unroutes_len, uint32_t iteration);
 //Borrows unroutes, does not take ownership
-typedef void (*t_PrintUnroutes)(void* ffiengine,
+typedef void (*t_PrintUnroutes)(const void* ffiengine,
 	const PARGraphEdge*const* unroutes_ptr, size_t unroutes_len);
-typedef uint32_t (*t_ComputeCongestionCost)(void* ffiengine);
-typedef uint32_t (*t_ComputeTimingCost)(void* ffiengine);
+typedef uint32_t (*t_ComputeCongestionCost)(const void* ffiengine);
+typedef uint32_t (*t_ComputeTimingCost)(const void* ffiengine);
 //Gives out ownership; will be freed
-typedef uint32_t (*t_ComputeUnroutableCost)(void* ffiengine,
+typedef uint32_t (*t_ComputeUnroutableCost)(const void* ffiengine,
 	const PARGraphEdge*const** unroutes_ptr, size_t *unroutes_len);
-typedef int (*t_SanityCheck)(void* ffiengine);
+typedef int (*t_SanityCheck)(const void* ffiengine);
 typedef int (*t_InitialPlacement)(void* ffiengine);
 //Borrows badnodes, does not take ownership
 typedef int (*t_OptimizePlacement)(void* ffiengine,
 	PARGraphNode*const* badnodes_ptr, size_t badnodes_len);
-typedef uint32_t (*t_ComputeNodeUnroutableCost)(void* ffiengine,
+typedef uint32_t (*t_ComputeNodeUnroutableCost)(const void* ffiengine,
 	const PARGraphNode* pivot, const PARGraphNode* candidate);
 typedef void (*t_free_edgevec)(const PARGraphEdge*const* v);
 typedef void (*t_free_nodevec)(const PARGraphNode*const* n);

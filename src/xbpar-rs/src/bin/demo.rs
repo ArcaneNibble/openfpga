@@ -35,6 +35,11 @@ impl<'a> PAREngineImpl<'a> for TrivialPAREngine<'a> {
         println!("sanity_check");
         self.base_engine.as_ref().unwrap().sanity_check()
     }
+
+    fn initial_placement(&mut self) -> bool {
+        println!("initial_placement");
+        self.base_engine.as_mut().unwrap().initial_placement()
+    }
 }
 
 fn main() {
