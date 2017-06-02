@@ -209,7 +209,7 @@ uint32_t Greenpak4PAREngine::ComputeCongestionCost()
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // Print logic
 
-void Greenpak4PAREngine::PrintUnroutes(vector<PARGraphEdge*>& unroutes)
+void Greenpak4PAREngine::PrintUnroutes(const vector<PARGraphEdge*>& unroutes)
 {
 	Log(Severity::ERROR, "\nUnroutable nets (%zu):\n", unroutes.size());
 	LogIndenter li;
@@ -411,7 +411,7 @@ bool Greenpak4PAREngine::CantMoveDst(Greenpak4BitstreamEntity* dst)
 /**
 	@brief Find a new (hopefully more efficient) placement for a given netlist node
  */
-PARGraphNode* Greenpak4PAREngine::GetNewPlacementForNode(PARGraphNode* pivot)
+PARGraphNode* Greenpak4PAREngine::GetNewPlacementForNode(const PARGraphNode* pivot)
 {
 	//Find which matrix we were assigned to
 	PARGraphNode* current_node = pivot->GetMate();

@@ -29,10 +29,10 @@ public:
 	virtual ~Greenpak4PAREngine();
 
 protected:
-	virtual void PrintUnroutes(std::vector<PARGraphEdge*>& unroutes);
+	virtual void PrintUnroutes(const std::vector<PARGraphEdge*>& unroutes);
 
 	virtual void FindSubOptimalPlacements(std::vector<PARGraphNode*>& bad_nodes);
-	virtual PARGraphNode* GetNewPlacementForNode(PARGraphNode* pivot);
+	virtual PARGraphNode* GetNewPlacementForNode(const PARGraphNode* pivot);
 
 	virtual uint32_t ComputeCongestionCost();
 	virtual bool InitialPlacement_core();
@@ -43,7 +43,7 @@ protected:
 	bool CantMoveDst(Greenpak4BitstreamEntity* dst);
 
 	//Cached list of unroutable nodes for the current iteration
-	std::set<PARGraphNode*> m_unroutableNodes;
+	std::set<const PARGraphNode*> m_unroutableNodes;
 
 	//used for error messages only
 	labelmap m_lmap;
