@@ -4,6 +4,8 @@ ADD_LIBRARY(xbpar STATIC
 	PAREngine.cpp
 	PARGraph.cpp
 	PARGraphNode.cpp
+
+	xbpar_ffi.cpp
 )
 
 target_include_directories(xbpar
