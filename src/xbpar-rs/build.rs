@@ -1,5 +1,5 @@
 /***********************************************************************************************************************
- * Copyright (C) 2016 Andrew Zonenberg and contributors                                                                *
+ * Copyright (C) 2017 Robert Ou and contributors                                                                       *
  *                                                                                                                     *
  * This program is free software; you can redistribute it and/or modify it under the terms of the GNU Lesser General   *
  * Public License as published by the Free Software Foundation; either version 2.1 of the License, or (at your option) *
@@ -16,39 +16,24 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA                                      *
  **********************************************************************************************************************/
 
-#ifndef Greenpak4PAREngine_h
-#define Greenpak4PAREngine_h
+extern crate bindgen;
 
-/**
-	@brief The place-and-route engine for Greenpak4
- */
-class Greenpak4PAREngine : public PAREngine
-{
-public:
-	Greenpak4PAREngine(PARGraph* netlist, PARGraph* device, labelmap& lmap);
-	virtual ~Greenpak4PAREngine();
+use std::env;
+use std::path::PathBuf;
 
-protected:
-	virtual void PrintUnroutes(const std::vector<PARGraphEdge*>& unroutes);
+fn main() {
+    let bindings = bindgen::Builder::default()
+        .no_unstable_rust()
+        .header("../xbpar/xbpar_ffi.h")
+        .clang_arg("-std=c11")
+        .generate()
+        .expect("Unable to generate bindings");
 
-	virtual void FindSubOptimalPlacements(std::vector<PARGraphNode*>& bad_nodes);
-	virtual PARGraphNode* GetNewPlacementForNode(const PARGraphNode* pivot);
+    let out_path = PathBuf::from(env::var("OUT_DIR").unwrap());
+    bindings
+        .write_to_file(out_path.join("bindings.rs"))
+        .expect("Couldn't write bindings!");
 
-	virtual uint32_t ComputeCongestionCost();
-	virtual bool InitialPlacement_core();
 
-	virtual bool CanMoveNode(PARGraphNode* node, PARGraphNode* old_mate, PARGraphNode* new_mate);
-
-	virtual const char* GetLabelName(uint32_t label) const;
-
-	bool CantMoveSrc(Greenpak4BitstreamEntity* src);
-	bool CantMoveDst(Greenpak4BitstreamEntity* dst);
-
-	//Cached list of unroutable nodes for the current iteration
-	std::set<const PARGraphNode*> m_unroutableNodes;
-
-	//used for error messages only
-	labelmap m_lmap;
-};
-
-#endif
+    println!("cargo:rustc-flags=-L ../../build/bin -l xbpar -l log -l stdc++")
+}
