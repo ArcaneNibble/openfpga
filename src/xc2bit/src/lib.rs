@@ -26,7 +26,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 // Public interface
 
 mod bitstream;
-pub use bitstream::{XC2Bitstream, XC2BitstreamBits};
+pub use bitstream::{XC2Bitstream, XC2BitstreamBits, XC2GlobalNets};
 
 mod fb;
 pub use fb::{XC2BistreamFB, get_ctc, get_ctr, get_cts, get_cte, get_pta, get_ptb, get_ptc};
@@ -40,7 +40,7 @@ mod pla;
 pub use pla::{XC2PLAAndTerm, XC2PLAOrTerm};
 
 mod zia;
-pub use zia::{XC2ZIARowPiece, XC2ZIAInput, ZIA_BIT_TO_CHOICE_32};
+pub use zia::{XC2ZIARowPiece, XC2ZIAInput, ZIA_BIT_TO_CHOICE_32, read_32_zia_fb_row_logical, encode_32_zia_choice};
 
 mod jed;
 pub use jed::{read_jed, process_jed};
