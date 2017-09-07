@@ -123,3 +123,109 @@ PARGraphNode* PARGraph::GetNodeByLabelAndIndex(uint32_t label, uint32_t index) c
 {
 	return m_labeledNodes[label][index];
 }
+
+
+void PARGraph::WriteSMT2Device(FILE *out, std::unordered_map<std::string, size_t>& port_names) const
+{
+	// Nodes
+	std::unordered_map<PARGraphNode*, size_t> node_to_idx;
+	for (size_t i = 0; i < GetNumNodes(); i++)
+		fprintf(out, "(declare-const dev-node-%zd node)\n", i);
+	fprintf(out, "(assert (distinct\n");
+	for (size_t i = 0; i < GetNumNodes(); i++)
+		fprintf(out, "\tdev-node-%zd\n", i);
+	fprintf(out, "))\n\n");
+
+	fprintf(out, "(define-fun device-acceptable-label ((n node) (l Int)) Bool (or\n");
+	for (size_t i = 0; i < GetNumNodes(); i++)
+	{
+		auto n = GetNodeByIndex(i);
+		node_to_idx[n] = i;
+		fprintf(out, "\t(and (= n dev-node-%zd) (= l %d))\n", i, n->GetLabel());
+		for (size_t j = 0; j < n->GetAlternateLabelCount(); j++)
+			fprintf(out, "\t(and (= n dev-node-%zd) (= l %d))\n", i, n->GetAlternateLabel(j));
+	}
+	fprintf(out, "))\n\n");
+
+	size_t port_idx = 0;
+	// Edges
+	fprintf(out, "(define-fun device-has-edge ((n1 node) (p1 Int) (n2 node) (p2 Int)) Bool (or\n");
+	for (size_t i = 0; i < GetNumNodes(); i++)
+	{
+		auto n = GetNodeByIndex(i);
+		for (size_t j = 0; j < n->GetEdgeCount(); j++)
+		{
+			auto e = n->GetEdgeByIndex(j);
+
+			size_t src_idx, dest_idx;
+			if (port_names.count(e->m_sourceport))
+				src_idx = port_names[e->m_sourceport];
+			else
+				src_idx = port_names[e->m_sourceport] = port_idx++;
+			if (port_names.count(e->m_destport))
+				dest_idx = port_names[e->m_destport];
+			else
+				dest_idx = port_names[e->m_destport] = port_idx++;
+
+			fprintf(out, "\t(and (= n1 dev-node-%zd) (= p1 %zd) (= n2 dev-node-%zd) (= p2 %zd))\n",
+				node_to_idx[e->m_sourcenode], src_idx, node_to_idx[e->m_destnode], dest_idx);
+		}
+	}
+	fprintf(out, "))\n\n");
+}
+
+void PARGraph::WriteSMT2Netlist(FILE *out, std::unordered_map<std::string, size_t>& port_names, size_t dev_node_count) const
+{
+	// Nodes
+	std::unordered_map<PARGraphNode*, size_t> node_to_idx;
+	for (size_t i = 0; i < GetNumNodes(); i++)
+	{
+		auto n = GetNodeByIndex(i);
+		node_to_idx[n] = i;
+		fprintf(out, "(declare-const net-node-%zd node)\n", i);
+		fprintf(out, "(assert (not (distinct ");
+		for (size_t j = 0; j < dev_node_count; j++)
+			fprintf(out, "dev-node-%zd ", j);
+		fprintf(out, "net-node-%zd", i);
+		fprintf(out, ")))\n");
+	}
+	fprintf(out, "\n");
+
+	// XXX TODO node sharing
+	for (size_t i = 0; i < GetNumNodes(); i++)
+	{
+		for (size_t j = 0; j < GetNumNodes(); j++)
+		{
+			if (i != j)
+				fprintf(out, "(assert (not (= net-node-%zd net-node-%zd)))\n", i, j);
+		}
+	}
+	fprintf(out, "\n");
+
+	// Labels
+	fprintf(out, "(assert (and\n");
+	for (size_t i = 0; i < GetNumNodes(); i++)
+	{
+		auto n = GetNodeByIndex(i);
+		fprintf(out, "\t(device-acceptable-label net-node-%zd %d)\n", i, n->GetLabel());
+	}
+	fprintf(out, "))\n\n");
+
+	// Edges
+	fprintf(out, "(assert (and\n");
+	for (size_t i = 0; i < GetNumNodes(); i++)
+	{
+		auto n = GetNodeByIndex(i);
+		for (size_t j = 0; j < n->GetEdgeCount(); j++)
+		{
+			auto e = n->GetEdgeByIndex(j);
+
+			size_t src_idx = port_names[e->m_sourceport];
+			size_t dest_idx = port_names[e->m_destport];
+
+			fprintf(out, "\t(device-has-edge net-node-%zd %zd net-node-%zd %zd)\n",
+				node_to_idx[e->m_sourcenode], src_idx, node_to_idx[e->m_destnode], dest_idx);
+		}
+	}
+	fprintf(out, "))\n\n");
+}

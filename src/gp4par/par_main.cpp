@@ -18,6 +18,8 @@
 
 #include "gp4par.h"
 
+#include <cstdio>
+
 using namespace std;
 
 bool CheckAnalogIbuf(Greenpak4BitstreamEntity* load, Greenpak4IOB* iob);
@@ -35,6 +37,20 @@ bool DoPAR(Greenpak4Netlist* netlist, Greenpak4Device* device)
 	PARGraph* dgraph = NULL;
 	if(!BuildGraphs(netlist, device, ngraph, dgraph, lmap))
 		return false;
+
+	unordered_map<string, size_t> port_name_map;
+	FILE *testsmt = fopen("testtest.smt2", "w");
+	fprintf(testsmt, "(set-option :produce-models true)\n");
+	fprintf(testsmt, "(set-logic QF_LIA)\n\n");
+	fprintf(testsmt, "(declare-sort node 0)\n");
+
+	dgraph->WriteSMT2Device(testsmt, port_name_map);
+	fprintf(testsmt, "\n\n");
+	ngraph->WriteSMT2Netlist(testsmt, port_name_map, dgraph->GetNumNodes());
+
+	fprintf(testsmt, "(check-sat)\n");
+	fprintf(testsmt, "(get-model)\n");
+	fclose(testsmt);
 
 	//Create and run the PAR engine
 	Greenpak4PAREngine engine(ngraph, dgraph, lmap);
