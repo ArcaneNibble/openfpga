@@ -22,6 +22,8 @@
 #include <cstdint>
 #include <string>
 #include <vector>
+#include <unordered_map>
+#include <cstdio>
 
 class PARGraphNode;
 
@@ -54,6 +56,8 @@ public:
 	void AddNode(PARGraphNode* node);
 
 	std::string DumpAsDot() const;
+	void WriteSMT2Device(FILE *out, std::unordered_map<std::string, size_t>& port_names) const;
+	void WriteSMT2Netlist(FILE *out, std::unordered_map<std::string, size_t>& port_names, size_t dev_node_count) const;
 
 protected:
 
