@@ -38,19 +38,51 @@ bool DoPAR(Greenpak4Netlist* netlist, Greenpak4Device* device)
 	if(!BuildGraphs(netlist, device, ngraph, dgraph, lmap))
 		return false;
 
-	unordered_map<string, size_t> port_name_map;
-	FILE *testsmt = fopen("testtest.smt2", "w");
-	fprintf(testsmt, "(set-option :produce-models true)\n");
-	fprintf(testsmt, "(set-logic QF_LIA)\n\n");
-	fprintf(testsmt, "(declare-sort node 0)\n");
+	FILE *testfile = fopen("testtest_graph.txt", "w");
 
-	dgraph->WriteSMT2Device(testsmt, port_name_map);
-	fprintf(testsmt, "\n\n");
-	ngraph->WriteSMT2Netlist(testsmt, port_name_map, dgraph->GetNumNodes());
+	std::unordered_map<PARGraphNode*, size_t> dgraph_node_to_idx;
+	for (size_t i = 0; i < dgraph->GetNumNodes(); i++)
+		dgraph_node_to_idx[dgraph->GetNodeByIndex(i)] = i;
+	fprintf(testfile, "%zd\n", dgraph->GetNumNodes());
+	for (size_t i = 0; i < dgraph->GetNumNodes(); i++)
+	{
+		auto n = dgraph->GetNodeByIndex(i);
 
-	fprintf(testsmt, "(check-sat)\n");
-	fprintf(testsmt, "(get-model)\n");
-	fclose(testsmt);
+		fprintf(testfile, "%zd\n", 1 + n->GetAlternateLabelCount());
+		fprintf(testfile, "%d\n", n->GetLabel());
+		for (size_t j = 0; j < n->GetAlternateLabelCount(); j++)
+			fprintf(testfile, "%d\n", n->GetAlternateLabel(j));
+
+		fprintf(testfile, "%zd\n", n->GetEdgeCount());
+		for (size_t j = 0; j < n->GetEdgeCount(); j++)
+		{
+			auto e = n->GetEdgeByIndex(j);
+			fprintf(testfile, "%s %zd %s\n",
+				e->m_sourceport.c_str(), dgraph_node_to_idx[e->m_destnode], e->m_destport.c_str());
+		}
+	}
+
+	std::unordered_map<PARGraphNode*, size_t> ngraph_node_to_idx;
+	for (size_t i = 0; i < ngraph->GetNumNodes(); i++)
+		ngraph_node_to_idx[ngraph->GetNodeByIndex(i)] = i;
+	fprintf(testfile, "%zd\n", ngraph->GetNumNodes());
+	for (size_t i = 0; i < ngraph->GetNumNodes(); i++)
+	{
+		auto n = ngraph->GetNodeByIndex(i);
+
+		fprintf(testfile, "%zd\n", 1);
+		fprintf(testfile, "%d\n", n->GetLabel());
+
+		fprintf(testfile, "%zd\n", n->GetEdgeCount());
+		for (size_t j = 0; j < n->GetEdgeCount(); j++)
+		{
+			auto e = n->GetEdgeByIndex(j);
+			fprintf(testfile, "%s %zd %s\n",
+				e->m_sourceport.c_str(), ngraph_node_to_idx[e->m_destnode], e->m_destport.c_str());
+		}
+	}
+
+	fclose(testfile);
 
 	//Create and run the PAR engine
 	Greenpak4PAREngine engine(ngraph, dgraph, lmap);
