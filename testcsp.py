@@ -20,6 +20,7 @@ def read_graph(f):
 
     return nodes
 
+# Returns a list of tuples of (node, port, node, port)
 def reformat_graph_edges(g):
     edges = []
     for i in range(len(g)):
@@ -27,6 +28,7 @@ def reformat_graph_edges(g):
             edges.append((i, e_sport, e_dnode, e_dport))
     return edges
 
+# Returns a list of list of numbers
 def reformat_graph_labels(g):
     labels = []
     for g_ in g:
