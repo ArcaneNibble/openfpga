@@ -122,6 +122,7 @@ def ac3(dgraph_e, ngraph_e, dgraph_n, ngraph_n, domains, assignment):
             any_ok = False
             for y in new_domains[head_idx]:
                 new_assignment = list(assignment)
+                new_assignment[tail_idx] = x
                 new_assignment[head_idx] = y
                 any_ok = check_partial_assignment(dgraph_e, ngraph_e, dgraph_n, ngraph_n, new_assignment)
                 if any_ok:
