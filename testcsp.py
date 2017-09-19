@@ -86,8 +86,59 @@ def check_partial_assignment(dgraph_e, ngraph_e, dgraph_n, ngraph_n, assignment)
                 # print("out")
                 return False
     # print(assignment)
-    print("true")
+    # print("true")
     return True
+
+def ac3(dgraph_e, ngraph_e, dgraph_n, ngraph_n, domains, assignment):
+    new_domains = [set(x) for x in domains]
+
+    # Set up all arcs
+    q = []
+
+    def add_neighbors_to_queue(e1_):
+        e1 = ngraph_e[e1_]
+        for e2_ in ngraph_n[e1[0]][0] + ngraph_n[e1[0]][1]:
+            e2 = ngraph_e[e2_]
+            if e1 == e2:
+                continue
+            q.append((e2_, e2, e1_, e1, e1[0]))
+        for e2_ in ngraph_n[e1[2]][0] + ngraph_n[e1[2]][1]:
+            e2 = ngraph_e[e2_]
+            if e1 == e2:
+                continue
+            q.append((e2_, e2, e1_, e1, e1[2]))
+
+    for e1_ in range(len(ngraph_e)):
+        add_neighbors_to_queue(e1_)
+
+    # print(q)
+
+    while len(q):
+        tail_idx, tail_obj, head_idx, head_obj, constraint_node = q[0]
+        q = q[1:]
+
+        to_remove = set()
+        for x in new_domains[tail_idx]:
+            any_ok = False
+            for y in new_domains[head_idx]:
+                new_assignment = list(assignment)
+                new_assignment[head_idx] = y
+                any_ok = check_partial_assignment(dgraph_e, ngraph_e, dgraph_n, ngraph_n, new_assignment)
+                if any_ok:
+                    break
+            if not any_ok:
+                to_remove.add(x)
+
+        if to_remove:
+            print("rm", tail_idx, to_remove)
+            for x in to_remove:
+                new_domains[tail_idx].remove(x)
+            add_neighbors_to_queue(tail_idx)
+
+    # print(domains)
+    # print(new_domains)
+
+    return new_domains
 
 def backtrack(dgraph_e, ngraph_e, dgraph_n, ngraph_n, domains, assignment):
     # print("**********")
@@ -96,6 +147,7 @@ def backtrack(dgraph_e, ngraph_e, dgraph_n, ngraph_n, domains, assignment):
         assert check_partial_assignment(dgraph_e, ngraph_e, dgraph_n, ngraph_n, assignment)
         print("SUCCESS")
         print(assignment)
+        asdf
         return assignment
 
     # Variable selection choice point
@@ -118,7 +170,7 @@ def backtrack(dgraph_e, ngraph_e, dgraph_n, ngraph_n, domains, assignment):
     # print(len(domains[selected_var]))
 
     # Ordering choice point
-    for choice in domains[selected_var]:
+    for choice in sorted(domains[selected_var]):
         assignment[selected_var] = choice
         # print(selected_var)
         print(assignment)
@@ -126,7 +178,9 @@ def backtrack(dgraph_e, ngraph_e, dgraph_n, ngraph_n, domains, assignment):
             assignment[selected_var] = -1
             # print("Z")
             continue
-        backtrack(dgraph_e, ngraph_e, dgraph_n, ngraph_n, domains, assignment)
+        new_domains = ac3(dgraph_e, ngraph_e, dgraph_n, ngraph_n, domains, assignment)
+        # new_domains = domains
+        backtrack(dgraph_e, ngraph_e, dgraph_n, ngraph_n, new_domains, assignment)
         assignment[selected_var] = -1
 
 with open("testtest_graph.txt", "r") as inf:
@@ -149,7 +203,7 @@ with open("testtest_graph.txt", "r") as inf:
 
     domains = [None] * len(ngraph_e)
     for i in range(len(ngraph_e)):
-        domains[i] = []
+        domains[i] = set()
         for j in range(len(dgraph_e)):
             # Pre-filter the domains using the labels
             ngraph_src_node = ngraph_e[i][0]
@@ -170,7 +224,7 @@ with open("testtest_graph.txt", "r") as inf:
 
                 # The port labels have to match as well
                 if (ngraph_e[i][1] == dgraph_e[j][1] and ngraph_e[i][3] == dgraph_e[j][3]):
-                    domains[i].append(j)
+                    domains[i].add(j)
 
     # print(domains)
     backtrack(dgraph_e, ngraph_e, dgraph_n, ngraph_n, domains, [-1] * len(ngraph_e))
