@@ -53,35 +53,40 @@ def check_partial_assignment(dgraph_e, ngraph_e, dgraph_n, ngraph_n, assignment)
     for x in assignment:
         if x != -1:
             if x in count:
+                # print("dup")
                 return False
             count.add(x)
 
     # Sharing the node correctly
     for (nn_in, nn_out) in ngraph_n:
-        # print(nn_in, nn_out)
+        # print("nn", nn_in, nn_out)
         d_in = []
         for x in nn_in:
             if assignment[x] != -1:
-                d_in.append(dgraph_e[x])
+                d_in.append(dgraph_e[assignment[x]])
         d_out = []
         for x in nn_out:
             if assignment[x] != -1:
-                d_out.append(dgraph_e[x])
+                d_out.append(dgraph_e[assignment[x]])
         # print(d_in, d_out)
 
         # Now are these sharing the same node?
+        # print("d", d_in, d_out)
         dn = None
         for x in d_in:
             if dn is None:
                 dn = x[2]
             if dn != x[2]:
+                # print("in")
                 return False
         for x in d_out:
             if dn is None:
                 dn = x[0]
             if dn != x[0]:
+                # print("out")
                 return False
     # print(assignment)
+    print("true")
     return True
 
 def backtrack(dgraph_e, ngraph_e, dgraph_n, ngraph_n, domains, assignment):
@@ -114,13 +119,15 @@ def backtrack(dgraph_e, ngraph_e, dgraph_n, ngraph_n, domains, assignment):
 
     # Ordering choice point
     for choice in domains[selected_var]:
-        new_assignment = list(assignment)
-        new_assignment[selected_var] = choice
-        print(new_assignment)
-        if not check_partial_assignment(dgraph_e, ngraph_e, dgraph_n, ngraph_n, new_assignment):
+        assignment[selected_var] = choice
+        # print(selected_var)
+        print(assignment)
+        if not check_partial_assignment(dgraph_e, ngraph_e, dgraph_n, ngraph_n, assignment):
+            assignment[selected_var] = -1
             # print("Z")
             continue
-        backtrack(dgraph_e, ngraph_e, dgraph_n, ngraph_n, domains, new_assignment)
+        backtrack(dgraph_e, ngraph_e, dgraph_n, ngraph_n, domains, assignment)
+        assignment[selected_var] = -1
 
 with open("testtest_graph.txt", "r") as inf:
     dgraph = read_graph(inf)
@@ -150,18 +157,20 @@ with open("testtest_graph.txt", "r") as inf:
             dgraph_src_node = dgraph_e[j][0]
             dgraph_dst_node = dgraph_e[j][2]
 
-            # print(ngraph_src_node, ngraph_dst_node, dgraph_src_node, dgraph_dst_node)
-            # print(ngraph_l[ngraph_src_node], ngraph_l[ngraph_dst_node], dgraph_l[dgraph_src_node], dgraph_l[dgraph_dst_node])
-
             assert len(ngraph_l[ngraph_src_node]) == 1
             assert len(ngraph_l[ngraph_dst_node]) == 1
 
             # The node labels have to match
             if (ngraph_l[ngraph_src_node][0] in dgraph_l[dgraph_src_node] and
                 ngraph_l[ngraph_dst_node][0] in dgraph_l[dgraph_dst_node]):
+
+                # print(ngraph_src_node, ngraph_dst_node, dgraph_src_node, dgraph_dst_node)
+                # print(ngraph_l[ngraph_src_node], ngraph_l[ngraph_dst_node], dgraph_l[dgraph_src_node], dgraph_l[dgraph_dst_node])
+                # print(ngraph_e[i][1], dgraph_e[j][1], ngraph_e[i][3], dgraph_e[j][3])
+
                 # The port labels have to match as well
                 if (ngraph_e[i][1] == dgraph_e[j][1] and ngraph_e[i][3] == dgraph_e[j][3]):
                     domains[i].append(j)
 
-    print(domains)
+    # print(domains)
     backtrack(dgraph_e, ngraph_e, dgraph_n, ngraph_n, domains, [-1] * len(ngraph_e))
