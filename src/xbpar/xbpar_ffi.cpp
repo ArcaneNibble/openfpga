@@ -19,6 +19,8 @@
 #define NOT_BINDGEN
 #include "xbpar_ffi.h"
 
+#include <cstdio>
+#include <unordered_map>
 #include <cstring>
 #include <type_traits>
 
@@ -501,6 +503,55 @@ void xbpar_PAREngine_Destroy(PAREngine* engine)
 
 int xbpar_PAREngine_PlaceAndRoute(PAREngine* engine, uint32_t seed)
 {
+	auto dgraph = ((FFIPAREngine*)engine)->get_m_device();
+	auto ngraph = ((FFIPAREngine*)engine)->get_m_netlist();
+	FILE *testfile = fopen("testtest_graph.txt", "w");
+
+	std::unordered_map<PARGraphNode*, size_t> dgraph_node_to_idx;
+	for (size_t i = 0; i < dgraph->GetNumNodes(); i++)
+		dgraph_node_to_idx[dgraph->GetNodeByIndex(i)] = i;
+	fprintf(testfile, "%zd\n", dgraph->GetNumNodes());
+	for (size_t i = 0; i < dgraph->GetNumNodes(); i++)
+	{
+		auto n = dgraph->GetNodeByIndex(i);
+
+		fprintf(testfile, "%zd\n", 1 + n->GetAlternateLabelCount());
+		fprintf(testfile, "%d\n", n->GetLabel());
+		for (size_t j = 0; j < n->GetAlternateLabelCount(); j++)
+			fprintf(testfile, "%d\n", n->GetAlternateLabel(j));
+
+		fprintf(testfile, "%zd\n", n->GetEdgeCount());
+		for (size_t j = 0; j < n->GetEdgeCount(); j++)
+		{
+			auto e = n->GetEdgeByIndex(j);
+			fprintf(testfile, "%s %zd %s\n",
+				e->m_sourceport.c_str(), dgraph_node_to_idx[e->m_destnode], e->m_destport.c_str());
+		}
+	}
+
+	std::unordered_map<PARGraphNode*, size_t> ngraph_node_to_idx;
+	for (size_t i = 0; i < ngraph->GetNumNodes(); i++)
+		ngraph_node_to_idx[ngraph->GetNodeByIndex(i)] = i;
+	fprintf(testfile, "%zd\n", ngraph->GetNumNodes());
+	for (size_t i = 0; i < ngraph->GetNumNodes(); i++)
+	{
+		auto n = ngraph->GetNodeByIndex(i);
+
+		fprintf(testfile, "%zd\n", 1);
+		fprintf(testfile, "%d\n", n->GetLabel());
+
+		fprintf(testfile, "%zd\n", n->GetEdgeCount());
+		for (size_t j = 0; j < n->GetEdgeCount(); j++)
+		{
+			auto e = n->GetEdgeByIndex(j);
+			fprintf(testfile, "%s %zd %s\n",
+				e->m_sourceport.c_str(), ngraph_node_to_idx[e->m_destnode], e->m_destport.c_str());
+		}
+	}
+
+	fclose(testfile);
+
+
 	return ((FFIPAREngine*)engine)->PlaceAndRoute(seed);
 }
 
