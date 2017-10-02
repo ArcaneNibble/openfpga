@@ -102,10 +102,48 @@ pub enum NetlistGraphNodeVariant {
 }
 
 #[derive(Debug)]
+pub struct NetlistLocation {
+    pub fb: u32,
+    pub i: Option<u32>,
+}
+
+impl NetlistLocation {
+    fn parse_location(loc: Option<&str>) -> Result<Option<Self>, &'static str> {
+        if loc.is_none() {
+            return Ok(None);
+        }
+
+        let loc = loc.unwrap();
+
+        if loc.starts_with("FB") {
+            let loc_fb_i = loc.split("_").collect::<Vec<_>>();
+            if loc_fb_i.len() == 1 {
+                // FBn
+                Ok(Some(NetlistLocation {
+                    fb: loc_fb_i[0][2..].parse::<u32>().unwrap(),
+                    i: None,
+                }))
+            } else if loc_fb_i.len() == 2 {
+                // FBn_i
+                Ok(Some(NetlistLocation {
+                    fb: loc_fb_i[0][2..].parse::<u32>().unwrap(),
+                    i: Some(loc_fb_i[1].parse::<u32>().unwrap()),
+                }))
+            } else {
+                Err("Malformed LOC constraint")
+            }
+        } else {
+            // TODO: Pin names
+            Err("Malformed LOC constraint")
+        }
+    }
+}
+
+#[derive(Debug)]
 pub struct NetlistGraphNode {
     pub variant: NetlistGraphNodeVariant,
     pub name: String,
-    pub par_idx: Option<u32>,
+    pub location: Option<NetlistLocation>,
 }
 
 #[derive(Debug)]
@@ -121,6 +159,34 @@ pub struct NetlistGraph {
     pub nets: ObjPool<NetlistGraphNet>,
     pub vdd_net: ObjPoolIndex<NetlistGraphNet>,
     pub vss_net: ObjPoolIndex<NetlistGraphNet>,
+}
+
+#[derive(Debug)]
+pub enum NetlistMacrocellType {
+    PinOutputComb {
+        // Index of the IOBUFE
+        i: usize,
+    },
+    PinOutputReg {
+        // Index of the IOBUFE
+        i: usize,
+    },
+    PinInputUnreg {
+        // Index of the IBUF
+        i: usize,
+    },
+    PinInputReg {
+        // Index of the IBUF
+        i: usize,
+    },
+    BuriedComb {
+        // Index of the XOR
+        i: usize,
+    },
+    BuriedReg {
+        // Index of the XOR
+        i: usize,
+    }
 }
 
 impl NetlistGraph {
@@ -268,6 +334,19 @@ impl NetlistGraph {
                 };
             };
 
+            // Helper to retrieve an optional string parameter
+            let optional_string_param = |name: &str| -> Result<Option<&str>, &'static str> {
+                let param_option = cell_obj.parameters.get(name);
+                if param_option.is_none() {
+                    return Ok(None);
+                }
+                if let &yosys_netlist_json::AttributeVal::S(ref s) = param_option.unwrap() {
+                    return Ok(Some(s))
+                } else {
+                    return Err("cell parameter is not a string");
+                };
+            };
+
             // Helper to retrieve a single net that is definitely required
             let single_required_connection = |name : &str| {
                 let conn_obj = cell_obj.connections.get(name);
@@ -323,7 +402,7 @@ impl NetlistGraph {
                             slew_is_fast: false,
                             uses_data_gate: false,
                         },
-                        par_idx: None,
+                        location: NetlistLocation::parse_location(optional_string_param("LOC")?)?,
                     });
                 },
                 "IBUF" => {
@@ -338,7 +417,7 @@ impl NetlistGraph {
                             termination_enabled: false,
                             uses_data_gate: false,
                         },
-                        par_idx: None,
+                        location: NetlistLocation::parse_location(optional_string_param("LOC")?)?,
                     });
                 },
                 "ANDTERM" => {
@@ -367,7 +446,7 @@ impl NetlistGraph {
                                 input: before_ziabuf_net,
                                 output: after_ziabuf_net,
                             },
-                            par_idx: None,
+                            location: None,
                         });
 
                         after_ziabuf_net
@@ -385,7 +464,7 @@ impl NetlistGraph {
                                 input: before_ziabuf_net,
                                 output: after_ziabuf_net,
                             },
-                            par_idx: None,
+                            location: None,
                         });
 
                         after_ziabuf_net
@@ -398,7 +477,7 @@ impl NetlistGraph {
                             inputs_comp,
                             output: single_required_connection("OUT")?,
                         },
-                        par_idx: None,
+                        location: NetlistLocation::parse_location(optional_string_param("LOC")?)?,
                     });
                 },
                 "ORTERM" => {
@@ -416,7 +495,7 @@ impl NetlistGraph {
                             inputs,
                             output: single_required_connection("OUT")?,
                         },
-                        par_idx: None,
+                        location: NetlistLocation::parse_location(optional_string_param("LOC")?)?,
                     });
                 },
                 "MACROCELL_XOR" => {
@@ -428,7 +507,7 @@ impl NetlistGraph {
                             invert_out: numeric_param("INVERT_OUT")? != 0,
                             output: single_required_connection("OUT")?,
                         },
-                        par_idx: None,
+                        location: NetlistLocation::parse_location(optional_string_param("LOC")?)?,
                     });
                 },
                 "BUFG" => {
@@ -438,7 +517,7 @@ impl NetlistGraph {
                             input: single_required_connection("I")?,
                             output: single_required_connection("O")?,
                         },
-                        par_idx: None,
+                        location: NetlistLocation::parse_location(optional_string_param("LOC")?)?,
                     });
                 },
                 "BUFGTS" => {
@@ -449,7 +528,7 @@ impl NetlistGraph {
                             output: single_required_connection("O")?,
                             invert: numeric_param("INVERT")? != 0,
                         },
-                        par_idx: None,
+                        location: NetlistLocation::parse_location(optional_string_param("LOC")?)?,
                     });
                 },
                 "BUFGSR" => {
@@ -460,7 +539,7 @@ impl NetlistGraph {
                             output: single_required_connection("O")?,
                             invert: numeric_param("INVERT")? != 0,
                         },
-                        par_idx: None,
+                        location: NetlistLocation::parse_location(optional_string_param("LOC")?)?,
                     });
                 },
                 "FDCP" | "FDCP_N" | "FDDCP" |
@@ -507,7 +586,7 @@ impl NetlistGraph {
                             clk_input: single_required_connection(clk_name)?,
                             output: single_required_connection("Q")?,
                         },
-                        par_idx: None,
+                        location: NetlistLocation::parse_location(optional_string_param("LOC")?)?,
                     });
                 }
                 _ => return Err("unsupported cell type")
@@ -614,76 +693,82 @@ impl NetlistGraph {
         })
     }
 
-    pub fn insert_into_par_graph(&mut self,
-        par_graphs: &mut PARGraphPair<ObjPoolIndex<DeviceGraphNode>, ObjPoolIndex<NetlistGraphNode>>,
-        lmap: &HashMap<u32, &'static str>) {
+    pub fn gather_macrocells(&self) -> Vec<NetlistMacrocellType> {
+        let mut ret = Vec::new();
 
-        // We first need an inverse label map
-        let mut ilmap = HashMap::new();
-        for (l, &name) in lmap {
-            ilmap.insert(name, *l);
-        }
-
-        // Now fetch the appropriate labels
-        let iopad_l = *ilmap.get("IOPAD").unwrap();
-        let inpad_l = *ilmap.get("INPAD").unwrap();
-        let reg_l = *ilmap.get("REG").unwrap();
-        let xor_l = *ilmap.get("XOR").unwrap();
-        let orterm_l = *ilmap.get("ORTERM").unwrap();
-        let andterm_l = *ilmap.get("ANDTERM").unwrap();
-        let bufg_l = *ilmap.get("BUFG").unwrap();
-        let bufgsr_l = *ilmap.get("BUFGSR").unwrap();
-        let bufgts_l = *ilmap.get("BUFGTS").unwrap();
-        let ziabuf_l = *ilmap.get("ZIA dummy buffer").unwrap();
-
-        // Create corresponding nodes
-        let mut node_par_idx_map = HashMap::new();
-        for node_idx_ours in self.nodes.iter() {
-            let node = self.nodes.get(node_idx_ours);
-
-            let lbl = match node.variant {
-                NetlistGraphNodeVariant::AndTerm{..} => andterm_l,
-                NetlistGraphNodeVariant::OrTerm{..} => orterm_l,
-                NetlistGraphNodeVariant::Xor{..} => xor_l,
-                NetlistGraphNodeVariant::Reg{..} => reg_l,
-                NetlistGraphNodeVariant::BufgClk{..} => bufg_l,
-                NetlistGraphNodeVariant::BufgGTS{..} => bufgts_l,
-                NetlistGraphNodeVariant::BufgGSR{..} => bufgsr_l,
-                NetlistGraphNodeVariant::IOBuf{..} => iopad_l,
-                NetlistGraphNodeVariant::InBuf{..} => inpad_l,
-                NetlistGraphNodeVariant::ZIADummyBuf{..} => ziabuf_l,
-            };
-
-            let node_idx_par = par_graphs.borrow_mut_n().add_new_node(lbl, node_idx_ours);
-
-            node_par_idx_map.insert(node_idx_ours, node_idx_par);
-        }
-
-        for (&node_idx_ours, &node_idx_par) in &node_par_idx_map {
-            // Stash the PAR index
-            let node_mut = self.nodes.get_mut(node_idx_ours);
-            node_mut.par_idx = Some(node_idx_par);
-        }
-
-        // Add all the edges
-        for net_idx in self.nets.iter() {
-            if net_idx == self.vdd_net || net_idx == self.vss_net {
-                continue;
-            }
-
-            let net = self.nets.get(net_idx);
-
-            let source_node_our_tup = net.source.unwrap();
-            let source_node_par_idx = *node_par_idx_map.get(&source_node_our_tup.0).unwrap();
-            let source_node_out_port = source_node_our_tup.1;
-            
-            for sink_node_our_tup in &net.sinks {
-                let sink_node_par_idx = *node_par_idx_map.get(&sink_node_our_tup.0).unwrap();
-                let sink_node_in_port = sink_node_our_tup.1;
-
-                par_graphs.borrow_mut_n().add_edge(source_node_par_idx, source_node_out_port,
-                    sink_node_par_idx, sink_node_in_port);
-            }
-        }
+        ret
     }
+
+    // pub fn insert_into_par_graph(&mut self,
+    //     par_graphs: &mut PARGraphPair<ObjPoolIndex<DeviceGraphNode>, ObjPoolIndex<NetlistGraphNode>>,
+    //     lmap: &HashMap<u32, &'static str>) {
+
+    //     // We first need an inverse label map
+    //     let mut ilmap = HashMap::new();
+    //     for (l, &name) in lmap {
+    //         ilmap.insert(name, *l);
+    //     }
+
+    //     // Now fetch the appropriate labels
+    //     let iopad_l = *ilmap.get("IOPAD").unwrap();
+    //     let inpad_l = *ilmap.get("INPAD").unwrap();
+    //     let reg_l = *ilmap.get("REG").unwrap();
+    //     let xor_l = *ilmap.get("XOR").unwrap();
+    //     let orterm_l = *ilmap.get("ORTERM").unwrap();
+    //     let andterm_l = *ilmap.get("ANDTERM").unwrap();
+    //     let bufg_l = *ilmap.get("BUFG").unwrap();
+    //     let bufgsr_l = *ilmap.get("BUFGSR").unwrap();
+    //     let bufgts_l = *ilmap.get("BUFGTS").unwrap();
+    //     let ziabuf_l = *ilmap.get("ZIA dummy buffer").unwrap();
+
+    //     // Create corresponding nodes
+    //     let mut node_par_idx_map = HashMap::new();
+    //     for node_idx_ours in self.nodes.iter() {
+    //         let node = self.nodes.get(node_idx_ours);
+
+    //         let lbl = match node.variant {
+    //             NetlistGraphNodeVariant::AndTerm{..} => andterm_l,
+    //             NetlistGraphNodeVariant::OrTerm{..} => orterm_l,
+    //             NetlistGraphNodeVariant::Xor{..} => xor_l,
+    //             NetlistGraphNodeVariant::Reg{..} => reg_l,
+    //             NetlistGraphNodeVariant::BufgClk{..} => bufg_l,
+    //             NetlistGraphNodeVariant::BufgGTS{..} => bufgts_l,
+    //             NetlistGraphNodeVariant::BufgGSR{..} => bufgsr_l,
+    //             NetlistGraphNodeVariant::IOBuf{..} => iopad_l,
+    //             NetlistGraphNodeVariant::InBuf{..} => inpad_l,
+    //             NetlistGraphNodeVariant::ZIADummyBuf{..} => ziabuf_l,
+    //         };
+
+    //         let node_idx_par = par_graphs.borrow_mut_n().add_new_node(lbl, node_idx_ours);
+
+    //         node_par_idx_map.insert(node_idx_ours, node_idx_par);
+    //     }
+
+    //     for (&node_idx_ours, &node_idx_par) in &node_par_idx_map {
+    //         // Stash the PAR index
+    //         let node_mut = self.nodes.get_mut(node_idx_ours);
+    //         node_mut.par_idx = Some(node_idx_par);
+    //     }
+
+    //     // Add all the edges
+    //     for net_idx in self.nets.iter() {
+    //         if net_idx == self.vdd_net || net_idx == self.vss_net {
+    //             continue;
+    //         }
+
+    //         let net = self.nets.get(net_idx);
+
+    //         let source_node_our_tup = net.source.unwrap();
+    //         let source_node_par_idx = *node_par_idx_map.get(&source_node_our_tup.0).unwrap();
+    //         let source_node_out_port = source_node_our_tup.1;
+            
+    //         for sink_node_our_tup in &net.sinks {
+    //             let sink_node_par_idx = *node_par_idx_map.get(&sink_node_our_tup.0).unwrap();
+    //             let sink_node_in_port = sink_node_our_tup.1;
+
+    //             par_graphs.borrow_mut_n().add_edge(source_node_par_idx, source_node_out_port,
+    //                 sink_node_par_idx, sink_node_in_port);
+    //         }
+    //     }
+    // }
 }

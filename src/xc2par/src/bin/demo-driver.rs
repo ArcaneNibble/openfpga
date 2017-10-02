@@ -54,33 +54,35 @@ fn main() {
     let yosys_netlist = yosys_netlist_json::Netlist::from_slice(&data).unwrap();
     println!("{:?}", yosys_netlist);
 
-    // The graphs for the PAR engine
-    let mut par_graphs = PARGraphPair::<_, _>::new_pair();
-
-    // TODO
-    let (device_type, _, _) = parse_part_name_string("xc2c32a-4-vq44").expect("invalid device name");
-
-    // Device graph
-    let (dgraph_rs, lmap) = DeviceGraph::new(device_type, &mut par_graphs);
-    println!("{:?}", lmap);
-    println!("{:?}", dgraph_rs);
-
     // Netlist graph (native part)
     let mut ngraph_rs = NetlistGraph::from_yosys_netlist(&yosys_netlist).unwrap();
-    ngraph_rs.insert_into_par_graph(&mut par_graphs, &lmap);
+    // ngraph_rs.insert_into_par_graph(&mut par_graphs, &lmap);
     println!("{:?}", ngraph_rs);
+    let ngraph_collected_mc = ngraph_rs.gather_macrocells();
+    println!("{:?}", ngraph_collected_mc);
 
-    // Do the PAR!
-    {
-        let engine_impl = XC2PAREngine::new(lmap);
-        let mut engine_obj = PAREngine::new(engine_impl, &mut par_graphs);
-        if !engine_obj.place_and_route(0) {
-            panic!("PAR failed!");
-        }
-    }
+    // // The graphs for the PAR engine
+    // let mut par_graphs = PARGraphPair::<_, _>::new_pair();
 
-    // Get a bitstream result
-    let bitstream = produce_bitstream(device_type, &par_graphs, &dgraph_rs, &ngraph_rs);
-    println!("********************************************************************************");
-    bitstream.to_jed(&mut ::std::io::stdout()).unwrap();
+    // // TODO
+    // let (device_type, _, _) = parse_part_name_string("xc2c32a-4-vq44").expect("invalid device name");
+
+    // // Device graph
+    // let (dgraph_rs, lmap) = DeviceGraph::new(device_type, &mut par_graphs);
+    // println!("{:?}", lmap);
+    // println!("{:?}", dgraph_rs);
+
+    // // Do the PAR!
+    // {
+    //     let engine_impl = XC2PAREngine::new(lmap);
+    //     let mut engine_obj = PAREngine::new(engine_impl, &mut par_graphs);
+    //     if !engine_obj.place_and_route(0) {
+    //         panic!("PAR failed!");
+    //     }
+    // }
+
+    // // Get a bitstream result
+    // let bitstream = produce_bitstream(device_type, &par_graphs, &dgraph_rs, &ngraph_rs);
+    // println!("********************************************************************************");
+    // bitstream.to_jed(&mut ::std::io::stdout()).unwrap();
 }
