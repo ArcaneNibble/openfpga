@@ -170,6 +170,8 @@ pub enum NetlistMacrocellType {
     PinOutputReg {
         // Index of the IOBUFE
         i: usize,
+        has_comb_fb: bool,
+        has_reg_fb: bool,
     },
     PinInputUnreg {
         // Index of the IBUF
@@ -186,6 +188,21 @@ pub enum NetlistMacrocellType {
     BuriedReg {
         // Index of the XOR
         i: usize,
+        has_comb_fb: bool,
+    }
+}
+
+impl NetlistMacrocellType {
+    pub fn compatible(&self, b: &NetlistMacrocellType) -> bool {
+        // A must be output or buried; B must be input
+
+        match (self, b) {
+            (&NetlistMacrocellType::PinOutputComb{..}, &NetlistMacrocellType::PinInputUnreg{..}) => true,
+            (&NetlistMacrocellType::PinOutputComb{..}, &NetlistMacrocellType::PinInputReg{..}) => true,
+            (&NetlistMacrocellType::PinOutputReg{has_comb_fb, has_reg_fb,..},
+                &NetlistMacrocellType::PinInputUnreg{..}) => (!(has_comb_fb && has_reg_fb)),
+            _ => false,
+        }
     }
 }
 
