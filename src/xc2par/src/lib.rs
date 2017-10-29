@@ -27,10 +27,10 @@ mod device;
 pub use device::{DeviceGraphNode, DeviceGraph};
 
 mod engine;
-pub use engine::{XC2PAREngine};
+pub use engine::*;
 
 mod netlist;
-pub use netlist::{NetlistGraphNode, NetlistGraphNodeVariant, NetlistGraph};
+pub use netlist::*;
 
 mod objpool;
 
