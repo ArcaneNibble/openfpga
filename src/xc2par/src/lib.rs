@@ -35,4 +35,4 @@ pub use netlist::*;
 mod objpool;
 
 mod output;
-// pub use output::{produce_bitstream};
+pub use output::*;
