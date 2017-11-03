@@ -6,8 +6,6 @@ ADD_LIBRARY(xbpar STATIC
 	PARGraphNode.cpp
 
 	PTVCorner.cpp
-
-	xbpar_ffi.cpp
 )
 
 target_include_directories(xbpar
