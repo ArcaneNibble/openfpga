@@ -28,9 +28,71 @@ use proc_macro::TokenStream;
 use proc_macro2::Span;
 use quote::*;
 use syn::*;
+use syn::parse::*;
+use syn::punctuated::*;
 
-pub fn bitpattern(_args: TokenStream, input: TokenStream) -> TokenStream {
+mod kw {
+    syn::custom_keyword!(default);
+}
+
+#[derive(Debug)]
+struct BitPatternDefaultExpr {
+    _ident: Ident,
+    _eq: syn::token::Eq,
+    expr: Expr,
+}
+
+impl Parse for BitPatternDefaultExpr {
+    fn parse(input: ParseStream) -> syn::parse::Result<Self> {
+        Ok(BitPatternDefaultExpr{
+            _ident: input.parse()?,
+            _eq: input.parse()?,
+            expr: input.parse()?,
+        })
+    }
+}
+
+#[derive(Debug)]
+enum BitPatternSetting {
+    DefaultExpr(BitPatternDefaultExpr),
+}
+
+impl Parse for BitPatternSetting {
+    fn parse(input: ParseStream) -> syn::parse::Result<Self> {
+        let lookahead = input.lookahead1();
+        if lookahead.peek(kw::default) {
+            input.parse().map(BitPatternSetting::DefaultExpr)
+        } else {
+            Err(lookahead.error())
+        }
+    }
+}
+
+#[derive(Debug)]
+struct BitPatternSettings(Punctuated<BitPatternSetting, token::Comma>);
+
+impl Parse for BitPatternSettings {
+    fn parse(input: ParseStream) -> syn::parse::Result<Self> {
+        Ok(BitPatternSettings(input.parse_terminated(BitPatternSetting::parse)?))
+    }
+}
+
+pub fn bitpattern(args: TokenStream, input: TokenStream) -> TokenStream {
+    let args = parse_macro_input!(args as BitPatternSettings);
     let mut input = parse_macro_input!(input as ItemEnum);
+
+    println!("{:?}", args);
+
+    let mut default_expr = None;
+
+    // process args
+    for arg in args.0 {
+        match arg {
+            BitPatternSetting::DefaultExpr(bpdx) => {
+                default_expr = Some(bpdx.expr);
+            }
+        }
+    }
 
     // Ignore enums with no variants
     if input.variants.len() == 0 {
@@ -140,6 +202,8 @@ pub fn bitpattern(_args: TokenStream, input: TokenStream) -> TokenStream {
     );
     let decode_var_id = var_data.iter().map(|x| x.0.clone());
 
+    let default_expr = default_expr.iter();
+
     // For docs
     let variant_names = var_data.iter().map(|x| LitStr::new(&x.0.to_string(), Span::call_site()));
     let variant_docs = var_data.iter().map(|x| LitStr::new(&x.2.to_string(), Span::call_site()));
@@ -166,6 +230,7 @@ pub fn bitpattern(_args: TokenStream, input: TokenStream) -> TokenStream {
             fn decode(bits: Self::BitsArrType) -> Result<Self, Self::ErrType> {
                 match bits {
                     #([#(#decode_values),*] => Ok(Self::#decode_var_id)),*
+                    #(,_ => Ok(#default_expr))*
                 }
             }
 
