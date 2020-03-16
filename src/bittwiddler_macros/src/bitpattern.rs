@@ -113,6 +113,20 @@ pub fn bitpattern(_args: TokenStream, input: TokenStream) -> TokenStream {
     // Can start generating code now
     // Dummy for now
     let bit_names = (0..num_bits).map(|x| LitStr::new(&x.to_string(), Span::call_site()));
+    let bit_names2 = (0..num_bits).map(|x| LitStr::new(&x.to_string(), Span::call_site()));
+    let bit_nums = 0..num_bits;
+
+    // For encode function
+    let encode_values = var_data.iter().map(|x|
+        x.1.chars().map(|c|
+            match c {
+                '0'|'x' => quote! {false},
+                '1'|'X' => quote! {true},
+                _ => unreachable!(),
+            }
+        ).collect::<Vec<_>>()
+    );
+    let encode_var_id = var_data.iter().map(|x| x.0.clone());
 
     let variant_names = var_data.iter().map(|x| LitStr::new(&x.0.to_string(), Span::call_site()));
     let variant_docs = var_data.iter().map(|x| LitStr::new(&x.2.to_string(), Span::call_site()));
@@ -131,7 +145,9 @@ pub fn bitpattern(_args: TokenStream, input: TokenStream) -> TokenStream {
             type VarBitsIterType = ::std::slice::Iter<'static, &'static str>;
 
             fn encode(&self) -> Self::BitsArrType {
-                unimplemented!()
+                match self {
+                    #(Self::#encode_var_id => [#(#encode_values),*]),*
+                }
             }
 
             fn decode(bits: Self::BitsArrType) -> Result<Self, Self::ErrType> {
@@ -143,7 +159,10 @@ pub fn bitpattern(_args: TokenStream, input: TokenStream) -> TokenStream {
             }
 
             fn _name_to_pos(name: &'static str) -> usize {
-                unimplemented!()
+                match name {
+                    #(#bit_names2 => #bit_nums),*
+                    ,_ => unreachable!()
+                }
             }
 
             fn variantnames() -> Self::VarNamesIterType {
