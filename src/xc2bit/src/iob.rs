@@ -37,14 +37,14 @@ use crate::zia::{zia_get_row_width};
 /// Mux selection for the ZIA input from this I/O pin's input. The ZIA input can be chosen to come from either the
 /// input pin directly or from the output of the register in the macrocell corresponding to this I/O pin. The latter
 /// is used to allow for buried combinatorial feedback in a macrocell without "wasting" the register.
+#[bitpattern]
 #[derive(Copy, Clone, Eq, PartialEq, Hash, Debug, Serialize, Deserialize)]
-#[derive(BitPattern)]
 pub enum XC2IOBZIAMode {
-    #[bits = "X1"]
+    #[bits("X1")]
     Disabled,
-    #[bits = "00"]
+    #[bits("00")]
     PAD,
-    #[bits = "10"]
+    #[bits("10")]
     REG,
 }
 
@@ -113,9 +113,9 @@ impl fmt::Display for XC2IOBOBufMode {
 // #[bittwiddler = "crbit_internal"]
 pub struct XC2MCSmallIOB {
     /// Mux selection for the ZIA input for this pin
-    #[bittwiddler_field = "jed_internal 11 12"]
-    #[bittwiddler_field = "crbit32 2|1 3|1"]
-    #[bittwiddler_field = "crbit64 5|1 6|1"]
+    #[bittwiddler_field = "jed_internal arr 11 12"]
+    #[bittwiddler_field = "crbit32 arr 2|1 3|1"]
+    #[bittwiddler_field = "crbit64 arr 5|1 6|1"]
     pub zia_mode: XC2IOBZIAMode,
     /// Whether the Schmitt trigger is being used on this pin's input
     #[bittwiddler_field = "jed_internal 16"]
@@ -276,9 +276,9 @@ impl fmt::Display for XC2IOBIbufMode {
 #[bittwiddler = "crbit_not256 mirror0 err=XC2BitError"]
 pub struct XC2MCLargeIOB {
     /// Mux selection for the ZIA input for this pin
-    #[bittwiddler_field = "jed_internal 11 12"]
-    #[bittwiddler_field = "crbit256 7|1 8|1"]
-    #[bittwiddler_field = "crbit_not256 0|0 1|0"]
+    #[bittwiddler_field = "jed_internal arr 11 12"]
+    #[bittwiddler_field = "crbit256 arr 7|1 8|1"]
+    #[bittwiddler_field = "crbit_not256 arr 0|0 1|0"]
     pub zia_mode: XC2IOBZIAMode,
     /// Selects the input mode for this pin
     #[bittwiddler_field = "jed_internal 8 9"]

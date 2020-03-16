@@ -444,6 +444,12 @@ pub fn bittwiddler(input: TokenStream) -> TokenStream {
                 field_locs = &field_locs[1..];
             }
 
+            let mut is_arr = false;
+            if field_locs[0] == "arr" {
+                is_arr = true;
+                field_locs = &field_locs[1..];
+            }
+
             if field_isbool && field_locs.len() != 1 {
                 panic!("Field {} of {} on {} has too many locations for a boolean",
                     field_id.to_string(), instance_name, input_ident.to_string());
@@ -592,9 +598,15 @@ pub fn bittwiddler(input: TokenStream) -> TokenStream {
                             span: input_ident.span()
                         };
 
-                        encode_this_field.append_all(quote! {
-                            fuses[(#(#index_each_dim),*)] = #inv_token x.#field_bit_idx;
-                        });
+                        if !is_arr {
+                            encode_this_field.append_all(quote! {
+                                fuses[(#(#index_each_dim),*)] = #inv_token x.#field_bit_idx;
+                            });
+                        } else {
+                            encode_this_field.append_all(quote! {
+                                fuses[(#(#index_each_dim),*)] = #inv_token x[#field_bit_idx];
+                            });
+                        }
                     } else {
                         encode_this_field.append_all(quote! {
                             fuses[(#(#index_each_dim),*)] = #inv_token x;
@@ -609,14 +621,20 @@ pub fn bittwiddler(input: TokenStream) -> TokenStream {
 
             encode_field_tokens.append_all(encode_this_field);
 
-            let mut decode_this_field = if decode_this_field_locs.len() != 1 {
-                quote! {
-                    let x = (#(#decode_this_field_locs),*);
+            let mut decode_this_field = if !is_arr {
+                if decode_this_field_locs.len() != 1 {
+                    quote! {
+                        let x = (#(#decode_this_field_locs),*);
+                    }
+                } else {
+                    // Suppress warnings about extra parens
+                    quote! {
+                        let x = #(#decode_this_field_locs),*;
+                    }
                 }
             } else {
-                // Suppress warnings about extra parens
                 quote! {
-                    let x = #(#decode_this_field_locs),*;
+                    let x = [#(#decode_this_field_locs),*];
                 }
             };
             decode_this_field.append_all(if !field_isbool {
@@ -624,7 +642,12 @@ pub fn bittwiddler(input: TokenStream) -> TokenStream {
                     BitTwiddlerFieldRef::Ident(ref id) => {
                         let ty = field_ty.unwrap();
                         decode_field_ids.push(id.clone());
-                        if needs_err {
+                        if is_arr {
+                            // Hack for now
+                            quote! {
+                                let #id = #ty::decode(x).unwrap();
+                            }
+                        } else if needs_err {
                             quote! {
                                 let #id = #ty::decode(x)?;
                             }
@@ -638,7 +661,12 @@ pub fn bittwiddler(input: TokenStream) -> TokenStream {
                         let ty = field_ty.unwrap();
                         let id = Ident::new(&format!{"field{}", idx}, Span::call_site());
                         decode_field_ids.push(id.clone());
-                        if needs_err {
+                        if is_arr {
+                            // Hack for now
+                            quote! {
+                                let #id = #ty::decode(x).unwrap();
+                            }
+                        } else if needs_err {
                             quote! {
                                 let #id = #ty::decode(x)?;
                             }
@@ -649,7 +677,12 @@ pub fn bittwiddler(input: TokenStream) -> TokenStream {
                         }
                     },
                     BitTwiddlerFieldRef::Self_ => {
-                        if needs_err {
+                        if is_arr {
+                            // Hack for now
+                            quote! {
+                                let self_ = Self::decode(x).unwrap();
+                            }
+                        } else if needs_err {
                             quote! {
                                 let self_ = Self::decode(x)?;
                             }
