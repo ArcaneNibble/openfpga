@@ -25,7 +25,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 extern crate proc_macro;
 use proc_macro::TokenStream;
-use proc_macro2::{Ident, Span};
+use proc_macro2::Span;
 use quote::*;
 use syn::*;
 
@@ -40,6 +40,7 @@ pub fn bitpattern(_args: TokenStream, input: TokenStream) -> TokenStream {
 
     let enum_id = input.ident.clone();
 
+    // loop over the variants and grab the necessary data
     let mut var_data = Vec::new();
     for var in &mut input.variants {
         let var_id = var.ident.clone();
@@ -48,7 +49,7 @@ pub fn bitpattern(_args: TokenStream, input: TokenStream) -> TokenStream {
             panic!("Variant {} must be a unit variant", var_id.to_string());
         }
 
-        // Find the #[bits] attribute
+        // Find the #[bits] attribute and docstrings
         let mut bits_attrib = None;
         let mut bits_docs = String::new();
         for (i, attr) in var.attrs.iter().enumerate() {
@@ -93,8 +94,6 @@ pub fn bitpattern(_args: TokenStream, input: TokenStream) -> TokenStream {
         var_data.push((var_id, bits_string, bits_docs));
     }
 
-    println!("{:?}", var_data);
-
     // Gathered all variants and their settings, do some checks to make sure
     // things are valid
     let num_bits = var_data[0].1.len();
@@ -128,6 +127,20 @@ pub fn bitpattern(_args: TokenStream, input: TokenStream) -> TokenStream {
     );
     let encode_var_id = var_data.iter().map(|x| x.0.clone());
 
+    // For decode function
+    let decode_values = var_data.iter().map(|x|
+        x.1.chars().map(|c|
+            match c {
+                '0' => quote! {false},
+                '1' => quote! {true},
+                'x'|'X' => quote! {_},
+                _ => unreachable!(),
+            }
+        ).collect::<Vec<_>>()
+    );
+    let decode_var_id = var_data.iter().map(|x| x.0.clone());
+
+    // For docs
     let variant_names = var_data.iter().map(|x| LitStr::new(&x.0.to_string(), Span::call_site()));
     let variant_docs = var_data.iter().map(|x| LitStr::new(&x.2.to_string(), Span::call_site()));
     let variant_bits = var_data.iter().map(|x| LitStr::new(&x.1.to_string(), Span::call_site()));
@@ -151,7 +164,9 @@ pub fn bitpattern(_args: TokenStream, input: TokenStream) -> TokenStream {
             }
 
             fn decode(bits: Self::BitsArrType) -> Result<Self, Self::ErrType> {
-                unimplemented!()
+                match bits {
+                    #([#(#decode_values),*] => Ok(Self::#decode_var_id)),*
+                }
             }
 
             fn _pos_to_name(pos: usize) -> &'static str {

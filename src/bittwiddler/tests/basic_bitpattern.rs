@@ -1,6 +1,7 @@
 use bittwiddler::*;
 
 #[bitpattern]
+#[derive(Debug, PartialEq, Eq)]
 enum MyEnum {
     #[bits("00")]
     /// docstring1
@@ -28,6 +29,21 @@ fn basic_bitpattern_encode() {
 
     let x = MyEnum::ChoiceFour;
     assert_eq!(x.encode(), [true, true]);
+}
+
+#[test]
+fn basic_bitpattern_decode() {
+    let x = [false, false];
+    assert_eq!(MyEnum::decode(x).unwrap(), MyEnum::Choice1);
+
+    let x = [false, true];
+    assert_eq!(MyEnum::decode(x).unwrap(), MyEnum::ChoiceTwo);
+
+    let x = [true, false];
+    assert_eq!(MyEnum::decode(x).unwrap(), MyEnum::Choice3);
+
+    let x = [true, true];
+    assert_eq!(MyEnum::decode(x).unwrap(), MyEnum::ChoiceFour);
 }
 
 #[test]
