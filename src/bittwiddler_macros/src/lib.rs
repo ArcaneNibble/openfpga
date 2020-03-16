@@ -1,7 +1,10 @@
+extern crate proc_macro;
 use proc_macro::TokenStream;
 use proc_macro2::{Ident, Span};
 use quote::*;
 use std::collections::HashSet;
+
+mod bitpattern;
 
 fn parse_string_attr_helper<T, F>(attrs: &[syn::Attribute], attr_name: &str, cb: F) -> Option<T>
     where F: FnOnce(syn::LitStr) -> T {
@@ -34,8 +37,13 @@ fn parse_string_attr_helper<T, F>(attrs: &[syn::Attribute], attr_name: &str, cb:
     ret.map(cb)
 }
 
+#[proc_macro_attribute]
+pub fn bitpattern(args: TokenStream, input: TokenStream) -> TokenStream {
+    bitpattern::bitpattern(args, input)
+}
+
 #[proc_macro_derive(BitPattern, attributes(bits, bits_default, bits_errtype))]
-pub fn bitpattern(input: TokenStream) -> TokenStream {
+pub fn bitpattern_old(input: TokenStream) -> TokenStream {
     // Parse the input tokens into a syntax tree
     let input: syn::DeriveInput = syn::parse(input).unwrap();
 

@@ -27,7 +27,6 @@ pub trait BitPattern where Self: Sized {
     type BitsArrType;
     type ErrType;
     const BITS_COUNT: usize;
-    type NamesIterType;
 
     type VarNamesIterType;
     type VarDescsIterType;
@@ -35,7 +34,8 @@ pub trait BitPattern where Self: Sized {
 
     fn encode(&self) -> Self::BitsArrType;
     fn decode(bits: Self::BitsArrType) -> Result<Self, Self::ErrType>;
-    fn bitnames() -> Self::NamesIterType;
+    fn _pos_to_name(pos: usize) -> &'static str;
+    fn _name_to_pos(name: &'static str) -> usize;
 
     fn variantnames() -> Self::VarNamesIterType;
     fn variantdescs() -> Self::VarDescsIterType;
@@ -46,7 +46,6 @@ impl BitPattern for bool {
     type BitsArrType = [bool; 1];
     const BITS_COUNT: usize = 1;
     type ErrType = ();
-    type NamesIterType = std::slice::Iter<'static, &'static str>;
 
     type VarNamesIterType = std::slice::Iter<'static, &'static str>;
     type VarDescsIterType = std::slice::Iter<'static, &'static str>;
@@ -60,8 +59,15 @@ impl BitPattern for bool {
         Ok(bits[0])
     }
 
-    fn bitnames() -> Self::NamesIterType {
-        ["x"].iter()
+    fn _pos_to_name(pos: usize) -> &'static str {
+        ["x"][pos]
+    }
+
+    fn _name_to_pos(name: &'static str) -> usize {
+        match name {
+            "x" => 0,
+            _ => unreachable!()
+        }
     }
 
     fn variantnames() -> Self::VarNamesIterType {
@@ -79,7 +85,6 @@ impl BitPattern for bool {
 
 pub fn docs_as_ascii_table<T>() -> String 
     where T: BitPattern,
-        <T as BitPattern>::NamesIterType: std::iter::Iterator<Item=&'static &'static str>,
         <T as BitPattern>::VarNamesIterType: std::iter::Iterator<Item=&'static &'static str>,
         <T as BitPattern>::VarDescsIterType: std::iter::Iterator<Item=&'static &'static str>,
         <T as BitPattern>::VarBitsIterType: std::iter::Iterator<Item=&'static &'static str>,
@@ -108,8 +113,8 @@ pub fn docs_as_ascii_table<T>() -> String
     }
 
     // Header
-    for x in T::bitnames() {
-        ret.push_str(x);
+    for x in 0..T::BITS_COUNT {
+        ret.push_str(T::_pos_to_name(x));
     }
     ret.push_str(" | ");
     for _ in 0..max_name_len {
