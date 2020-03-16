@@ -33,6 +33,7 @@ use syn::punctuated::*;
 
 mod kw {
     syn::custom_keyword!(default);
+    syn::custom_keyword!(errtype);
 }
 
 #[derive(Debug)]
@@ -53,8 +54,26 @@ impl Parse for BitPatternDefaultExpr {
 }
 
 #[derive(Debug)]
+struct BitPatternErrType {
+    _ident: Ident,
+    _eq: syn::token::Eq,
+    ty: Type,
+}
+
+impl Parse for BitPatternErrType {
+    fn parse(input: ParseStream) -> syn::parse::Result<Self> {
+        Ok(BitPatternErrType{
+            _ident: input.parse()?,
+            _eq: input.parse()?,
+            ty: input.parse()?,
+        })
+    }
+}
+
+#[derive(Debug)]
 enum BitPatternSetting {
     DefaultExpr(BitPatternDefaultExpr),
+    ErrType(BitPatternErrType),
 }
 
 impl Parse for BitPatternSetting {
@@ -62,6 +81,8 @@ impl Parse for BitPatternSetting {
         let lookahead = input.lookahead1();
         if lookahead.peek(kw::default) {
             input.parse().map(BitPatternSetting::DefaultExpr)
+        } else if lookahead.peek(kw::errtype) {
+            input.parse().map(BitPatternSetting::ErrType)
         } else {
             Err(lookahead.error())
         }
@@ -81,15 +102,17 @@ pub fn bitpattern(args: TokenStream, input: TokenStream) -> TokenStream {
     let args = parse_macro_input!(args as BitPatternSettings);
     let mut input = parse_macro_input!(input as ItemEnum);
 
-    println!("{:?}", args);
-
     let mut default_expr = None;
+    let mut errtype = None;
 
     // process args
     for arg in args.0 {
         match arg {
             BitPatternSetting::DefaultExpr(bpdx) => {
                 default_expr = Some(bpdx.expr);
+            },
+            BitPatternSetting::ErrType(bpet) => {
+                errtype = Some(bpet.ty);
             }
         }
     }
@@ -203,6 +226,21 @@ pub fn bitpattern(args: TokenStream, input: TokenStream) -> TokenStream {
     let decode_var_id = var_data.iter().map(|x| x.0.clone());
 
     let default_expr = default_expr.iter();
+    let default_expr = if errtype.is_none() {
+        quote!{
+            #(,_ => Ok(#default_expr))*
+        }
+    } else {
+        quote!{
+            #(,_ => Err(#default_expr))*
+        }
+    };
+
+    let errtype = if errtype.is_none() {
+        quote!{()}
+    } else {
+        quote!{#errtype}
+    };
 
     // For docs
     let variant_names = var_data.iter().map(|x| LitStr::new(&x.0.to_string(), Span::call_site()));
@@ -215,7 +253,7 @@ pub fn bitpattern(args: TokenStream, input: TokenStream) -> TokenStream {
         impl ::bittwiddler::BitPattern for #enum_id {
             type BitsArrType = [bool; #num_bits];
             const BITS_COUNT: usize = #num_bits;
-            type ErrType = ();  // TODO
+            type ErrType = #errtype;
 
             type VarNamesIterType = ::std::slice::Iter<'static, &'static str>;
             type VarDescsIterType = ::std::slice::Iter<'static, &'static str>;
@@ -230,7 +268,7 @@ pub fn bitpattern(args: TokenStream, input: TokenStream) -> TokenStream {
             fn decode(bits: Self::BitsArrType) -> Result<Self, Self::ErrType> {
                 match bits {
                     #([#(#decode_values),*] => Ok(Self::#decode_var_id)),*
-                    #(,_ => Ok(#default_expr))*
+                    #default_expr
                 }
             }
 
