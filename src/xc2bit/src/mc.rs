@@ -35,96 +35,96 @@ use crate::util::{LinebreakSet};
 use crate::zia::{zia_get_row_width};
 
 /// Clock source for the register in a macrocell
+#[bitpattern]
 #[derive(Copy, Clone, Eq, PartialEq, Hash, Debug, Serialize, Deserialize)]
-#[derive(BitPattern)]
 pub enum XC2MCRegClkSrc {
-    #[bits = "x00"]
+    #[bits("x00")]
     GCK0,
-    #[bits = "x10"]
+    #[bits("x10")]
     GCK1,
-    #[bits = "x01"]
+    #[bits("x01")]
     GCK2,
-    #[bits = "011"]
+    #[bits("011")]
     PTC,
-    #[bits = "111"]
+    #[bits("111")]
     CTC,
 }
 
 /// Reset source for the register in a macrocell
+#[bitpattern]
 #[derive(Copy, Clone, Eq, PartialEq, Hash, Debug, Serialize, Deserialize)]
-#[derive(BitPattern)]
 pub enum XC2MCRegResetSrc {
-    #[bits = "11"]
+    #[bits("11")]
     Disabled,
-    #[bits = "00"]
+    #[bits("00")]
     PTA,
-    #[bits = "01"]
+    #[bits("01")]
     GSR,
-    #[bits = "10"]
+    #[bits("10")]
     CTR,
 }
 
 /// Set source for the register in a macrocell
+#[bitpattern]
 #[derive(Copy, Clone, Eq, PartialEq, Hash, Debug, Serialize, Deserialize)]
-#[derive(BitPattern)]
 pub enum XC2MCRegSetSrc {
-    #[bits = "11"]
+    #[bits("11")]
     Disabled,
-    #[bits = "00"]
+    #[bits("00")]
     PTA,
-    #[bits = "01"]
+    #[bits("01")]
     GSR,
-    #[bits = "10"]
+    #[bits("10")]
     CTS,
 }
 
 /// Mode of the register in a macrocell.
+#[bitpattern]
 #[derive(Copy, Clone, Eq, PartialEq, Hash, Debug, Serialize, Deserialize)]
-#[derive(BitPattern)]
 pub enum XC2MCRegMode {
     /// D-type flip-flop
-    #[bits = "00"]
+    #[bits("00")]
     DFF,
     /// Transparent latch
-    #[bits = "01"]
+    #[bits("01")]
     LATCH,
     /// Toggle flip-flop
-    #[bits = "10"]
+    #[bits("10")]
     TFF,
     /// D-type flip-flop with clock-enable pin
-    #[bits = "11"]
+    #[bits("11")]
     DFFCE,
 }
 
 /// Mux selection for the ZIA input from this macrocell. The ZIA input can be chosen to come from either the XOR gate
 /// or from the output of the register.
+#[bitpattern]
 #[derive(Copy, Clone, Eq, PartialEq, Hash, Debug, Serialize, Deserialize)]
-#[derive(BitPattern)]
 pub enum XC2MCFeedbackMode {
-    #[bits = "X1"]
+    #[bits("X1")]
     Disabled,
-    #[bits = "00"]
+    #[bits("00")]
     COMB,
-    #[bits = "10"]
+    #[bits("10")]
     REG,
 }
 
 /// Mux selection for the "not from OR gate" input to the XOR gate. The XOR gate in a macrocell contains two inputs,
 /// the output of the corresponding OR term from the PLA and a specific dedicated AND term from the PLA.
+#[bitpattern]
 #[derive(Copy, Clone, Eq, PartialEq, Hash, Debug, Serialize, Deserialize)]
-#[derive(BitPattern)]
 pub enum XC2MCXorMode {
     /// A constant zero which results in this XOR outputting the value of the OR term
-    #[bits = "00"]
+    #[bits("00")]
     ZERO,
     /// A constant one which results in this XOR outputting the complement of the OR term
-    #[bits = "11"]
+    #[bits("11")]
     ONE,
     /// XOR the OR term with the special product term C
-    #[bits = "10"]
+    #[bits("10")]
     PTC,
     /// XNOR the OR term with the special product term C
-    #[bits = "01"]
+    #[bits("01")]
     PTCB,
 }
 
@@ -140,13 +140,13 @@ pub enum XC2MCXorMode {
 #[bittwiddler = "crbit_large mirror0"]
 pub struct XC2Macrocell {
     /// Clock source for the register
-    #[bittwiddler_field = "jed_internal_small 0 2 3"]
-    #[bittwiddler_field = "jed_internal_large 0 1 2"]
-    #[bittwiddler_field = "jed_internal_large_buried 0 1 2"]
-    #[bittwiddler_field = "crbit32 0|0 2|0 3|0"]
-    #[bittwiddler_field = "crbit64 8|0 5|0 6|0"]
-    #[bittwiddler_field = "crbit256 9|0 7|0 8|0"]
-    #[bittwiddler_field = "crbit_large 8|0 9|0 10|0"]
+    #[bittwiddler_field = "jed_internal_small arr 0 2 3"]
+    #[bittwiddler_field = "jed_internal_large arr 0 1 2"]
+    #[bittwiddler_field = "jed_internal_large_buried arr 0 1 2"]
+    #[bittwiddler_field = "crbit32 arr 0|0 2|0 3|0"]
+    #[bittwiddler_field = "crbit64 arr 8|0 5|0 6|0"]
+    #[bittwiddler_field = "crbit256 arr 9|0 7|0 8|0"]
+    #[bittwiddler_field = "crbit_large arr 8|0 9|0 10|0"]
     pub clk_src: XC2MCRegClkSrc,
     /// Specifies the clock polarity for the register
     ///
@@ -173,22 +173,22 @@ pub struct XC2Macrocell {
     #[bittwiddler_field = "crbit_large 11|0"]
     pub is_ddr: bool,
     /// Reset source for the register
-    #[bittwiddler_field = "jed_internal_small 5 6"]
-    #[bittwiddler_field = "jed_internal_large 23 24"]
-    #[bittwiddler_field = "jed_internal_large_buried 12 13"]
-    #[bittwiddler_field = "crbit32 5|0 6|0"]
-    #[bittwiddler_field = "crbit64 2|0 3|0"]
-    #[bittwiddler_field = "crbit256 4|2 5|2"]
-    #[bittwiddler_field = "crbit_large 11|1 12|1"]
+    #[bittwiddler_field = "jed_internal_small arr 5 6"]
+    #[bittwiddler_field = "jed_internal_large arr 23 24"]
+    #[bittwiddler_field = "jed_internal_large_buried arr 12 13"]
+    #[bittwiddler_field = "crbit32 arr 5|0 6|0"]
+    #[bittwiddler_field = "crbit64 arr 2|0 3|0"]
+    #[bittwiddler_field = "crbit256 arr 4|2 5|2"]
+    #[bittwiddler_field = "crbit_large arr 11|1 12|1"]
     pub r_src: XC2MCRegResetSrc,
     /// Set source for the register
-    #[bittwiddler_field = "jed_internal_small 7 8"]
-    #[bittwiddler_field = "jed_internal_large 17 18"]
-    #[bittwiddler_field = "jed_internal_large_buried 7 8"]
-    #[bittwiddler_field = "crbit32 7|0 8|0"]
-    #[bittwiddler_field = "crbit64 0|0 1|0"]
-    #[bittwiddler_field = "crbit256 1|1 2|1"]
-    #[bittwiddler_field = "crbit_large 13|1 14|1"]
+    #[bittwiddler_field = "jed_internal_small arr 7 8"]
+    #[bittwiddler_field = "jed_internal_large arr 17 18"]
+    #[bittwiddler_field = "jed_internal_large_buried arr 7 8"]
+    #[bittwiddler_field = "crbit32 arr 7|0 8|0"]
+    #[bittwiddler_field = "crbit64 arr 0|0 1|0"]
+    #[bittwiddler_field = "crbit256 arr 1|1 2|1"]
+    #[bittwiddler_field = "crbit_large arr 13|1 14|1"]
     pub s_src: XC2MCRegSetSrc,
     /// Power-up state of the register
     ///
@@ -202,22 +202,22 @@ pub struct XC2Macrocell {
     #[bittwiddler_field = "crbit_large !14|0"]
     pub init_state: bool,
     /// Register mode
-    #[bittwiddler_field = "jed_internal_small 9 10"]
-    #[bittwiddler_field = "jed_internal_large 21 22"]
-    #[bittwiddler_field = "jed_internal_large_buried 10 11"]
-    #[bittwiddler_field = "crbit32 0|1 1|1"]
-    #[bittwiddler_field = "crbit64 7|1 8|1"]
-    #[bittwiddler_field = "crbit256 6|2 7|2"]
-    #[bittwiddler_field = "crbit_large 9|1 10|1"]
+    #[bittwiddler_field = "jed_internal_small arr 9 10"]
+    #[bittwiddler_field = "jed_internal_large arr 21 22"]
+    #[bittwiddler_field = "jed_internal_large_buried arr 10 11"]
+    #[bittwiddler_field = "crbit32 arr 0|1 1|1"]
+    #[bittwiddler_field = "crbit64 arr 7|1 8|1"]
+    #[bittwiddler_field = "crbit256 arr 6|2 7|2"]
+    #[bittwiddler_field = "crbit_large arr 9|1 10|1"]
     pub reg_mode: XC2MCRegMode,
     /// ZIA input mode for feedback from this macrocell
-    #[bittwiddler_field = "jed_internal_small 13 14"]
-    #[bittwiddler_field = "jed_internal_large 6 7"]
-    #[bittwiddler_field = "jed_internal_large_buried 5 6"]
-    #[bittwiddler_field = "crbit32 4|1 5|1"]
-    #[bittwiddler_field = "crbit64 3|1 4|1"]
-    #[bittwiddler_field = "crbit256 2|0 3|0"]
-    #[bittwiddler_field = "crbit_large 2|0 3|0"]
+    #[bittwiddler_field = "jed_internal_small arr 13 14"]
+    #[bittwiddler_field = "jed_internal_large arr 6 7"]
+    #[bittwiddler_field = "jed_internal_large_buried arr 5 6"]
+    #[bittwiddler_field = "crbit32 arr 4|1 5|1"]
+    #[bittwiddler_field = "crbit64 arr 3|1 4|1"]
+    #[bittwiddler_field = "crbit256 arr 2|0 3|0"]
+    #[bittwiddler_field = "crbit_large arr 2|0 3|0"]
     pub fb_mode: XC2MCFeedbackMode,
     /// Controls the input for the register
     ///
@@ -232,13 +232,13 @@ pub struct XC2Macrocell {
     #[bittwiddler_field = "crbit_large !13|0"]
     pub ff_in_ibuf: bool,
     /// Controls the "other" (not from the OR term) input to the XOR gate
-    #[bittwiddler_field = "jed_internal_small 17 18"]
-    #[bittwiddler_field = "jed_internal_large 27 28"]
-    #[bittwiddler_field = "jed_internal_large_buried 14 15"]
-    #[bittwiddler_field = "crbit32 8|1 0|2"]
-    #[bittwiddler_field = "crbit64 7|2 8|2"]
-    #[bittwiddler_field = "crbit256 0|2 1|2"]
-    #[bittwiddler_field = "crbit_large 0|1 1|1"]
+    #[bittwiddler_field = "jed_internal_small arr 17 18"]
+    #[bittwiddler_field = "jed_internal_large arr 27 28"]
+    #[bittwiddler_field = "jed_internal_large_buried arr 14 15"]
+    #[bittwiddler_field = "crbit32 arr 8|1 0|2"]
+    #[bittwiddler_field = "crbit64 arr 7|2 8|2"]
+    #[bittwiddler_field = "crbit256 arr 0|2 1|2"]
+    #[bittwiddler_field = "crbit_large arr 0|1 1|1"]
     pub xor_mode: XC2MCXorMode,
 }
 

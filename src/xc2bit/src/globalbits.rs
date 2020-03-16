@@ -191,24 +191,24 @@ impl XC2GlobalNets {
 }
 
 /// Possible clock divide ratios for the programmable clock divider
+#[bitpattern]
 #[derive(Copy, Clone, Eq, PartialEq, Hash, Debug, Serialize, Deserialize)]
-#[derive(BitPattern)]
 pub enum XC2ClockDivRatio {
-    #[bits = "000"]
+    #[bits("000")]
     Div2,
-    #[bits = "001"]
+    #[bits("001")]
     Div4,
-    #[bits = "010"]
+    #[bits("010")]
     Div6,
-    #[bits = "011"]
+    #[bits("011")]
     Div8,
-    #[bits = "100"]
+    #[bits("100")]
     Div10,
-    #[bits = "101"]
+    #[bits("101")]
     Div12,
-    #[bits = "110"]
+    #[bits("110")]
     Div14,
-    #[bits = "111"]
+    #[bits("111")]
     Div16,
 }
 
@@ -263,7 +263,7 @@ impl XC2ClockDiv {
         XC2ClockDiv {
             delay: !fuses[clock_fuse_block + 4],
             enabled: !fuses[clock_fuse_block],
-            div_ratio: XC2ClockDivRatio::decode((fuses[clock_fuse_block + 1], fuses[clock_fuse_block + 2], fuses[clock_fuse_block + 3])),
+            div_ratio: XC2ClockDivRatio::decode([fuses[clock_fuse_block + 1], fuses[clock_fuse_block + 2], fuses[clock_fuse_block + 3]]).unwrap(),
         }
     }
 
@@ -272,14 +272,14 @@ impl XC2ClockDiv {
         let ((clken_x, clken_y), (clkdiv0_x, clkdiv0_y), (clkdiv1_x, clkdiv1_y), (clkdiv2_x, clkdiv2_y),
             (clkdelay_x, clkdelay_y)) = clock_div_fuse_coord(device);
 
-        let div_ratio_bits = (fuse_array.get(clkdiv0_x, clkdiv0_y),
+        let div_ratio_bits = [fuse_array.get(clkdiv0_x, clkdiv0_y),
                               fuse_array.get(clkdiv1_x, clkdiv1_y),
-                              fuse_array.get(clkdiv2_x, clkdiv2_y));
+                              fuse_array.get(clkdiv2_x, clkdiv2_y)];
 
         XC2ClockDiv {
             delay: !fuse_array.get(clkdelay_x, clkdelay_y),
             enabled: !fuse_array.get(clken_x, clken_y),
-            div_ratio: XC2ClockDivRatio::decode(div_ratio_bits),
+            div_ratio: XC2ClockDivRatio::decode(div_ratio_bits).unwrap(),
         }
     }
 }

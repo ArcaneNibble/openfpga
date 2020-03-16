@@ -59,30 +59,28 @@ impl fmt::Display for XC2IOBZIAMode {
 }
 
 /// Mode selection for the I/O pin's output buffer. See the Xilinx Coolrunner-II documentation for more information.
+#[bitpattern(default = XC2BitError::UnsupportedOeConfiguration(bits), errtype = XC2BitError)]
 #[derive(Copy, Clone, Eq, PartialEq, Hash, Debug, Serialize, Deserialize)]
-#[derive(BitPattern)]
-#[bits_default = "XC2BitError::UnsupportedOeConfiguration(x)"]
-#[bits_errtype = "XC2BitError"]
 pub enum XC2IOBOBufMode {
-    #[bits = "1111"]
+    #[bits("1111")]
     Disabled,
-    #[bits = "0000"]
+    #[bits("0000")]
     PushPull,
-    #[bits = "0001"]
+    #[bits("0001")]
     OpenDrain,
-    #[bits = "1100"]
+    #[bits("1100")]
     TriStateGTS0,
-    #[bits = "0010"]
+    #[bits("0010")]
     TriStateGTS1,
-    #[bits = "1010"]
+    #[bits("1010")]
     TriStateGTS2,
-    #[bits = "0110"]
+    #[bits("0110")]
     TriStateGTS3,
-    #[bits = "0100"]
+    #[bits("0100")]
     TriStatePTB,
-    #[bits = "1000"]
+    #[bits("1000")]
     TriStateCTE,
-    #[bits = "1110"]
+    #[bits("1110")]
     CGND,
 }
 
@@ -130,9 +128,9 @@ pub struct XC2MCSmallIOB {
     #[bittwiddler_field = "crbit64 !0|1"]
     pub obuf_uses_ff: bool,
     /// Selects the output mode for this pin
-    #[bittwiddler_field = "jed_internal err 20 21 22 23"]
-    #[bittwiddler_field = "crbit32 err 2|2 3|2 4|2 5|2"]
-    #[bittwiddler_field = "crbit64 err 3|2 4|2 5|2 6|2"]
+    #[bittwiddler_field = "jed_internal err arr 20 21 22 23"]
+    #[bittwiddler_field = "crbit32 err arr 2|2 3|2 4|2 5|2"]
+    #[bittwiddler_field = "crbit64 err arr 3|2 4|2 5|2 6|2"]
     pub obuf_mode: XC2IOBOBufMode,
     /// Selects if the global termination (bus hold or pull-up) is enabled on this pin
     #[bittwiddler_field = "jed_internal 24"]
@@ -239,20 +237,20 @@ impl XC2MCSmallIOB {
 }
 
 /// Input mode selection on larger parts with VREF
+#[bitpattern]
 #[derive(Copy, Clone, Eq, PartialEq, Hash, Debug, Serialize, Deserialize)]
-#[derive(BitPattern)]
 pub enum XC2IOBIbufMode {
     /// This input buffer is not using VREF, and it is also not using the Schmitt trigger
-    #[bits = "00"]
+    #[bits("00")]
     NoVrefNoSt,
     /// This input buffer is not using VREF, but it is using the Schmitt trigger
-    #[bits = "11"]
+    #[bits("11")]
     NoVrefSt,
     /// This input buffer is using VREF (supposedly it always has the Schmitt trigger?)
-    #[bits = "10"]
+    #[bits("10")]
     UsesVref,
     /// This input pin is serving as VREF
-    #[bits = "01"]
+    #[bits("01")]
     IsVref,
 }
 
@@ -281,9 +279,9 @@ pub struct XC2MCLargeIOB {
     #[bittwiddler_field = "crbit_not256 arr 0|0 1|0"]
     pub zia_mode: XC2IOBZIAMode,
     /// Selects the input mode for this pin
-    #[bittwiddler_field = "jed_internal 8 9"]
-    #[bittwiddler_field = "crbit256 0|0 1|0"]
-    #[bittwiddler_field = "crbit_not256 5|0 6|0"]
+    #[bittwiddler_field = "jed_internal arr 8 9"]
+    #[bittwiddler_field = "crbit256 arr 0|0 1|0"]
+    #[bittwiddler_field = "crbit_not256 arr 5|0 6|0"]
     pub ibuf_mode: XC2IOBIbufMode,
     /// Selects the source used to drive this pin's output (if the output is enabled).
     /// `false` selects the XOR gate in the macrocell (combinatorial output), and `true` selects the register output
@@ -293,9 +291,9 @@ pub struct XC2MCLargeIOB {
     #[bittwiddler_field = "crbit_not256 !8|1"]
     pub obuf_uses_ff: bool,
     /// Selects the output mode for this pin
-    #[bittwiddler_field = "jed_internal err 13 14 15 16"]
-    #[bittwiddler_field = "crbit256 err 3|1 4|1 5|1 6|1"]
-    #[bittwiddler_field = "crbit_not256 err 2|1 3|1 4|1 5|1"]
+    #[bittwiddler_field = "jed_internal err arr 13 14 15 16"]
+    #[bittwiddler_field = "crbit256 err arr 3|1 4|1 5|1 6|1"]
+    #[bittwiddler_field = "crbit_not256 err arr 2|1 3|1 4|1 5|1"]
     pub obuf_mode: XC2IOBOBufMode,
     /// Selects if the global termination (bus hold or pull-up) is enabled on this pin
     #[bittwiddler_field = "jed_internal 26"]

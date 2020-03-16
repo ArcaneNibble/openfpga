@@ -40,7 +40,7 @@ pub enum XC2BitError {
     /// The number of fuses was incorrect for the device
     WrongFuseCount,
     /// An unknown value was used in the `Oe` field
-    UnsupportedOeConfiguration((bool, bool, bool, bool)),
+    UnsupportedOeConfiguration([bool; 4]),
     /// An unknown value was used in the ZIA selection bits
     UnsupportedZIAConfiguration(Vec<bool>),
 }
@@ -77,8 +77,8 @@ impl fmt::Display for XC2BitError {
             },
             &XC2BitError::UnsupportedOeConfiguration(bits) => {
                 write!(f, "unknown Oe field value {}{}{}{}",
-                    b2s(bits.0), b2s(bits.1),
-                    b2s(bits.2), b2s(bits.3))
+                    b2s(bits[0]), b2s(bits[1]),
+                    b2s(bits[2]), b2s(bits[3]))
             },
             &XC2BitError::UnsupportedZIAConfiguration(ref bits) => {
                 write!(f, "unknown ZIA selection bit pattern ")?;
