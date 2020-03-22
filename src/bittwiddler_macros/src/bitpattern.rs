@@ -34,6 +34,7 @@ use syn::punctuated::*;
 mod kw {
     syn::custom_keyword!(default);
     syn::custom_keyword!(errtype);
+    syn::custom_keyword!(bitnames);
 }
 
 #[derive(Debug)]
@@ -45,7 +46,7 @@ struct BitPatternDefaultExpr {
 
 impl Parse for BitPatternDefaultExpr {
     fn parse(input: ParseStream) -> syn::parse::Result<Self> {
-        Ok(BitPatternDefaultExpr{
+        Ok(BitPatternDefaultExpr {
             _ident: input.parse()?,
             _eq: input.parse()?,
             expr: input.parse()?,
@@ -62,7 +63,7 @@ struct BitPatternErrType {
 
 impl Parse for BitPatternErrType {
     fn parse(input: ParseStream) -> syn::parse::Result<Self> {
-        Ok(BitPatternErrType{
+        Ok(BitPatternErrType {
             _ident: input.parse()?,
             _eq: input.parse()?,
             ty: input.parse()?,
@@ -71,9 +72,27 @@ impl Parse for BitPatternErrType {
 }
 
 #[derive(Debug)]
+struct BitPatternBitNames {
+    _ident: Ident,
+    _eq: syn::token::Eq,
+    names: LitStr,
+}
+
+impl Parse for BitPatternBitNames {
+    fn parse(input: ParseStream) -> syn::parse::Result<Self> {
+        Ok(BitPatternBitNames {
+            _ident: input.parse()?,
+            _eq: input.parse()?,
+            names: input.parse()?,
+        })
+    }
+}
+
+#[derive(Debug)]
 enum BitPatternSetting {
     DefaultExpr(BitPatternDefaultExpr),
     ErrType(BitPatternErrType),
+    BitNames(BitPatternBitNames),
 }
 
 impl Parse for BitPatternSetting {
@@ -83,6 +102,8 @@ impl Parse for BitPatternSetting {
             input.parse().map(BitPatternSetting::DefaultExpr)
         } else if lookahead.peek(kw::errtype) {
             input.parse().map(BitPatternSetting::ErrType)
+        } else if lookahead.peek(kw::bitnames) {
+            input.parse().map(BitPatternSetting::BitNames)
         } else {
             Err(lookahead.error())
         }
@@ -104,6 +125,7 @@ pub fn bitpattern(args: TokenStream, input: TokenStream) -> TokenStream {
 
     let mut default_expr = None;
     let mut errtype = None;
+    let mut bitnames_str = None;
 
     // process args
     for arg in args.0 {
@@ -113,6 +135,9 @@ pub fn bitpattern(args: TokenStream, input: TokenStream) -> TokenStream {
             },
             BitPatternSetting::ErrType(bpet) => {
                 errtype = Some(bpet.ty);
+            },
+            BitPatternSetting::BitNames(bpbn) => {
+                bitnames_str = Some(bpbn.names.value());
             }
         }
     }
@@ -195,9 +220,29 @@ pub fn bitpattern(args: TokenStream, input: TokenStream) -> TokenStream {
     }
 
     // Can start generating code now
-    // Dummy for now
-    let bit_names = (0..num_bits).map(|x| LitStr::new(&x.to_string(), Span::call_site()));
-    let bit_names2 = (0..num_bits).map(|x| LitStr::new(&x.to_string(), Span::call_site()));
+    let bit_names: Vec<LitStr>;
+    if let Some(bitnames_str) = bitnames_str {
+        let bitnames_vec = bitnames_str.split_whitespace().collect::<Vec<_>>();
+        if bitnames_vec.len() == 1 {
+            // No spaces; each char is a bit name
+            let bit_names_chars = bitnames_vec[0].chars().collect::<Vec<_>>();
+            if bit_names_chars.len() != num_bits {
+                panic!("Mismatched number of names in bitnames");
+            }
+            bit_names = bit_names_chars.iter().map(|x| LitStr::new(&x.to_string(), Span::call_site())).collect();
+        } else {
+            // Has spaces; each word is a bit name
+            if bitnames_vec.len() != num_bits {
+                panic!("Mismatched number of names in bitnames");
+            }
+            bit_names = bitnames_vec.iter().map(|x| LitStr::new(x, Span::call_site())).collect();
+        }
+    } else {
+        // Each bit is just named by the bit index
+        bit_names = (0..num_bits).map(|x| LitStr::new(&x.to_string(), Span::call_site())).collect();
+
+    }
+    let bit_names2 = bit_names.clone();
     let bit_nums = 0..num_bits;
 
     // For encode function
