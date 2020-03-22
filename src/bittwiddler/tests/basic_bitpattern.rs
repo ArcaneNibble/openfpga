@@ -48,7 +48,7 @@ fn basic_bitpattern_decode() {
 
 #[test]
 fn basic_bitpattern_docs() {
-    let x = docs_as_ascii_table::<MyEnum>();
+    let x = MyEnum::docs_as_ascii_table();
     assert_eq!(x, r#"01 |            |
 ---+------------+----------------------
 00 | Choice1    | docstring1

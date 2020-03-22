@@ -26,5 +26,5 @@ fn bool_bitpattern_docs() {
 1 | true  | true
 "#;
 
-    assert_eq!(reference, docs_as_ascii_table::<bool>());
+    assert_eq!(reference, bool::docs_as_ascii_table());
 }
