@@ -243,6 +243,7 @@ pub fn bitpattern(args: TokenStream, input: TokenStream) -> TokenStream {
     };
 
     // For docs
+    let num_variants = input.variants.len();
     let variant_names = var_data.iter().map(|x| LitStr::new(&x.0.to_string(), Span::call_site()));
     let variant_docs = var_data.iter().map(|x| LitStr::new(&x.2.to_string(), Span::call_site()));
     let variant_bits = var_data.iter().map(|x| LitStr::new(&x.1.to_string(), Span::call_site()));
@@ -253,11 +254,10 @@ pub fn bitpattern(args: TokenStream, input: TokenStream) -> TokenStream {
         impl ::bittwiddler::BitPattern for #enum_id {
             type BitsArrType = [bool; #num_bits];
             const BITS_COUNT: usize = #num_bits;
+
             type ErrType = #errtype;
 
-            type VarNamesIterType = ::std::slice::Iter<'static, &'static str>;
-            type VarDescsIterType = ::std::slice::Iter<'static, &'static str>;
-            type VarBitsIterType = ::std::slice::Iter<'static, &'static str>;
+            const VARIANT_COUNT: usize = #num_variants;
 
             fn encode(&self) -> Self::BitsArrType {
                 match self {
@@ -283,17 +283,17 @@ pub fn bitpattern(args: TokenStream, input: TokenStream) -> TokenStream {
                 }
             }
 
-            fn variantnames() -> Self::VarNamesIterType {
-                [#(#variant_names),*].iter()
+            fn variantname(var: usize) -> &'static str {
+                [#(#variant_names),*][var]
             }
 
 
-            fn variantdescs() -> Self::VarDescsIterType {
-                [#(#variant_docs),*].iter()
+            fn variantdesc(var: usize) -> &'static str {
+                [#(#variant_docs),*][var]
             }
 
-            fn variantbits() -> Self::VarBitsIterType {
-                [#(#variant_bits),*].iter()
+            fn variantbits(var: usize) -> &'static str {
+                [#(#variant_bits),*][var]
             }
         }
     };

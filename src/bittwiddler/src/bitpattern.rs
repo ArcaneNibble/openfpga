@@ -24,32 +24,30 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
 pub trait BitPattern where Self: Sized {
-    type BitsArrType;
-    type ErrType;
+    type BitsArrType: AsRef<[bool]>;
     const BITS_COUNT: usize;
 
-    type VarNamesIterType;
-    type VarDescsIterType;
-    type VarBitsIterType;
+    type ErrType;
+
+    const VARIANT_COUNT: usize;
 
     fn encode(&self) -> Self::BitsArrType;
     fn decode(bits: Self::BitsArrType) -> Result<Self, Self::ErrType>;
     fn _pos_to_name(pos: usize) -> &'static str;
     fn _name_to_pos(name: &'static str) -> usize;
 
-    fn variantnames() -> Self::VarNamesIterType;
-    fn variantdescs() -> Self::VarDescsIterType;
-    fn variantbits() -> Self::VarBitsIterType;
+    fn variantname(var: usize) -> &'static str;
+    fn variantdesc(var: usize) -> &'static str;
+    fn variantbits(var: usize) -> &'static str;
 }
 
 impl BitPattern for bool {
     type BitsArrType = [bool; 1];
     const BITS_COUNT: usize = 1;
+
     type ErrType = ();
 
-    type VarNamesIterType = std::slice::Iter<'static, &'static str>;
-    type VarDescsIterType = std::slice::Iter<'static, &'static str>;
-    type VarBitsIterType = std::slice::Iter<'static, &'static str>;
+    const VARIANT_COUNT: usize = 2;
 
     fn encode(&self) -> Self::BitsArrType {
         [*self]
@@ -70,43 +68,35 @@ impl BitPattern for bool {
         }
     }
 
-    fn variantnames() -> Self::VarNamesIterType {
-        ["false", "true"].iter()
+    fn variantname(var: usize) -> &'static str {
+        ["false", "true"][var]
     }
 
-    fn variantdescs() -> Self::VarDescsIterType {
-        ["false", "true"].iter()
+    fn variantdesc(var: usize) -> &'static str {
+        ["false", "true"][var]
     }
 
-    fn variantbits() -> Self::VarBitsIterType {
-        ["0", "1"].iter()
+    fn variantbits(var: usize) -> &'static str {
+        ["0", "1"][var]
     }
 }
 
 pub fn docs_as_ascii_table<T>() -> String 
     where T: BitPattern,
-        <T as BitPattern>::VarNamesIterType: std::iter::Iterator<Item=&'static &'static str>,
-        <T as BitPattern>::VarDescsIterType: std::iter::Iterator<Item=&'static &'static str>,
-        <T as BitPattern>::VarBitsIterType: std::iter::Iterator<Item=&'static &'static str>,
 {
     let mut ret = String::new();
 
-    let variantnames = T::variantnames().collect::<Vec<_>>();
-    let variantdescs = T::variantdescs().collect::<Vec<_>>();
-    let variantbits = T::variantbits().collect::<Vec<_>>();
-
-    assert_eq!(variantnames.len(), variantdescs.len());
-    assert_eq!(variantdescs.len(), variantbits.len());
-
     let mut max_name_len = 0;
-    for varname in &variantnames {
+    for varname_i in 0..T::VARIANT_COUNT {
+        let varname = T::variantname(varname_i);
         if varname.len() > max_name_len {
             max_name_len = varname.len()
         }
     }
 
     let mut max_desc_len = 0;
-    for vardesc in &variantdescs {
+    for vardesc_i in 0..T::VARIANT_COUNT {
+        let vardesc = T::variantdesc(vardesc_i);
         if vardesc.len() > max_desc_len {
             max_desc_len = vardesc.len()
         }
@@ -137,15 +127,15 @@ pub fn docs_as_ascii_table<T>() -> String
     ret.push_str("\n");
 
     // Data
-    for i in 0..variantnames.len() {
-        ret.push_str(variantbits[i]);
+    for i in 0..T::VARIANT_COUNT {
+        ret.push_str(T::variantbits(i));
         ret.push_str(" | ");
-        ret.push_str(variantnames[i]);
-        for _ in variantnames[i].len()..max_name_len {
+        ret.push_str(T::variantname(i));
+        for _ in T::variantname(i).len()..max_name_len {
             ret.push_str(" ");
         }
         ret.push_str(" | ");
-        ret.push_str(variantdescs[i]);
+        ret.push_str(T::variantdesc(i));
         ret.push_str("\n");
     }
 
