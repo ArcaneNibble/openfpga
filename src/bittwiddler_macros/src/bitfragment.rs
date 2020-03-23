@@ -91,26 +91,33 @@ pub fn bitfragment(args: TokenStream, input: TokenStream) -> TokenStream {
     for arg in &args.0 {
         match arg {
             BitFragmentSetting::ErrType(x) => {
+                if errtype.is_some() {
+                    emit_error!(args.0, "Only one errtype arg allowed");
+                    errors_occurred = true;
+                }
                 errtype = Some(x.ty.clone());
             },
             BitFragmentSetting::Variant(x) => {
+                if encode_variant.is_some() {
+                    emit_error!(args.0, "Only one variant arg allowed");
+                    errors_occurred = true;
+                }
                 encode_variant = Some(x.ty.clone());
             },
             BitFragmentSetting::Dims(x) => {
+                if idx_dims.is_some() {
+                    emit_error!(args.0, "Only one dimensions arg allowed");
+                    errors_occurred = true;
+                }
                 idx_dims = Some(x.litint.clone());
             }
         }
     }
 
     if idx_dims.is_none() {
-        abort!(args.0, "#[bitfragment] requires dimensions= to be specified");
+        emit_error!(args.0, "#[bitfragment] requires dimensions to be specified");
+        errors_occurred = true;
     }
-    let idx_dims = idx_dims.unwrap();
-    let idx_dims = idx_dims.base10_parse::<usize>();
-    if let Err(e) = idx_dims {
-        return e.to_compile_error().into();
-    }
-    let idx_dims = idx_dims.unwrap();
 
     // arg parsing done, walk over data and gather info about fields
 
@@ -126,6 +133,17 @@ pub fn bitfragment(args: TokenStream, input: TokenStream) -> TokenStream {
     }
 
     // Can start generating code now
+    if errors_occurred {
+        return TokenStream::from(quote!{#input_copy});
+    }
+
+    let idx_dims = idx_dims.unwrap();
+    let idx_dims = idx_dims.base10_parse::<usize>();
+    if let Err(e) = idx_dims {
+        return e.to_compile_error().into();
+    }
+    let idx_dims = idx_dims.unwrap();
+
     let encode_variant = if let Some(x) = encode_variant {
         x.into_token_stream()
     } else {

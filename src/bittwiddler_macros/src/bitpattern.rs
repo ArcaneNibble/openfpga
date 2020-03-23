@@ -59,6 +59,17 @@ impl Parse for BitPatternSetting {
     }
 }
 
+impl ToTokens for BitPatternSetting {
+    fn to_tokens(&self, tokens: &mut proc_macro2::TokenStream) {
+        match self {
+            BitPatternSetting::DefaultExpr(x) => x.to_tokens(tokens),
+            BitPatternSetting::ErrType(x) => x.to_tokens(tokens),
+            BitPatternSetting::BitNames(x) => x.to_tokens(tokens),
+            BitPatternSetting::Variant(x) => x.to_tokens(tokens),
+        }
+    }
+}
+
 #[derive(Debug)]
 struct BitPatternSettings(Punctuated<BitPatternSetting, token::Comma>);
 
@@ -104,19 +115,35 @@ pub fn bitpattern(args: TokenStream, input: TokenStream) -> TokenStream {
     let mut errors_occurred = false;
 
     // process args
-    for arg in args.0 {
+    for arg in &args.0 {
         match arg {
-            BitPatternSetting::DefaultExpr(bpdx) => {
-                default_expr = Some(bpdx.expr);
+            BitPatternSetting::DefaultExpr(x) => {
+                if default_expr.is_some() {
+                    emit_error!(args.0, "Only one default arg allowed");
+                    errors_occurred = true;
+                }
+                default_expr = Some(x.expr.clone());
             },
-            BitPatternSetting::ErrType(bpet) => {
-                errtype = Some(bpet.ty);
+            BitPatternSetting::ErrType(x) => {
+                if errtype.is_some() {
+                    emit_error!(args.0, "Only one errtype arg allowed");
+                    errors_occurred = true;
+                }
+                errtype = Some(x.ty.clone());
             },
-            BitPatternSetting::BitNames(bpbn) => {
-                bitnames_strlit = Some(bpbn.litstr);
+            BitPatternSetting::BitNames(x) => {
+                if bitnames_strlit.is_some() {
+                    emit_error!(args.0, "Only one bitnames arg allowed");
+                    errors_occurred = true;
+                }
+                bitnames_strlit = Some(x.litstr.clone());
             },
-            BitPatternSetting::Variant(bpev) => {
-                encode_variant = Some(bpev.ty);
+            BitPatternSetting::Variant(x) => {
+                if encode_variant.is_some() {
+                    emit_error!(args.0, "Only one variant arg allowed");
+                    errors_occurred = true;
+                }
+                encode_variant = Some(x.ty.clone());
             },
         }
     }
