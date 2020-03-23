@@ -32,6 +32,7 @@ pub mod kw {
     syn::custom_keyword!(errtype);
     syn::custom_keyword!(bitnames);
     syn::custom_keyword!(variant);
+    syn::custom_keyword!(dimensions);
 }
 
 #[derive(Debug)]
@@ -106,5 +107,30 @@ impl ToTokens for ArgWithLitStr {
         self._ident.to_tokens(tokens);
         self._eq.to_tokens(tokens);
         self.litstr.to_tokens(tokens);
+    }
+}
+
+#[derive(Debug)]
+pub struct ArgWithLitInt {
+    _ident: Ident,
+    _eq: syn::token::Eq,
+    pub litint: LitInt,
+}
+
+impl Parse for ArgWithLitInt {
+    fn parse(input: ParseStream) -> syn::parse::Result<Self> {
+        Ok(ArgWithLitInt {
+            _ident: input.parse()?,
+            _eq: input.parse()?,
+            litint: input.parse()?,
+        })
+    }
+}
+
+impl ToTokens for ArgWithLitInt {
+    fn to_tokens(&self, tokens: &mut proc_macro2::TokenStream) {
+        self._ident.to_tokens(tokens);
+        self._eq.to_tokens(tokens);
+        self.litint.to_tokens(tokens);
     }
 }

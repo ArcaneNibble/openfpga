@@ -37,6 +37,7 @@ use crate::args::*;
 enum BitFragmentSetting {
     ErrType(ArgWithType),
     Variant(ArgWithType),
+    Dims(ArgWithLitInt),
 }
 
 impl Parse for BitFragmentSetting {
@@ -46,8 +47,20 @@ impl Parse for BitFragmentSetting {
             input.parse().map(BitFragmentSetting::ErrType)
         } else if lookahead.peek(kw::variant) {
             input.parse().map(BitFragmentSetting::Variant)
+        } else if lookahead.peek(kw::dimensions) {
+            input.parse().map(BitFragmentSetting::Dims)
         } else {
             Err(lookahead.error())
+        }
+    }
+}
+
+impl ToTokens for BitFragmentSetting {
+    fn to_tokens(&self, tokens: &mut proc_macro2::TokenStream) {
+        match self {
+            BitFragmentSetting::ErrType(x) => x.to_tokens(tokens),
+            BitFragmentSetting::Variant(x) => x.to_tokens(tokens),
+            BitFragmentSetting::Dims(x) => x.to_tokens(tokens),
         }
     }
 }
@@ -68,22 +81,38 @@ pub fn bitfragment(args: TokenStream, input: TokenStream) -> TokenStream {
 
     let mut errtype = None;
     let mut encode_variant = None;
+    let mut idx_dims = None;
 
     // Tracks if errors (that we can recover from) occurred. If so, we bail
     // before doing final codegen
     let mut errors_occurred = false;
 
     // process args
-    for arg in args.0 {
+    for arg in &args.0 {
         match arg {
-            BitFragmentSetting::ErrType(bpet) => {
-                errtype = Some(bpet.ty);
+            BitFragmentSetting::ErrType(x) => {
+                errtype = Some(x.ty.clone());
             },
-            BitFragmentSetting::Variant(bpev) => {
-                encode_variant = Some(bpev.ty);
+            BitFragmentSetting::Variant(x) => {
+                encode_variant = Some(x.ty.clone());
             },
+            BitFragmentSetting::Dims(x) => {
+                idx_dims = Some(x.litint.clone());
+            }
         }
     }
+
+    if idx_dims.is_none() {
+        abort!(args.0, "#[bitfragment] requires dimensions= to be specified");
+    }
+    let idx_dims = idx_dims.unwrap();
+    let idx_dims = idx_dims.base10_parse::<usize>();
+    if let Err(e) = idx_dims {
+        return e.to_compile_error().into();
+    }
+    let idx_dims = idx_dims.unwrap();
+
+    // arg parsing done, walk over data and gather info about fields
 
     let obj_id;
     if let Item::Enum(enum_) = input {
@@ -109,14 +138,20 @@ pub fn bitfragment(args: TokenStream, input: TokenStream) -> TokenStream {
         quote!{#errtype}
     };
 
+    let indexingtype = if idx_dims == 1 {
+        quote!{usize}
+    } else {
+        quote!{[usize; #idx_dims]}
+    };
+
     let output = quote!{
         #input_copy
 
         impl ::bittwiddler::BitFragment<#encode_variant> for #obj_id {
-            const IDX_DIMS: usize = 1;
-            type IndexingType = usize;
-            type OffsettingType = [usize; 1];
-            type MirroringType = [bool; 1];
+            const IDX_DIMS: usize = #idx_dims;
+            type IndexingType = #indexingtype;
+            type OffsettingType = [usize; #idx_dims];
+            type MirroringType = [bool; #idx_dims];
 
             type ErrType = #errtype;
 

@@ -13,7 +13,7 @@ enum MyEnum {
     Choice4,
 }
 
-#[bitfragment]
+#[bitfragment(dimensions = 1)]
 #[derive(Debug, PartialEq, Eq)]
 struct MyStruct1 {
     field_enum: MyEnum,
