@@ -5,6 +5,8 @@ use proc_macro2::{Ident, Span};
 use quote::*;
 use std::collections::HashSet;
 
+mod args;
+
 mod bitpattern;
 
 #[proc_macro_error]

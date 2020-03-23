@@ -42,9 +42,9 @@ pub trait BitFragment<T> where Self: Sized {
     const FIELD_COUNT: usize;
 
     fn encode<F>(&self, fuses: &mut F, offset: Self::OffsettingType, mirror: Self::MirroringType)
-        where F: ::core::ops::IndexMut<Self::IndexingType, Output=bool>;
+        where F: ::core::ops::IndexMut<Self::IndexingType, Output=bool> + ?Sized;
     fn decode<F>(fuses: &F, offset: Self::OffsettingType, mirror: Self::MirroringType) -> Result<Self, Self::ErrType>
-        where F: ::core::ops::Index<Self::IndexingType, Output=bool>;
+        where F: ::core::ops::Index<Self::IndexingType, Output=bool> + ?Sized;
 
     fn fieldname(i: usize) -> &'static str;
     fn fielddesc(i: usize) -> &'static str;
@@ -71,13 +71,13 @@ impl BitFragment<()> for TestFragment {
     const FIELD_COUNT: usize = 0;
 
     fn encode<F>(&self, fuses: &mut F, offset: Self::OffsettingType, mirror: Self::MirroringType)
-        where F: ::core::ops::IndexMut<Self::IndexingType, Output=bool> {
+        where F: ::core::ops::IndexMut<Self::IndexingType, Output=bool> + ?Sized {
 
         fuses[if mirror[0] {offset[0] - 0} else {offset[0] + 0}] = self.field1;
         fuses[if mirror[0] {offset[0] - 1} else {offset[0] + 1}] = self.field1;
     }
     fn decode<F>(fuses: &F, offset: Self::OffsettingType, mirror: Self::MirroringType) -> Result<Self, Self::ErrType>
-        where F: ::core::ops::Index<Self::IndexingType, Output=bool> {
+        where F: ::core::ops::Index<Self::IndexingType, Output=bool> + ?Sized {
 
         Ok(Self{
             field1: fuses[if mirror[0] {offset[0] - 0} else {offset[0] + 0}],

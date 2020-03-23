@@ -29,5 +29,5 @@ fn basic_bitfragment_encode() {
 
     let mut out = [false; 3];
 
-    x.encode(&mut out);
+    x.encode(&mut out[..], [0], [false]);
 }
