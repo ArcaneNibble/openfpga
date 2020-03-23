@@ -32,6 +32,8 @@ pub mod kw {
     syn::custom_keyword!(errtype);
     syn::custom_keyword!(bitnames);
     syn::custom_keyword!(variant);
+    syn::custom_keyword!(frag_variant);
+    syn::custom_keyword!(pat_variant);
     syn::custom_keyword!(dimensions);
 }
 

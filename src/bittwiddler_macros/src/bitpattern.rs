@@ -360,8 +360,8 @@ pub fn bitpattern(args: TokenStream, input: TokenStream) -> TokenStream {
     // For docs
     let num_variants = input.variants.len();
     let variant_names = var_data.iter().map(|x| LitStr::new(&x.0.to_string(), Span::call_site()));
-    let variant_docs = var_data.iter().map(|x| LitStr::new(&x.2.to_string(), Span::call_site()));
-    let variant_bits = var_data.iter().map(|x| LitStr::new(&x.1.to_string(), Span::call_site()));
+    let variant_docs = var_data.iter().map(|x| LitStr::new(&x.2, Span::call_site()));
+    let variant_bits = var_data.iter().map(|x| LitStr::new(&x.1, Span::call_site()));
 
     let output = quote!{
         #input
