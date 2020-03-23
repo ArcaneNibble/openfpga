@@ -38,19 +38,16 @@ mod kw {
     syn::custom_keyword!(variant);
 }
 
-// Args for the #[bitpattern] macro
-
-// Default return value if no match
 #[derive(Debug)]
-struct BitPatternDefaultExpr {
+struct ArgWithExpr {
     _ident: Ident,
     _eq: syn::token::Eq,
     expr: Expr,
 }
 
-impl Parse for BitPatternDefaultExpr {
+impl Parse for ArgWithExpr {
     fn parse(input: ParseStream) -> syn::parse::Result<Self> {
-        Ok(BitPatternDefaultExpr {
+        Ok(ArgWithExpr {
             _ident: input.parse()?,
             _eq: input.parse()?,
             expr: input.parse()?,
@@ -58,17 +55,16 @@ impl Parse for BitPatternDefaultExpr {
     }
 }
 
-// Error return type for Result
 #[derive(Debug)]
-struct BitPatternErrType {
+struct ArgWithType {
     _ident: Ident,
     _eq: syn::token::Eq,
     ty: Type,
 }
 
-impl Parse for BitPatternErrType {
+impl Parse for ArgWithType {
     fn parse(input: ParseStream) -> syn::parse::Result<Self> {
-        Ok(BitPatternErrType {
+        Ok(ArgWithType {
             _ident: input.parse()?,
             _eq: input.parse()?,
             ty: input.parse()?,
@@ -76,17 +72,16 @@ impl Parse for BitPatternErrType {
     }
 }
 
-// Custom names for each bit
 #[derive(Debug)]
-struct BitPatternBitNames {
+struct ArgWithLitStr {
     _ident: Ident,
     _eq: syn::token::Eq,
     names: LitStr,
 }
 
-impl Parse for BitPatternBitNames {
+impl Parse for ArgWithLitStr {
     fn parse(input: ParseStream) -> syn::parse::Result<Self> {
-        Ok(BitPatternBitNames {
+        Ok(ArgWithLitStr {
             _ident: input.parse()?,
             _eq: input.parse()?,
             names: input.parse()?,
@@ -94,30 +89,12 @@ impl Parse for BitPatternBitNames {
     }
 }
 
-// Different encoding variants
-#[derive(Debug, PartialEq)]
-struct BitPatternEncodingVariant {
-    _ident: Ident,
-    _eq: syn::token::Eq,
-    ty: Type,
-}
-
-impl Parse for BitPatternEncodingVariant {
-    fn parse(input: ParseStream) -> syn::parse::Result<Self> {
-        Ok(BitPatternEncodingVariant {
-            _ident: input.parse()?,
-            _eq: input.parse()?,
-            ty: input.parse()?,
-        })
-    }
-}
-
 #[derive(Debug)]
 enum BitPatternSetting {
-    DefaultExpr(BitPatternDefaultExpr),
-    ErrType(BitPatternErrType),
-    BitNames(BitPatternBitNames),
-    Variant(BitPatternEncodingVariant),
+    DefaultExpr(ArgWithExpr),
+    ErrType(ArgWithType),
+    BitNames(ArgWithLitStr),
+    Variant(ArgWithType),
 }
 
 impl Parse for BitPatternSetting {
@@ -150,7 +127,7 @@ impl Parse for BitPatternSettings {
 #[derive(Debug)]
 enum BitValueSetting {
     BitValueString(LitStr),
-    Variant(BitPatternEncodingVariant),
+    Variant(ArgWithType),
 }
 
 impl Parse for BitValueSetting {
