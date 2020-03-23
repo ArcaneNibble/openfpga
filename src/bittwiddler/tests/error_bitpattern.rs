@@ -15,7 +15,7 @@ enum MyEnum {
 }
 
 #[test]
-fn basic_bitpattern_encode() {
+fn error_bitpattern_encode() {
     let x = MyEnum::Choice1;
     assert_eq!(x.encode(), [false, false]);
 
@@ -27,7 +27,7 @@ fn basic_bitpattern_encode() {
 }
 
 #[test]
-fn basic_bitpattern_decode() {
+fn error_bitpattern_decode() {
     let x = [false, false];
     assert_eq!(MyEnum::decode(x).unwrap(), MyEnum::Choice1);
 
@@ -42,7 +42,7 @@ fn basic_bitpattern_decode() {
 }
 
 #[test]
-fn basic_bitpattern_docs() {
+fn error_bitpattern_docs() {
     let x = MyEnum::docs_as_ascii_table();
     assert_eq!(x, r#"01 |           |
 ---+-----------+----------------------

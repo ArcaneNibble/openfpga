@@ -23,7 +23,7 @@ OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
-pub trait BitPattern where Self: Sized {
+pub trait BitPattern<T> where Self: Sized {
     type BitsArrType: AsRef<[bool]>;
     const BITS_COUNT: usize;
 
@@ -101,7 +101,7 @@ pub trait BitPattern where Self: Sized {
     }
 }
 
-impl BitPattern for bool {
+impl BitPattern<()> for bool {
     type BitsArrType = [bool; 1];
     const BITS_COUNT: usize = 1;
 

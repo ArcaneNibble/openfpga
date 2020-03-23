@@ -35,8 +35,12 @@ mod kw {
     syn::custom_keyword!(default);
     syn::custom_keyword!(errtype);
     syn::custom_keyword!(bitnames);
+    syn::custom_keyword!(variant);
 }
 
+// Args for the #[bitpattern] macro
+
+// Default return value if no match
 #[derive(Debug)]
 struct BitPatternDefaultExpr {
     _ident: Ident,
@@ -54,6 +58,7 @@ impl Parse for BitPatternDefaultExpr {
     }
 }
 
+// Error return type for Result
 #[derive(Debug)]
 struct BitPatternErrType {
     _ident: Ident,
@@ -71,6 +76,7 @@ impl Parse for BitPatternErrType {
     }
 }
 
+// Custom names for each bit
 #[derive(Debug)]
 struct BitPatternBitNames {
     _ident: Ident,
@@ -88,11 +94,30 @@ impl Parse for BitPatternBitNames {
     }
 }
 
+// Different encoding variants
+#[derive(Debug, PartialEq)]
+struct BitPatternEncodingVariant {
+    _ident: Ident,
+    _eq: syn::token::Eq,
+    ty: Type,
+}
+
+impl Parse for BitPatternEncodingVariant {
+    fn parse(input: ParseStream) -> syn::parse::Result<Self> {
+        Ok(BitPatternEncodingVariant {
+            _ident: input.parse()?,
+            _eq: input.parse()?,
+            ty: input.parse()?,
+        })
+    }
+}
+
 #[derive(Debug)]
 enum BitPatternSetting {
     DefaultExpr(BitPatternDefaultExpr),
     ErrType(BitPatternErrType),
     BitNames(BitPatternBitNames),
+    Variant(BitPatternEncodingVariant),
 }
 
 impl Parse for BitPatternSetting {
@@ -104,6 +129,8 @@ impl Parse for BitPatternSetting {
             input.parse().map(BitPatternSetting::ErrType)
         } else if lookahead.peek(kw::bitnames) {
             input.parse().map(BitPatternSetting::BitNames)
+        } else if lookahead.peek(kw::variant) {
+            input.parse().map(BitPatternSetting::Variant)
         } else {
             Err(lookahead.error())
         }
@@ -119,6 +146,28 @@ impl Parse for BitPatternSettings {
     }
 }
 
+// Args for the #[bits] attribute macro
+#[derive(Debug)]
+enum BitValueSetting {
+    BitValueString(LitStr),
+    Variant(BitPatternEncodingVariant),
+}
+
+impl Parse for BitValueSetting {
+    fn parse(input: ParseStream) -> syn::parse::Result<Self> {
+        let lookahead = input.lookahead1();
+        if lookahead.peek(LitStr) {
+            input.parse().map(BitValueSetting::BitValueString)
+        } else if lookahead.peek(kw::variant) {
+            input.parse().map(BitValueSetting::Variant)
+        } else {
+            Err(lookahead.error())
+        }
+    }
+}
+
+type BitValueSettings = Punctuated<BitValueSetting, token::Comma>;
+
 pub fn bitpattern(args: TokenStream, input: TokenStream) -> TokenStream {
     let args = parse_macro_input!(args as BitPatternSettings);
     let mut input = parse_macro_input!(input as ItemEnum);
@@ -126,6 +175,7 @@ pub fn bitpattern(args: TokenStream, input: TokenStream) -> TokenStream {
     let mut default_expr = None;
     let mut errtype = None;
     let mut bitnames_str = None;
+    let mut encode_variant = None;
 
     // process args
     for arg in args.0 {
@@ -138,7 +188,10 @@ pub fn bitpattern(args: TokenStream, input: TokenStream) -> TokenStream {
             },
             BitPatternSetting::BitNames(bpbn) => {
                 bitnames_str = Some(bpbn.names.value());
-            }
+            },
+            BitPatternSetting::Variant(bpev) => {
+                encode_variant = Some(bpev.ty);
+            },
         }
     }
 
@@ -164,17 +217,46 @@ pub fn bitpattern(args: TokenStream, input: TokenStream) -> TokenStream {
         let mut bits_docs = String::new();
         for (i, attr) in var.attrs.iter().enumerate() {
             if attr.path.is_ident("bits") {
-                if bits_attrib.is_some() {
-                    panic!("Only one #[bits] attribute allowed on {}", var_id.to_string());
-                }
-
-                let bits_arg = attr.parse_args::<LitStr>();
-                if let Err(e) = bits_arg {
+                let parser = BitValueSettings::parse_separated_nonempty;
+                let bits_args = attr.parse_args_with(parser);
+                if let Err(e) = bits_args {
                     return e.to_compile_error().into();
                 }
-                let bits_arg = bits_arg.unwrap();
+                let bits_args = bits_args.unwrap();
 
-                bits_attrib = Some((i, bits_arg.value()));
+                // Possibly filter by bit encoding variant
+                let mut maybe_str = None;
+                let mut maybe_var_ty = None;
+                for bits_arg in bits_args {
+                    match bits_arg {
+                        BitValueSetting::BitValueString(s) => {
+                            if maybe_str.is_some() {
+                                panic!("Only one string allowed in #[bits] on {}", var_id.to_string());
+                            }
+                            maybe_str = Some(s.value());
+                        },
+                        BitValueSetting::Variant(v) => {
+                            if maybe_var_ty.is_some() {
+                                panic!("Only one variant= allowed in #[bits] on {}", var_id.to_string());
+                            }
+                            maybe_var_ty = Some(v.ty);
+                        },
+                    }
+                }
+
+                if maybe_str.is_none() {
+                    panic!("No string in #[bits] on {}", var_id.to_string());
+                }
+
+                if maybe_var_ty.is_none() && encode_variant.is_none() ||
+                    (maybe_var_ty.is_some() && encode_variant.is_some() &&
+                        maybe_var_ty.as_ref().unwrap() == encode_variant.as_ref().unwrap()) {
+                    if bits_attrib.is_some() {
+                        panic!("Only one #[bits] attribute allowed on {}", var_id.to_string());
+                    }
+
+                    bits_attrib = Some((i, maybe_str.unwrap()));
+                }
             }
 
             if attr.path.is_ident("doc") {
@@ -195,7 +277,7 @@ pub fn bitpattern(args: TokenStream, input: TokenStream) -> TokenStream {
             }
         }
         if bits_attrib.is_none() {
-            panic!("Variant {} must have a #[bits] attribute", var_id.to_string());
+            panic!("Enum variant {} must have a #[bits] attribute", var_id.to_string());
         }
 
         let (bits_attrib_i, bits_string) = bits_attrib.unwrap();
@@ -220,6 +302,12 @@ pub fn bitpattern(args: TokenStream, input: TokenStream) -> TokenStream {
     }
 
     // Can start generating code now
+    let encode_variant = if let Some(x) = encode_variant {
+        x.into_token_stream()
+    } else {
+        quote!(())
+    };
+
     let bit_names: Vec<LitStr>;
     if let Some(bitnames_str) = bitnames_str {
         let bitnames_vec = bitnames_str.split_whitespace().collect::<Vec<_>>();
@@ -296,7 +384,7 @@ pub fn bitpattern(args: TokenStream, input: TokenStream) -> TokenStream {
     let output = quote!{
         #input
 
-        impl ::bittwiddler::BitPattern for #enum_id {
+        impl ::bittwiddler::BitPattern<#encode_variant> for #enum_id {
             type BitsArrType = [bool; #num_bits];
             const BITS_COUNT: usize = #num_bits;
 
