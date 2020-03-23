@@ -23,10 +23,12 @@ OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
-pub use bittwiddler_macros::*;
+extern crate proc_macro;
+use proc_macro::TokenStream;
+// use proc_macro_error::*;
+// use quote::*;
+// use syn::*;
 
-mod bitpattern;
-pub use bitpattern::*;
-
-mod bitfragment;
-pub use bitfragment::*;
+pub fn bitfragment(_args: TokenStream, input: TokenStream) -> TokenStream {
+    input
+}

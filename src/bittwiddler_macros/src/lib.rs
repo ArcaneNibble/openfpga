@@ -13,6 +13,14 @@ pub fn bitpattern(args: TokenStream, input: TokenStream) -> TokenStream {
     bitpattern::bitpattern(args, input)
 }
 
+mod bitfragment;
+
+#[proc_macro_error]
+#[proc_macro_attribute]
+pub fn bitfragment(args: TokenStream, input: TokenStream) -> TokenStream {
+    bitfragment::bitfragment(args, input)
+}
+
 fn parse_multi_string_attr_helper<T, F>(attrs: &[syn::Attribute], attr_name: &str, cb: F)
     -> std::iter::Map<std::vec::IntoIter<syn::LitStr>, F>
     where F: FnMut(syn::LitStr) -> T {
