@@ -263,7 +263,7 @@ impl XC2ClockDiv {
         XC2ClockDiv {
             delay: !fuses[clock_fuse_block + 4],
             enabled: !fuses[clock_fuse_block],
-            div_ratio: XC2ClockDivRatio::decode([fuses[clock_fuse_block + 1], fuses[clock_fuse_block + 2], fuses[clock_fuse_block + 3]]).unwrap(),
+            div_ratio: XC2ClockDivRatio::decode(&[fuses[clock_fuse_block + 1], fuses[clock_fuse_block + 2], fuses[clock_fuse_block + 3]]).unwrap(),
         }
     }
 
@@ -279,7 +279,7 @@ impl XC2ClockDiv {
         XC2ClockDiv {
             delay: !fuse_array.get(clkdelay_x, clkdelay_y),
             enabled: !fuse_array.get(clken_x, clken_y),
-            div_ratio: XC2ClockDivRatio::decode(div_ratio_bits).unwrap(),
+            div_ratio: XC2ClockDivRatio::decode(&div_ratio_bits).unwrap(),
         }
     }
 }

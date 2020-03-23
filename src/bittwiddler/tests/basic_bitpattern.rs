@@ -34,16 +34,16 @@ fn basic_bitpattern_encode() {
 #[test]
 fn basic_bitpattern_decode() {
     let x = [false, false];
-    assert_eq!(MyEnum::decode(x).unwrap(), MyEnum::Choice1);
+    assert_eq!(MyEnum::decode(&x).unwrap(), MyEnum::Choice1);
 
     let x = [false, true];
-    assert_eq!(MyEnum::decode(x).unwrap(), MyEnum::ChoiceTwo);
+    assert_eq!(MyEnum::decode(&x).unwrap(), MyEnum::ChoiceTwo);
 
     let x = [true, false];
-    assert_eq!(MyEnum::decode(x).unwrap(), MyEnum::Choice3);
+    assert_eq!(MyEnum::decode(&x).unwrap(), MyEnum::Choice3);
 
     let x = [true, true];
-    assert_eq!(MyEnum::decode(x).unwrap(), MyEnum::ChoiceFour);
+    assert_eq!(MyEnum::decode(&x).unwrap(), MyEnum::ChoiceFour);
 }
 
 #[test]

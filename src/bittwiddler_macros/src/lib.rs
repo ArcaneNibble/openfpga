@@ -484,7 +484,7 @@ pub fn bittwiddler(input: TokenStream) -> TokenStream {
                 }
             } else {
                 quote! {
-                    let x = [#(#decode_this_field_locs),*];
+                    let x = &[#(#decode_this_field_locs),*];
                 }
             };
             decode_this_field.append_all(if !field_isbool {

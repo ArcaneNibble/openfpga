@@ -12,10 +12,10 @@ fn bool_bitpattern_encode() {
 #[test]
 fn bool_bitpattern_decode() {
     let x = [true];
-    assert_eq!(bool::decode(x).unwrap(), true);
+    assert_eq!(bool::decode(&x).unwrap(), true);
 
     let x = [false];
-    assert_eq!(bool::decode(x).unwrap(), false);
+    assert_eq!(bool::decode(&x).unwrap(), false);
 }
 
 #[test]

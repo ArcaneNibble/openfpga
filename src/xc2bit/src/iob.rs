@@ -59,7 +59,7 @@ impl fmt::Display for XC2IOBZIAMode {
 }
 
 /// Mode selection for the I/O pin's output buffer. See the Xilinx Coolrunner-II documentation for more information.
-#[bitpattern(default = XC2BitError::UnsupportedOeConfiguration(bits), errtype = XC2BitError)]
+#[bitpattern(default = XC2BitError::UnsupportedOeConfiguration(*bits), errtype = XC2BitError)]
 #[derive(Copy, Clone, Eq, PartialEq, Hash, Debug, Serialize, Deserialize)]
 pub enum XC2IOBOBufMode {
     #[bits("1111")]

@@ -433,7 +433,7 @@ pub fn bitpattern(args: TokenStream, input: TokenStream) -> TokenStream {
                 }
             }
 
-            fn decode(bits: Self::BitsArrType) -> Result<Self, Self::ErrType> {
+            fn decode(bits: &Self::BitsArrType) -> Result<Self, Self::ErrType> {
                 match bits {
                     #([#(#decode_values),*] => Ok(Self::#decode_var_id)),*
                     #default_expr

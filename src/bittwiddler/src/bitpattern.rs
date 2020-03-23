@@ -32,7 +32,7 @@ pub trait BitPattern<T> where Self: Sized {
     const VARIANT_COUNT: usize;
 
     fn encode(&self) -> Self::BitsArrType;
-    fn decode(bits: Self::BitsArrType) -> Result<Self, Self::ErrType>;
+    fn decode(bits: &Self::BitsArrType) -> Result<Self, Self::ErrType>;
     fn _pos_to_name(pos: usize) -> &'static str;
     fn _name_to_pos(name: &'static str) -> usize;
 
@@ -113,7 +113,7 @@ impl BitPattern<()> for bool {
         [*self]
     }
 
-    fn decode(bits: Self::BitsArrType) -> Result<Self, Self::ErrType> {
+    fn decode(bits: &Self::BitsArrType) -> Result<Self, Self::ErrType> {
         Ok(bits[0])
     }
 
