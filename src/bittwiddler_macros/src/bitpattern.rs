@@ -25,6 +25,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 extern crate proc_macro;
 use proc_macro::TokenStream;
+use proc_macro_error::*;
 use proc_macro2::Span;
 use quote::*;
 use syn::*;
@@ -55,6 +56,14 @@ impl Parse for ArgWithExpr {
     }
 }
 
+impl ToTokens for ArgWithExpr {
+    fn to_tokens(&self, tokens: &mut proc_macro2::TokenStream) {
+        self._ident.to_tokens(tokens);
+        self._eq.to_tokens(tokens);
+        self.expr.to_tokens(tokens);
+    }
+}
+
 #[derive(Debug)]
 struct ArgWithType {
     _ident: Ident,
@@ -72,11 +81,19 @@ impl Parse for ArgWithType {
     }
 }
 
+impl ToTokens for ArgWithType {
+    fn to_tokens(&self, tokens: &mut proc_macro2::TokenStream) {
+        self._ident.to_tokens(tokens);
+        self._eq.to_tokens(tokens);
+        self.ty.to_tokens(tokens);
+    }
+}
+
 #[derive(Debug)]
 struct ArgWithLitStr {
     _ident: Ident,
     _eq: syn::token::Eq,
-    names: LitStr,
+    litstr: LitStr,
 }
 
 impl Parse for ArgWithLitStr {
@@ -84,8 +101,16 @@ impl Parse for ArgWithLitStr {
         Ok(ArgWithLitStr {
             _ident: input.parse()?,
             _eq: input.parse()?,
-            names: input.parse()?,
+            litstr: input.parse()?,
         })
+    }
+}
+
+impl ToTokens for ArgWithLitStr {
+    fn to_tokens(&self, tokens: &mut proc_macro2::TokenStream) {
+        self._ident.to_tokens(tokens);
+        self._eq.to_tokens(tokens);
+        self.litstr.to_tokens(tokens);
     }
 }
 
@@ -151,8 +176,12 @@ pub fn bitpattern(args: TokenStream, input: TokenStream) -> TokenStream {
 
     let mut default_expr = None;
     let mut errtype = None;
-    let mut bitnames_str = None;
+    let mut bitnames_strlit = None;
     let mut encode_variant = None;
+
+    // Tracks if errors (that we can recover from) occurred. If so, we bail
+    // before doing final codegen
+    let mut errors_occurred = false;
 
     // process args
     for arg in args.0 {
@@ -164,7 +193,7 @@ pub fn bitpattern(args: TokenStream, input: TokenStream) -> TokenStream {
                 errtype = Some(bpet.ty);
             },
             BitPatternSetting::BitNames(bpbn) => {
-                bitnames_str = Some(bpbn.names.value());
+                bitnames_strlit = Some(bpbn.litstr);
             },
             BitPatternSetting::Variant(bpev) => {
                 encode_variant = Some(bpev.ty);
@@ -186,7 +215,8 @@ pub fn bitpattern(args: TokenStream, input: TokenStream) -> TokenStream {
         let var_id = var.ident.clone();
 
         if var.fields != Fields::Unit {
-            panic!("Variant {} must be a unit variant", var_id.to_string());
+            emit_error!(var.fields, "#[bitpattern] enum variant must be a unit variant");
+            errors_occurred = true;
         }
 
         // Find the #[bits] attribute and docstrings
@@ -202,37 +232,45 @@ pub fn bitpattern(args: TokenStream, input: TokenStream) -> TokenStream {
                 let bits_args = bits_args.unwrap();
 
                 // Possibly filter by bit encoding variant
-                let mut maybe_str = None;
+                let mut maybe_bitstr = None;
                 let mut maybe_var_ty = None;
                 for bits_arg in bits_args {
                     match bits_arg {
                         BitValueSetting::BitValueString(s) => {
-                            if maybe_str.is_some() {
-                                panic!("Only one string allowed in #[bits] on {}", var_id.to_string());
+                            if maybe_bitstr.is_some() {
+                                emit_error!(s, "Only one string literal allowed");
+                                errors_occurred = true;
                             }
-                            maybe_str = Some(s.value());
+                            maybe_bitstr = Some(s);
                         },
                         BitValueSetting::Variant(v) => {
                             if maybe_var_ty.is_some() {
-                                panic!("Only one variant= allowed in #[bits] on {}", var_id.to_string());
+                                emit_error!(v, "Only one variant arg allowed");
+                                errors_occurred = true;
                             }
                             maybe_var_ty = Some(v.ty);
                         },
                     }
                 }
 
-                if maybe_str.is_none() {
-                    panic!("No string in #[bits] on {}", var_id.to_string());
-                }
-
                 if maybe_var_ty.is_none() && encode_variant.is_none() ||
                     (maybe_var_ty.is_some() && encode_variant.is_some() &&
                         maybe_var_ty.as_ref().unwrap() == encode_variant.as_ref().unwrap()) {
                     if bits_attrib.is_some() {
-                        panic!("Only one #[bits] attribute allowed on {}", var_id.to_string());
+                        errors_occurred = true;
+                        if let Some(bitvar) = encode_variant.as_ref() {
+                            emit_error!(attr, "Only one #[bits] attribute allowed for bit variant {}", quote!{#bitvar}.to_string());
+                        } else {
+                            emit_error!(attr, "Only one #[bits] attribute allowed");
+                        }
                     }
 
-                    bits_attrib = Some((i, maybe_str.unwrap()));
+                    if let Some(bitstr) = maybe_bitstr {
+                        bits_attrib = Some((i, bitstr));
+                    } else if maybe_bitstr.is_none() {
+                        emit_error!(attr, "Missing bit pattern string literal");
+                        errors_occurred = true;
+                    }
                 }
             }
 
@@ -253,27 +291,39 @@ pub fn bitpattern(args: TokenStream, input: TokenStream) -> TokenStream {
                 }
             }
         }
-        if bits_attrib.is_none() {
-            panic!("Enum variant {} must have a #[bits] attribute", var_id.to_string());
+
+        if let Some((bits_attrib_i, bits_string_lit)) = bits_attrib {
+            var.attrs.remove(bits_attrib_i);
+            var_data.push((var_id, bits_string_lit.value(), bits_docs, bits_string_lit));
+        } else {
+            errors_occurred = true;
+            if let Some(bitvar) = encode_variant.as_ref() {
+                emit_error!(var, "Enum variant must have a #[bits] attribute for bit variant {}", quote!{#bitvar}.to_string());
+            } else {
+                emit_error!(var, "Enum variant must have a #[bits] attribute");
+            }
         }
+    }
 
-        let (bits_attrib_i, bits_string) = bits_attrib.unwrap();
-        var.attrs.remove(bits_attrib_i);
-
-        var_data.push((var_id, bits_string, bits_docs));
+    // If there are no variants here, then we need to bail because there were
+    // too many errors earlier
+    if var_data.len() == 0 {
+        return TokenStream::from(quote!{#input});
     }
 
     // Gathered all variants and their settings, do some checks to make sure
     // things are valid
     let num_bits = var_data[0].1.len();
-    for (_, bits_string, _) in &var_data {
+    for (_, bits_string, _, bits_string_lit) in &var_data {
         if bits_string.len() != num_bits {
-            panic!("All bits need to be the same length");
+            emit_error!(bits_string_lit, "All bit pattern strings need to be the same length (expected {})", num_bits);
+            errors_occurred = true;
         }
 
         for c in bits_string.chars() {
             if c != '0'  && c != '1' && c != 'x' && c != 'X' {
-                panic!("Illegal character in bits attribute");
+                emit_error!(bits_string_lit, "Illegal character '{}' in bit pattern string", c);
+                errors_occurred = true;
             }
         }
     }
@@ -286,19 +336,22 @@ pub fn bitpattern(args: TokenStream, input: TokenStream) -> TokenStream {
     };
 
     let bit_names: Vec<LitStr>;
-    if let Some(bitnames_str) = bitnames_str {
+    if let Some(bitnames_strlit) = bitnames_strlit {
+        let bitnames_str = bitnames_strlit.value();
         let bitnames_vec = bitnames_str.split_whitespace().collect::<Vec<_>>();
         if bitnames_vec.len() == 1 {
             // No spaces; each char is a bit name
             let bit_names_chars = bitnames_vec[0].chars().collect::<Vec<_>>();
             if bit_names_chars.len() != num_bits {
-                panic!("Mismatched number of names in bitnames");
+                emit_error!(bitnames_strlit, "Wrong number of names (expected {})", num_bits);
+                errors_occurred = true;
             }
             bit_names = bit_names_chars.iter().map(|x| LitStr::new(&x.to_string(), Span::call_site())).collect();
         } else {
             // Has spaces; each word is a bit name
             if bitnames_vec.len() != num_bits {
-                panic!("Mismatched number of names in bitnames");
+                emit_error!(bitnames_strlit, "Wrong number of names (expected {})", num_bits);
+                errors_occurred = true;
             }
             bit_names = bitnames_vec.iter().map(|x| LitStr::new(x, Span::call_site())).collect();
         }
@@ -309,6 +362,11 @@ pub fn bitpattern(args: TokenStream, input: TokenStream) -> TokenStream {
     }
     let bit_names2 = bit_names.clone();
     let bit_nums = 0..num_bits;
+
+    // Finally, we have to bail if things are broken
+    if errors_occurred {
+        return TokenStream::from(quote!{#input});
+    }
 
     // For encode function
     let encode_values = var_data.iter().map(|x|

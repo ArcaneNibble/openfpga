@@ -1,11 +1,13 @@
 extern crate proc_macro;
 use proc_macro::TokenStream;
+use proc_macro_error::*;
 use proc_macro2::{Ident, Span};
 use quote::*;
 use std::collections::HashSet;
 
 mod bitpattern;
 
+#[proc_macro_error]
 #[proc_macro_attribute]
 pub fn bitpattern(args: TokenStream, input: TokenStream) -> TokenStream {
     bitpattern::bitpattern(args, input)
