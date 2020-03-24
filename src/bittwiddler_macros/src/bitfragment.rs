@@ -702,10 +702,18 @@ pub fn bitfragment(args: TokenStream, input: TokenStream) -> TokenStream {
                             });
                         }
 
-                        encode_each_bit.push(quote!{
-                            fuses[#(#encode_each_dim),*] =
-                                #inv_token encoded_arr[<#field_type as ::bittwiddler::BitPattern<#patvar>>::_name_to_pos(#bitname_litstr)];
-                        });
+                        if idx_dims == 1 {
+                            let encode_dim0 = &encode_each_dim[0];
+                            encode_each_bit.push(quote!{
+                                fuses[#encode_dim0] =
+                                    #inv_token encoded_arr[<#field_type as ::bittwiddler::BitPattern<#patvar>>::_name_to_pos(#bitname_litstr)];
+                            });
+                        } else {
+                            encode_each_bit.push(quote!{
+                                fuses[[#(#encode_each_dim),*]] =
+                                    #inv_token encoded_arr[<#field_type as ::bittwiddler::BitPattern<#patvar>>::_name_to_pos(#bitname_litstr)];
+                            });
+                        }
                     }
                 }
 
@@ -783,8 +791,15 @@ pub fn bitfragment(args: TokenStream, input: TokenStream) -> TokenStream {
                                 });
                             }
 
-                            quote!{
-                                #inv_token fuses[#(#decode_each_dim),*];
+                            if idx_dims == 1 {
+                                let decode_dim0 = &decode_each_dim[0];
+                                quote!{
+                                    #inv_token fuses[#decode_dim0];
+                                }
+                            } else {
+                                quote!{
+                                    #inv_token fuses[[#(#decode_each_dim),*]];
+                                }
                             }
                         },
                         PatBitPos::Bool(b) => {
@@ -856,6 +871,10 @@ pub fn bitfragment(args: TokenStream, input: TokenStream) -> TokenStream {
         };
         quote!{::bittwiddler::BitFragmentFieldType::#fieldtype_id}
     });
+
+    // dummy for now
+    let dim_zeros = (0..idx_dims).map(|_| quote!{0}).collect::<Vec<_>>();
+    let dim_false = (0..idx_dims).map(|_| quote!{false}).collect::<Vec<_>>();
     
     let output = quote!{
         #input
@@ -895,11 +914,11 @@ pub fn bitfragment(args: TokenStream, input: TokenStream) -> TokenStream {
             }
             #[inline]
             fn field_offset(_field_i: usize, _arr_i: usize) -> Self::OffsettingType {
-                [0]
+                [#(#dim_zeros),*]
             }
             #[inline]
             fn field_mirror(_field_i: usize, _arr_i: usize) -> Self::MirroringType {
-                [false]
+                [#(#dim_false),*]
             }
             #[inline]
             fn field_bits(_field_i: usize) -> usize {
@@ -907,7 +926,7 @@ pub fn bitfragment(args: TokenStream, input: TokenStream) -> TokenStream {
             }
             #[inline]
             fn field_bit_base_pos(_field_i: usize, _bit_i: usize) -> Self::OffsettingType {
-                [0]
+                [#(#dim_zeros),*]
             }
         }
     };

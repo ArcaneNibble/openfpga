@@ -1,3 +1,4 @@
+use core::ops::{Index, IndexMut};
 use bittwiddler::*;
 
 #[bitpattern]
@@ -119,5 +120,78 @@ fn pat_pict_decode() {
     assert_eq!(out, MyStruct1 {
         field_enum: MyEnum::Choice3,
         field_bool: true,
+    });
+}
+
+#[bitfragment(dimensions = 2)]
+#[derive(Debug, PartialEq, Eq)]
+struct MyStruct2 {
+    #[pat_pict("0 .
+                . 1")]
+    field_enum: MyEnum,
+    #[pat_pict(".
+                .
+                0")]
+    field_bool: bool,
+}
+
+#[derive(Debug, PartialEq, Eq)]
+struct My2DArray([bool; 6]);
+
+impl Index<[usize; 2]> for My2DArray {
+    type Output = bool;
+
+    fn index(&self, coords: [usize; 2]) -> &bool {
+        &self.0[coords[0] * 2 + coords[1]]
+    }
+}
+
+impl IndexMut<[usize; 2]> for My2DArray {
+    fn index_mut(&mut self, coords: [usize; 2]) -> &mut bool {
+        &mut self.0[coords[0] * 2 + coords[1]]
+    }
+}
+
+#[test]
+fn pat_pict_2d_encode() {
+    let mut out = My2DArray([false; 6]);
+
+    let x = MyStruct2 {
+        field_enum: MyEnum::Choice2,
+        field_bool: false,
+    };
+    x.encode(&mut out, [0, 0], [false, false]);
+    assert_eq!(out.0, [false, false,
+                       false, true,
+                       false, false]);
+
+    let x = MyStruct2 {
+        field_enum: MyEnum::Choice3,
+        field_bool: true,
+    };
+    x.encode(&mut out, [0, 0], [false, false]);
+    assert_eq!(out.0, [true, false,
+                       false, false,
+                       true, false]);
+}
+
+#[test]
+fn pat_pict_2d_decode() {
+    let x = My2DArray([false, false,
+                       true, false,
+                       true, false]);
+    let out = MyStruct2::decode(&x, [0, 0], [false, false]).unwrap();
+    assert_eq!(out, MyStruct2 {
+        field_enum: MyEnum::Choice1,
+        field_bool: true,
+    });
+
+    let x = My2DArray([true, true,
+                       false, true,
+                       false, true]);
+    let out = MyStruct2::decode(&x, [0, 0], [false, false]).unwrap();
+    assert_eq!(out, MyStruct2 {
+        field_enum: MyEnum::Choice4,
+        field_bool: false,
     });
 }
