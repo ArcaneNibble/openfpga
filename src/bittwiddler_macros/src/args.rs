@@ -35,6 +35,8 @@ pub mod kw {
     syn::custom_keyword!(frag_variant);
     syn::custom_keyword!(pat_variant);
     syn::custom_keyword!(dimensions);
+    syn::custom_keyword!(outer_frag_variant);
+    syn::custom_keyword!(inner_frag_variant);
 }
 
 #[derive(Debug)]

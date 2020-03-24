@@ -114,7 +114,7 @@ struct FieldInfo {
     field_type_enum: BitFragmentFieldType,
     field_type_ty: Option<Type>,
     patbits: Option<PatBitsInfo>,
-    patvar: Option<Type>,
+    subvar: Option<Type>,
 }
 
 #[derive(Debug)]
@@ -122,7 +122,7 @@ struct ParsedAttrs {
     errors_occurred: bool,
     docs: String,
     patbits: Option<PatBitsInfo>,
-    patvar: Option<Type>,
+    subvar: Option<Type>,
 }
 
 // Args for the #[pat_bits] attribute macro
@@ -175,6 +175,28 @@ impl Parse for PatPictSetting {
 }
 
 type PatPictSettings = Punctuated<PatPictSetting, token::Comma>;
+
+// Args for the #[frag] attribute macro
+#[derive(Debug)]
+enum FragSetting {
+    OuterVariant(ArgWithType),
+    InnerVariant(ArgWithType),
+}
+
+impl Parse for FragSetting {
+    fn parse(input: ParseStream) -> syn::parse::Result<Self> {
+        let lookahead = input.lookahead1();
+        if lookahead.peek(kw::outer_frag_variant) {
+            input.parse().map(FragSetting::OuterVariant)
+        } else if lookahead.peek(kw::inner_frag_variant) {
+            input.parse().map(FragSetting::InnerVariant)
+        } else {
+            Err(lookahead.error())
+        }
+    }
+}
+
+type FragSettings = Punctuated<FragSetting, token::Comma>;
 
 fn parse_pat_bits_expr(expr: &Expr) -> Result<(bool, PatBitInfo)> {
     let mut errors_occurred = false;
@@ -320,8 +342,10 @@ fn parse_attrs(attrs: &mut Vec<Attribute>, encode_variant: &Option<Type>, idx_di
     let mut errors_occurred = false;
     let mut docs = String::new();
     let mut patbits = None;
-    let mut patvar = None;
+    let mut subvar = None;
     let mut to_remove = Vec::new();
+    let mut seen_pat = false;
+    let mut seen_frag = false;
     for (i, attr) in attrs.into_iter().enumerate() {
         if attr.path.is_ident("doc") {
             let doc_meta = attr.parse_meta()?;
@@ -403,17 +427,24 @@ fn parse_attrs(attrs: &mut Vec<Attribute>, encode_variant: &Option<Type>, idx_di
             if maybe_frag_var.is_none() && encode_variant.is_none() ||
                 (maybe_frag_var.is_some() && encode_variant.is_some() &&
                     maybe_frag_var.as_ref().unwrap() == encode_variant.as_ref().unwrap()) {
+
+                seen_pat = true;
+                if seen_frag {
+                    errors_occurred = true;
+                    emit_error!(attr, "Cannot mix #[frag] with #[pat_*] attributes");
+                }
+
                 if patbits.is_some() {
                     errors_occurred = true;
                     if let Some(bitvar) = encode_variant.as_ref() {
-                        emit_error!(attr, "Only one #[pat_bits] or #[pat_pict] attribute allowed for bit variant {}", quote!{#bitvar}.to_string());
+                        emit_error!(attr, "Only one #[pat_*] attribute allowed for variant {}", quote!{#bitvar}.to_string());
                     } else {
-                        emit_error!(attr, "Only one #[pat_bits] or #[pat_pict] attribute allowed");
+                        emit_error!(attr, "Only one #[pat_*] attribute allowed");
                     }
                 }
 
                 patbits = Some(maybe_patbits);
-                patvar = maybe_pat_var;
+                subvar = maybe_pat_var;
                 to_remove.push(i);
             }
         }
@@ -456,12 +487,19 @@ fn parse_attrs(attrs: &mut Vec<Attribute>, encode_variant: &Option<Type>, idx_di
             if maybe_frag_var.is_none() && encode_variant.is_none() ||
                 (maybe_frag_var.is_some() && encode_variant.is_some() &&
                     maybe_frag_var.as_ref().unwrap() == encode_variant.as_ref().unwrap()) {
+
+                seen_pat = true;
+                if seen_frag {
+                    errors_occurred = true;
+                    emit_error!(attr, "Cannot mix #[frag] with #[pat_*] attributes");
+                }
+
                 if patbits.is_some() {
                     errors_occurred = true;
                     if let Some(bitvar) = encode_variant.as_ref() {
-                        emit_error!(attr, "Only one #[pat_bits] or #[pat_pict] attribute allowed for bit variant {}", quote!{#bitvar}.to_string());
+                        emit_error!(attr, "Only one #[pat_*] attribute allowed for variant {}", quote!{#bitvar}.to_string());
                     } else {
-                        emit_error!(attr, "Only one #[pat_bits] or #[pat_pict] attribute allowed");
+                        emit_error!(attr, "Only one #[pat_*] attribute allowed");
                     }
                 }
 
@@ -480,7 +518,60 @@ fn parse_attrs(attrs: &mut Vec<Attribute>, encode_variant: &Option<Type>, idx_di
                         emit_error!(attr, "Missing bit pattern string literal");
                         errors_occurred = true;
                     }
-                    patvar = maybe_pat_var;
+                    subvar = maybe_pat_var;
+                }
+                to_remove.push(i);
+            }
+        }
+
+        if attr.path.is_ident("frag") {
+            let parser = FragSettings::parse_separated_nonempty;
+            let attr_args = attr.parse_args_with(parser)?;
+
+            // Loop through parsed list
+            let mut maybe_outer_var = None;
+            let mut maybe_inner_var = None;
+            for attr_arg in attr_args {
+                match attr_arg {
+                    FragSetting::OuterVariant(x) => {
+                        if maybe_outer_var.is_some() {
+                            emit_error!(x, "Only one outer_frag_variant arg allowed");
+                            errors_occurred = true;
+                        }
+                        maybe_outer_var = Some(x.ty);
+                    },
+                    FragSetting::InnerVariant(x) => {
+                        if maybe_inner_var.is_some() {
+                            emit_error!(x, "Only one inner_frag_variant arg allowed");
+                            errors_occurred = true;
+                        }
+                        maybe_inner_var = Some(x.ty);
+                    },
+                }
+            }
+
+            // Possibly filter by fragment variant
+            if maybe_outer_var.is_none() && encode_variant.is_none() ||
+                (maybe_outer_var.is_some() && encode_variant.is_some() &&
+                    maybe_outer_var.as_ref().unwrap() == encode_variant.as_ref().unwrap()) {
+
+                seen_frag = true;
+                if seen_pat {
+                    errors_occurred = true;
+                    emit_error!(attr, "Cannot mix #[frag] with #[pat_*] attributes");
+                }
+
+                if subvar.is_some() && maybe_inner_var.is_some() {
+                    errors_occurred = true;
+                    if let Some(bitvar) = encode_variant.as_ref() {
+                        emit_error!(attr, "Only one #[frag] attribute allowed for variant {}", quote!{#bitvar}.to_string());
+                    } else {
+                        emit_error!(attr, "Only one #[frag] attribute allowed");
+                    }
+                }
+
+                if maybe_inner_var.is_some() {
+                    subvar = maybe_inner_var;
                 }
                 to_remove.push(i);
             }
@@ -495,7 +586,7 @@ fn parse_attrs(attrs: &mut Vec<Attribute>, encode_variant: &Option<Type>, idx_di
         errors_occurred,
         docs,
         patbits,
-        patvar,
+        subvar,
     })
 }
 
@@ -577,7 +668,7 @@ pub fn bitfragment(args: TokenStream, input: TokenStream) -> TokenStream {
                 field_type_enum: BitFragmentFieldType::Pattern,
                 field_type_ty: None,
                 patbits: parsed_attrs.patbits,
-                patvar: parsed_attrs.patvar,
+                subvar: parsed_attrs.subvar,
             });
         },
         Item::Struct(struct_) => {
@@ -628,7 +719,7 @@ pub fn bitfragment(args: TokenStream, input: TokenStream) -> TokenStream {
                     field_type_enum,
                     field_type_ty: Some(field.ty.clone()),
                     patbits: parsed_attrs.patbits,
-                    patvar: parsed_attrs.patvar,
+                    subvar: parsed_attrs.subvar,
                 });
             }
         },
@@ -688,13 +779,14 @@ pub fn bitfragment(args: TokenStream, input: TokenStream) -> TokenStream {
             },
         };
 
+        let subvar = if let Some(subvar_ty) = &field_info.subvar {
+            quote!{#subvar_ty}
+        } else {
+            quote!{()}
+        };
+
         let encode_field_ref = match field_info.field_type_enum {
             BitFragmentFieldType::Pattern => {
-                let patvar = if let Some(patvar_ty) = &field_info.patvar {
-                    quote!{#patvar_ty}
-                } else {
-                    quote!{()}
-                };
 
                 let mut encode_each_bit = Vec::new();
                 for (bitname, bitinfo) in field_info.patbits.as_ref().unwrap() {
@@ -714,27 +806,25 @@ pub fn bitfragment(args: TokenStream, input: TokenStream) -> TokenStream {
                             let encode_dim0 = &encode_each_dim[0];
                             encode_each_bit.push(quote!{
                                 fuses[#encode_dim0] =
-                                    #inv_token encoded_arr[<#field_type as ::bittwiddler::BitPattern<#patvar>>::_name_to_pos(#bitname_litstr)];
+                                    #inv_token encoded_arr[<#field_type as ::bittwiddler::BitPattern<#subvar>>::_name_to_pos(#bitname_litstr)];
                             });
                         } else {
                             encode_each_bit.push(quote!{
                                 fuses[[#(#encode_each_dim),*]] =
-                                    #inv_token encoded_arr[<#field_type as ::bittwiddler::BitPattern<#patvar>>::_name_to_pos(#bitname_litstr)];
+                                    #inv_token encoded_arr[<#field_type as ::bittwiddler::BitPattern<#subvar>>::_name_to_pos(#bitname_litstr)];
                             });
                         }
                     }
                 }
 
                 quote!{
-                    let encoded_arr = <#field_type as ::bittwiddler::BitPattern<#patvar>>::encode(field_ref);
+                    let encoded_arr = <#field_type as ::bittwiddler::BitPattern<#subvar>>::encode(field_ref);
                     #(#encode_each_bit)*
                 }
             },
             BitFragmentFieldType::Fragment => {
-                let fragvar = quote!{()};   // TODO
-
                 quote!{
-                    <#field_type as ::bittwiddler::BitFragment<#fragvar>>::encode(field_ref, fuses,
+                    <#field_type as ::bittwiddler::BitFragment<#subvar>>::encode(field_ref, fuses,
                         offset, // TODO
                         mirror  // TODO
                     );
@@ -781,14 +871,14 @@ pub fn bitfragment(args: TokenStream, input: TokenStream) -> TokenStream {
         };
         decode_field_names.push(field_name_prefix);
 
+        let subvar = if let Some(subvar_ty) = &field_info.subvar {
+            quote!{#subvar_ty}
+        } else {
+            quote!{()}
+        };
+
         let decode_field = match field_info.field_type_enum {
             BitFragmentFieldType::Pattern => {
-                let patvar = if let Some(patvar_ty) = &field_info.patvar {
-                    quote!{#patvar_ty}
-                } else {
-                    quote!{()}
-                };
-
                 let bitsinfo = field_info.patbits.as_ref().unwrap();
                 let num_bits = bitsinfo.len();
 
@@ -825,7 +915,7 @@ pub fn bitfragment(args: TokenStream, input: TokenStream) -> TokenStream {
                     };
 
                     decode_each_bit.push(quote!{
-                        decode_arr[<#field_type as ::bittwiddler::BitPattern<#patvar>>::_name_to_pos(#bitname_litstr)] = #decode_bitval
+                        decode_arr[<#field_type as ::bittwiddler::BitPattern<#subvar>>::_name_to_pos(#bitname_litstr)] = #decode_bitval
                     });
                 }
 
@@ -835,16 +925,14 @@ pub fn bitfragment(args: TokenStream, input: TokenStream) -> TokenStream {
 
                         #(#decode_each_bit)*
 
-                        <#field_type as ::bittwiddler::BitPattern<#patvar>>::decode(&decode_arr)?
+                        <#field_type as ::bittwiddler::BitPattern<#subvar>>::decode(&decode_arr)?
                     }
                 }
             },
             BitFragmentFieldType::Fragment => {
-                let fragvar = quote!{()};   // TODO
-
                 quote!{
                     {
-                        <#field_type as ::bittwiddler::BitFragment<#fragvar>>::decode(fuses,
+                        <#field_type as ::bittwiddler::BitFragment<#subvar>>::decode(fuses,
                             offset,     // TODO
                             mirror)?    // TODO
                     }
