@@ -111,7 +111,6 @@ struct FieldInfo {
     name_str: String,
     field_id: Option<Ident>,
     docs: String,
-    field_mode: FieldMode,
     field_type_enum: BitFragmentFieldType,
     field_type_ty: Option<Type>,
     patbits: Option<PatBitsInfo>,
@@ -409,7 +408,6 @@ pub fn bitfragment(args: TokenStream, input: TokenStream) -> TokenStream {
             obj_field_info.push(FieldInfo {
                 name_str: obj_id.to_string(),
                 field_id: None,
-                field_mode,
                 docs: parsed_attrs.docs,
                 field_type_enum: BitFragmentFieldType::Pattern,
                 field_type_ty: None,
@@ -453,7 +451,6 @@ pub fn bitfragment(args: TokenStream, input: TokenStream) -> TokenStream {
                 obj_field_info.push(FieldInfo {
                     name_str,
                     field_id: field.ident.clone(),
-                    field_mode,
                     docs: parsed_attrs.docs,
                     field_type_enum: BitFragmentFieldType::Pattern,  // TODO
                     field_type_ty: Some(field.ty.clone()),
@@ -494,7 +491,7 @@ pub fn bitfragment(args: TokenStream, input: TokenStream) -> TokenStream {
     // encoding
     let mut encode_fields = Vec::new();
     for (field_i, field_info) in obj_field_info.iter().enumerate() {
-        let get_field_ref = match field_info.field_mode {
+        let get_field_ref = match field_mode {
             FieldMode::Enum => {
                 quote!{let field_ref = self;}
             },
@@ -508,7 +505,7 @@ pub fn bitfragment(args: TokenStream, input: TokenStream) -> TokenStream {
             },
         };
 
-        let field_type = match field_info.field_mode {
+        let field_type = match field_mode {
             FieldMode::Enum => {
                 quote!{Self}
             },
@@ -575,7 +572,7 @@ pub fn bitfragment(args: TokenStream, input: TokenStream) -> TokenStream {
     let mut decode_field_names = Vec::new();
     let mut decode_field_vals = Vec::new();
     for field_info in &obj_field_info {
-        let field_type = match field_info.field_mode {
+        let field_type = match field_mode {
             FieldMode::Enum => {
                 quote!{Self}
             },
@@ -585,7 +582,7 @@ pub fn bitfragment(args: TokenStream, input: TokenStream) -> TokenStream {
             },
         };
 
-        let field_name_prefix = match field_info.field_mode {
+        let field_name_prefix = match field_mode {
             FieldMode::NamedStruct => {
                 let field_id = field_info.field_id.as_ref().unwrap();
                 quote!{#field_id: }
@@ -660,23 +657,26 @@ pub fn bitfragment(args: TokenStream, input: TokenStream) -> TokenStream {
         decode_field_vals.push(decode_field);
     }
 
-    let decode_func_body;
-    if obj_field_info.len() == 1 && obj_field_info[0].field_mode == FieldMode::Enum {
-        let field0 = &decode_field_vals[0];
-        decode_func_body = quote!{#field0};
-    } else if obj_field_info[0].field_mode == FieldMode::NamedStruct {
-        decode_func_body = quote!{
-            Self {
-                #(#decode_field_names #decode_field_vals),*
+    let decode_func_body = match field_mode {
+        FieldMode::Enum => {
+            let field0 = &decode_field_vals[0];
+            quote!{#field0}
+        },
+        FieldMode::NamedStruct => {
+            quote!{
+                Self {
+                    #(#decode_field_names #decode_field_vals),*
+                }
             }
-        };
-    } else if obj_field_info[0].field_mode == FieldMode::UnnamedStruct {
-        decode_func_body = quote!{
-            Self (
-                #(#decode_field_vals),*
-            )
-        };
-    } else {unreachable!()}
+        },
+        FieldMode::UnnamedStruct => {
+            quote!{
+                Self (
+                    #(#decode_field_vals),*
+                )
+            }
+        }
+    };
 
     // for docs
     let num_fields = obj_field_info.len();
