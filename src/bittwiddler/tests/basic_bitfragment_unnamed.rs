@@ -23,7 +23,7 @@ struct MyStruct1 (
 );
 
 #[test]
-fn basic_bitfragment_encode() {
+fn basic_bitfragment_unnamed_encode() {
     let mut out = [false; 3];
 
     let x = MyStruct1(
@@ -76,7 +76,7 @@ fn basic_bitfragment_encode() {
 }
 
 #[test]
-fn basic_bitfragment_decode() {
+fn basic_bitfragment_unnamed_decode() {
     let x = [true, false, false];
     let out = MyStruct1::decode(&x[..], [0], [false]).unwrap();
     assert_eq!(out, MyStruct1 (
