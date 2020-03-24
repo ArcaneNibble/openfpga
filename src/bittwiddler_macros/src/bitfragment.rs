@@ -503,7 +503,8 @@ pub fn bitfragment(args: TokenStream, input: TokenStream) -> TokenStream {
                 quote!{let field_ref = &self.#field_id;}
             },
             FieldMode::UnnamedStruct => {
-                quote!{let field_ref = &self.#field_i;}
+                let idx = Index::from(field_i);
+                quote!{let field_ref = &self.#idx;}
             },
         };
 
