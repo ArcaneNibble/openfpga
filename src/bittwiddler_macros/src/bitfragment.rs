@@ -79,8 +79,7 @@ impl Parse for BitFragmentSettings {
 
 #[derive(Debug)]
 enum PatBitPos {
-    Tuple(ExprTuple),
-    Num(LitInt),
+    Loc(Vec<isize>),
     Bool(bool),
 }
 
@@ -112,9 +111,11 @@ struct FieldInfo {
     name_str: String,
     field_id: Option<Ident>,
     docs: String,
+    field_mode: FieldMode,
     field_type_enum: BitFragmentFieldType,
     field_type_ty: Option<Type>,
     patbits: Option<PatBitsInfo>,
+    patvar: Option<Type>,
 }
 
 #[derive(Debug)]
@@ -122,6 +123,7 @@ struct ParsedAttrs {
     errors_occurred: bool,
     docs: String,
     patbits: Option<PatBitsInfo>,
+    patvar: Option<Type>,
 }
 
 // Args for the #[pat_bits] attribute macro
@@ -147,7 +149,7 @@ impl Parse for PatBitsSetting {
 
 type PatBitsSettings = Punctuated<PatBitsSetting, token::Comma>;
 
-fn parse_pat_bits_expr(expr: Expr) -> core::result::Result<PatBitInfo, ()> {
+fn parse_pat_bits_expr(expr: &Expr) -> Result<(bool, PatBitInfo)> {
     let mut errors_occurred = false;
     let ret = match expr {
         // just a true or false
@@ -161,46 +163,43 @@ fn parse_pat_bits_expr(expr: Expr) -> core::result::Result<PatBitInfo, ()> {
         Expr::Lit(ExprLit{lit: Lit::Int(i), ..}) => {
             PatBitInfo {
                 invert: false,
-                pos: PatBitPos::Num(i),
+                pos: PatBitPos::Loc(vec![i.base10_parse::<isize>()?]),
             }
         },
         // a tuple
         Expr::Tuple(t) => {
+            let mut offs = Vec::new();
+            for t_elem in &t.elems {
+                if let Expr::Lit(ExprLit{lit: Lit::Int(i), ..}) = t_elem {
+                    offs.push(i.base10_parse::<isize>()?);
+                } else {
+                    emit_error!(t_elem, "Invalid position expression");
+                    errors_occurred = true;
+                }
+            }
             PatBitInfo {
                 invert: false,
-                pos: PatBitPos::Tuple(t),
+                pos: PatBitPos::Loc(offs),
             }
         },
         // an inversion of one of the above
         Expr::Unary(ExprUnary{op: UnOp::Not(..), expr, ..}) => {
-            let inner_expr = parse_pat_bits_expr(*expr);
-            if let Ok(inner_expr) = inner_expr {
-                PatBitInfo {
-                    invert: !inner_expr.invert,
-                    pos: inner_expr.pos,
-                }
-            } else {
+            let (inner_errors, inner_expr) = parse_pat_bits_expr(expr)?;
+            if inner_errors {
                 errors_occurred = true;
-                // dummy
-                PatBitInfo {
-                    invert: false,
-                    pos: PatBitPos::Bool(false),
-                }
+            }
+            PatBitInfo {
+                invert: !inner_expr.invert,
+                pos: inner_expr.pos,
             }
         },
         // parense
         Expr::Paren(ExprParen{expr, ..}) => {
-            let inner_expr = parse_pat_bits_expr(*expr);
-            if let Ok(inner_expr) = inner_expr {
-                inner_expr
-            } else {
+            let (inner_errors, inner_expr) = parse_pat_bits_expr(expr)?;
+            if inner_errors {
                 errors_occurred = true;
-                // dummy
-                PatBitInfo {
-                    invert: false,
-                    pos: PatBitPos::Bool(false),
-                }
             }
+            inner_expr
         },
         _ => {
             emit_error!(expr, "Invalid position expression");
@@ -213,17 +212,14 @@ fn parse_pat_bits_expr(expr: Expr) -> core::result::Result<PatBitInfo, ()> {
         },
     };
 
-    if errors_occurred {
-        Err(())
-    } else {
-        Ok(ret)
-    }
+    Ok((errors_occurred, ret))
 }
 
-fn parse_attrs(attrs: &mut Vec<Attribute>, encode_variant: &Option<Type>) -> ::core::result::Result<ParsedAttrs, syn::Error> {
+fn parse_attrs(attrs: &mut Vec<Attribute>, encode_variant: &Option<Type>, idx_dims: usize) -> Result<ParsedAttrs> {
     let mut errors_occurred = false;
     let mut docs = String::new();
     let mut patbits = None;
+    let mut patvar = None;
     let mut to_remove = Vec::new();
     for (i, attr) in attrs.into_iter().enumerate() {
         if attr.path.is_ident("doc") {
@@ -261,7 +257,7 @@ fn parse_attrs(attrs: &mut Vec<Attribute>, encode_variant: &Option<Type>) -> ::c
                             emit_error!(x, "Only one pat_variant arg allowed");
                             errors_occurred = true;
                         }
-                        maybe_pat_var = Some(x);
+                        maybe_pat_var = Some(x.ty);
                     },
                     PatBitsSetting::Expr(x) => {
                         let bit_id = x.ident.to_string();
@@ -270,12 +266,17 @@ fn parse_attrs(attrs: &mut Vec<Attribute>, encode_variant: &Option<Type>) -> ::c
                             errors_occurred = true;
                         }
 
-                        let bit_info = parse_pat_bits_expr(x.expr);
-                        if bit_info.is_err() {
+                        let (bit_info_error, bit_info) = parse_pat_bits_expr(&x.expr)?;
+                        if bit_info_error {
                             errors_occurred = true;
-                        } else {
-                            maybe_patbits.insert(bit_id, bit_info.unwrap());
                         }
+                        if let PatBitInfo{pos: PatBitPos::Loc(locs), ..} = &bit_info {
+                            if locs.len() != idx_dims {
+                                emit_error!(x.expr, "Position doesn't match dimension (expected {})", idx_dims);
+                                errors_occurred = true;
+                            }
+                        }
+                        maybe_patbits.insert(bit_id, bit_info);
                     },
                 }
             }
@@ -294,6 +295,7 @@ fn parse_attrs(attrs: &mut Vec<Attribute>, encode_variant: &Option<Type>) -> ::c
                 }
 
                 patbits = Some(maybe_patbits);
+                patvar = maybe_pat_var;
                 to_remove.push(i);
             }
         }
@@ -307,6 +309,7 @@ fn parse_attrs(attrs: &mut Vec<Attribute>, encode_variant: &Option<Type>) -> ::c
         errors_occurred,
         docs,
         patbits,
+        patvar,
     })
 }
 
@@ -350,10 +353,15 @@ pub fn bitfragment(args: TokenStream, input: TokenStream) -> TokenStream {
         }
     }
 
+    // We really need dimensions for a bunch of stuff, so parse/unwrap/bail it now
     if idx_dims.is_none() {
-        emit_error!(args.0, "#[bitfragment] requires dimensions to be specified");
-        errors_occurred = true;
+        abort!(args.0, "#[bitfragment] requires dimensions to be specified");
     }
+    let idx_dims = idx_dims.unwrap().base10_parse::<usize>();
+    if let Err(e) = idx_dims {
+        return e.to_compile_error().into();
+    }
+    let idx_dims = idx_dims.unwrap();
 
     // arg parsing done, walk over data and gather info about fields
 
@@ -366,7 +374,7 @@ pub fn bitfragment(args: TokenStream, input: TokenStream) -> TokenStream {
             obj_id = enum_.ident.clone();
             field_mode = FieldMode::Enum;
 
-            let parsed_attrs = parse_attrs(&mut enum_.attrs, &encode_variant);
+            let parsed_attrs = parse_attrs(&mut enum_.attrs, &encode_variant, idx_dims);
             if let Err(e) = parsed_attrs {
                 return e.to_compile_error().into();
             }
@@ -378,11 +386,13 @@ pub fn bitfragment(args: TokenStream, input: TokenStream) -> TokenStream {
 
             obj_field_info.push(FieldInfo {
                 name_str: obj_id.to_string(),
-                field_id: Some(obj_id.clone()),
+                field_id: None,
+                field_mode,
                 docs: parsed_attrs.docs,
                 field_type_enum: BitFragmentFieldType::Pattern,
                 field_type_ty: None,
                 patbits: parsed_attrs.patbits,
+                patvar: parsed_attrs.patvar,
             });
         },
         Item::Struct(struct_) => {
@@ -408,7 +418,7 @@ pub fn bitfragment(args: TokenStream, input: TokenStream) -> TokenStream {
                     field_i.to_string()
                 };
 
-                let parsed_attrs = parse_attrs(&mut field.attrs, &encode_variant);
+                let parsed_attrs = parse_attrs(&mut field.attrs, &encode_variant, idx_dims);
                 if let Err(e) = parsed_attrs {
                     return e.to_compile_error().into();
                 }
@@ -423,10 +433,12 @@ pub fn bitfragment(args: TokenStream, input: TokenStream) -> TokenStream {
                 obj_field_info.push(FieldInfo {
                     name_str,
                     field_id: field.ident.clone(),
+                    field_mode,
                     docs: parsed_attrs.docs,
                     field_type_enum: BitFragmentFieldType::Pattern,  // TODO
                     field_type_ty: Some(field.ty.clone()),
                     patbits: parsed_attrs.patbits,
+                    patvar: parsed_attrs.patvar,
                 });
             }
         },
@@ -441,13 +453,6 @@ pub fn bitfragment(args: TokenStream, input: TokenStream) -> TokenStream {
     }
 
     // basic settings
-    let idx_dims = idx_dims.unwrap();
-    let idx_dims = idx_dims.base10_parse::<usize>();
-    if let Err(e) = idx_dims {
-        return e.to_compile_error().into();
-    }
-    let idx_dims = idx_dims.unwrap();
-
     let encode_variant = if let Some(x) = encode_variant {
         x.into_token_stream()
     } else {
@@ -465,6 +470,63 @@ pub fn bitfragment(args: TokenStream, input: TokenStream) -> TokenStream {
     } else {
         quote!{[usize; #idx_dims]}
     };
+
+    // encoding
+    let mut encode_fields = Vec::new();
+    for (field_i, field_info) in obj_field_info.iter().enumerate() {
+        let get_field_ref = match field_info.field_mode {
+            FieldMode::Enum => {
+                quote!{let field_ref = self;}
+            },
+            FieldMode::NamedStruct => {
+                let field_id = field_info.field_id.as_ref().unwrap();
+                quote!{let field_ref = &self.#field_id;}
+            },
+            FieldMode::UnnamedStruct => {
+                quote!{let field_ref = &self.#field_i;}
+            },
+        };
+
+        let field_type = match field_info.field_mode {
+            FieldMode::Enum => {
+                quote!{Self}
+            },
+            FieldMode::NamedStruct | FieldMode::UnnamedStruct => {
+                let field_ty = field_info.field_type_ty.as_ref().unwrap();
+                quote!{#field_ty}
+            },
+        };
+
+        let encode_field_ref = match field_info.field_type_enum {
+            BitFragmentFieldType::Pattern => {
+                let patvar = if let Some(patvar_ty) = &field_info.patvar {
+                    quote!{#patvar_ty}
+                } else {
+                    quote!{()}
+                };
+
+                quote!{
+                    let encoded_arr = <#field_type as ::bittwiddler::BitPattern<#patvar>>::encode(field_ref);
+                }
+            },
+            BitFragmentFieldType::Fragment => {
+                unimplemented!();
+            },
+            BitFragmentFieldType::PatternArray => {
+                unimplemented!();
+            },
+            BitFragmentFieldType::FragmentArray => {
+                unimplemented!();
+            },
+        };
+
+        encode_fields.push(quote!{
+            {
+                #get_field_ref
+                #encode_field_ref
+            }
+        })
+    }
 
     // for docs
     let num_fields = obj_field_info.len();
@@ -495,6 +557,8 @@ pub fn bitfragment(args: TokenStream, input: TokenStream) -> TokenStream {
 
             fn encode<F>(&self, fuses: &mut F, offset: Self::OffsettingType, mirror: Self::MirroringType)
                 where F: ::core::ops::IndexMut<Self::IndexingType, Output=bool> + ?Sized {
+
+                #(#encode_fields)*
 
                 // fuses[if mirror[0] {offset[0] - 0} else {offset[0] + 0}] = self.field1;
                 // fuses[if mirror[0] {offset[0] - 1} else {offset[0] + 1}] = self.field1;
