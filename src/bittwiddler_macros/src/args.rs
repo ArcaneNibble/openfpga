@@ -39,7 +39,7 @@ pub mod kw {
 
 #[derive(Debug)]
 pub struct ArgWithExpr {
-    _ident: Ident,
+    pub ident: Ident,
     _eq: syn::token::Eq,
     pub expr: Expr,
 }
@@ -47,7 +47,7 @@ pub struct ArgWithExpr {
 impl Parse for ArgWithExpr {
     fn parse(input: ParseStream) -> syn::parse::Result<Self> {
         Ok(ArgWithExpr {
-            _ident: input.parse()?,
+            ident: input.parse()?,
             _eq: input.parse()?,
             expr: input.parse()?,
         })
@@ -56,7 +56,7 @@ impl Parse for ArgWithExpr {
 
 impl ToTokens for ArgWithExpr {
     fn to_tokens(&self, tokens: &mut proc_macro2::TokenStream) {
-        self._ident.to_tokens(tokens);
+        self.ident.to_tokens(tokens);
         self._eq.to_tokens(tokens);
         self.expr.to_tokens(tokens);
     }

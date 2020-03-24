@@ -16,6 +16,7 @@ enum MyEnum {
 #[bitfragment(dimensions = 1)]
 #[derive(Debug, PartialEq, Eq)]
 struct MyStruct1 {
+    #[pat_bits(A = !(true,), B = 1)]
     field_enum: MyEnum,
     field_bool: bool,
 }

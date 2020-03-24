@@ -23,6 +23,8 @@ OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
+use std::collections::HashMap;
+
 extern crate proc_macro;
 use proc_macro::TokenStream;
 use proc_macro_error::*;
@@ -75,6 +77,21 @@ impl Parse for BitFragmentSettings {
     }
 }
 
+#[derive(Debug)]
+enum PatBitPos {
+    Tuple(ExprTuple),
+    Num(LitInt),
+    Bool(bool),
+}
+
+#[derive(Debug)]
+struct PatBitInfo {
+    invert: bool,
+    pos: PatBitPos,
+}
+
+type PatBitsInfo = HashMap<String, PatBitInfo>;
+
 #[derive(Copy, Clone, Debug)]
 enum BitFragmentFieldType {
     Pattern,
@@ -97,16 +114,118 @@ struct FieldInfo {
     docs: String,
     field_type_enum: BitFragmentFieldType,
     field_type_ty: Option<Type>,
+    patbits: Option<PatBitsInfo>,
 }
 
 #[derive(Debug)]
 struct ParsedAttrs {
+    errors_occurred: bool,
     docs: String,
+    patbits: Option<PatBitsInfo>,
 }
 
-fn parse_attrs(attrs: &[Attribute]) -> ::core::result::Result<ParsedAttrs, syn::Error> {
+// Args for the #[pat_bits] attribute macro
+#[derive(Debug)]
+enum PatBitsSetting {
+    FragVariant(ArgWithType),
+    PatVariant(ArgWithType),
+    Expr(ArgWithExpr),
+}
+
+impl Parse for PatBitsSetting {
+    fn parse(input: ParseStream) -> syn::parse::Result<Self> {
+        let lookahead = input.lookahead1();
+        if lookahead.peek(kw::frag_variant) {
+            input.parse().map(PatBitsSetting::FragVariant)
+        } else if lookahead.peek(kw::pat_variant) {
+            input.parse().map(PatBitsSetting::PatVariant)
+        } else {
+            input.parse().map(PatBitsSetting::Expr)
+        }
+    }
+}
+
+type PatBitsSettings = Punctuated<PatBitsSetting, token::Comma>;
+
+fn parse_pat_bits_expr(expr: Expr) -> core::result::Result<PatBitInfo, ()> {
+    let mut errors_occurred = false;
+    let ret = match expr {
+        // just a true or false
+        Expr::Lit(ExprLit{lit: Lit::Bool(b), ..}) => {
+            PatBitInfo {
+                invert: false,
+                pos: PatBitPos::Bool(b.value),
+            }
+        },
+        // an integer position
+        Expr::Lit(ExprLit{lit: Lit::Int(i), ..}) => {
+            PatBitInfo {
+                invert: false,
+                pos: PatBitPos::Num(i),
+            }
+        },
+        // a tuple
+        Expr::Tuple(t) => {
+            PatBitInfo {
+                invert: false,
+                pos: PatBitPos::Tuple(t),
+            }
+        },
+        // an inversion of one of the above
+        Expr::Unary(ExprUnary{op: UnOp::Not(..), expr, ..}) => {
+            let inner_expr = parse_pat_bits_expr(*expr);
+            if let Ok(inner_expr) = inner_expr {
+                PatBitInfo {
+                    invert: !inner_expr.invert,
+                    pos: inner_expr.pos,
+                }
+            } else {
+                errors_occurred = true;
+                // dummy
+                PatBitInfo {
+                    invert: false,
+                    pos: PatBitPos::Bool(false),
+                }
+            }
+        },
+        // parense
+        Expr::Paren(ExprParen{expr, ..}) => {
+            let inner_expr = parse_pat_bits_expr(*expr);
+            if let Ok(inner_expr) = inner_expr {
+                inner_expr
+            } else {
+                errors_occurred = true;
+                // dummy
+                PatBitInfo {
+                    invert: false,
+                    pos: PatBitPos::Bool(false),
+                }
+            }
+        },
+        _ => {
+            emit_error!(expr, "Invalid position expression");
+            errors_occurred = true;
+            // dummy
+            PatBitInfo {
+                invert: false,
+                pos: PatBitPos::Bool(false),
+            }
+        },
+    };
+
+    if errors_occurred {
+        Err(())
+    } else {
+        Ok(ret)
+    }
+}
+
+fn parse_attrs(attrs: &mut Vec<Attribute>, encode_variant: &Option<Type>) -> ::core::result::Result<ParsedAttrs, syn::Error> {
+    let mut errors_occurred = false;
     let mut docs = String::new();
-    for attr in attrs {
+    let mut patbits = None;
+    let mut to_remove = Vec::new();
+    for (i, attr) in attrs.into_iter().enumerate() {
         if attr.path.is_ident("doc") {
             let doc_meta = attr.parse_meta()?;
 
@@ -119,10 +238,75 @@ fn parse_attrs(attrs: &[Attribute]) -> ::core::result::Result<ParsedAttrs, syn::
                 }
             }
         }
+
+        if attr.path.is_ident("pat_bits") {
+            let parser = PatBitsSettings::parse_separated_nonempty;
+            let attr_args = attr.parse_args_with(parser)?;
+
+            // Loop through parsed list
+            let mut maybe_frag_var = None;
+            let mut maybe_pat_var = None;
+            let mut maybe_patbits = PatBitsInfo::new();
+            for attr_arg in attr_args {
+                match attr_arg {
+                    PatBitsSetting::FragVariant(x) => {
+                        if maybe_frag_var.is_some() {
+                            emit_error!(x, "Only one frag_variant arg allowed");
+                            errors_occurred = true;
+                        }
+                        maybe_frag_var = Some(x.ty);
+                    },
+                    PatBitsSetting::PatVariant(x) => {
+                        if maybe_pat_var.is_some() {
+                            emit_error!(x, "Only one pat_variant arg allowed");
+                            errors_occurred = true;
+                        }
+                        maybe_pat_var = Some(x);
+                    },
+                    PatBitsSetting::Expr(x) => {
+                        let bit_id = x.ident.to_string();
+                        if maybe_patbits.contains_key(&bit_id) {
+                            emit_error!(x, "Duplicate bit {} position", bit_id);
+                            errors_occurred = true;
+                        }
+
+                        let bit_info = parse_pat_bits_expr(x.expr);
+                        if bit_info.is_err() {
+                            errors_occurred = true;
+                        } else {
+                            maybe_patbits.insert(bit_id, bit_info.unwrap());
+                        }
+                    },
+                }
+            }
+
+            // Possibly filter by fragment variant
+            if maybe_frag_var.is_none() && encode_variant.is_none() ||
+                (maybe_frag_var.is_some() && encode_variant.is_some() &&
+                    maybe_frag_var.as_ref().unwrap() == encode_variant.as_ref().unwrap()) {
+                if patbits.is_some() {
+                    errors_occurred = true;
+                    if let Some(bitvar) = encode_variant.as_ref() {
+                        emit_error!(attr, "Only one #[pat_bits] attribute allowed for bit variant {}", quote!{#bitvar}.to_string());
+                    } else {
+                        emit_error!(attr, "Only one #[pat_bits] attribute allowed");
+                    }
+                }
+
+                patbits = Some(maybe_patbits);
+                to_remove.push(i);
+            }
+        }
+    }
+
+    for i in to_remove {
+        attrs.remove(i);
     }
 
     Ok(ParsedAttrs {
+        errors_occurred,
         docs,
+        patbits,
     })
 }
 
@@ -177,16 +361,20 @@ pub fn bitfragment(args: TokenStream, input: TokenStream) -> TokenStream {
     let field_mode;
     let mut obj_field_info = Vec::new();
 
-    match &input {
+    match &mut input {
         Item::Enum(enum_) => {
             obj_id = enum_.ident.clone();
             field_mode = FieldMode::Enum;
 
-            let parsed_attrs = parse_attrs(&enum_.attrs);
+            let parsed_attrs = parse_attrs(&mut enum_.attrs, &encode_variant);
             if let Err(e) = parsed_attrs {
                 return e.to_compile_error().into();
             }
             let parsed_attrs = parsed_attrs.unwrap();
+
+            if parsed_attrs.errors_occurred {
+                errors_occurred = true;
+            }
 
             obj_field_info.push(FieldInfo {
                 name_str: obj_id.to_string(),
@@ -194,17 +382,18 @@ pub fn bitfragment(args: TokenStream, input: TokenStream) -> TokenStream {
                 docs: parsed_attrs.docs,
                 field_type_enum: BitFragmentFieldType::Pattern,
                 field_type_ty: None,
+                patbits: parsed_attrs.patbits,
             });
         },
         Item::Struct(struct_) => {
             obj_id = struct_.ident.clone();
 
-            let (mode, fields) = match &struct_.fields {
+            let (mode, fields) = match &mut struct_.fields {
                 Fields::Named(fields) => {
-                    (FieldMode::NamedStruct, &fields.named)
+                    (FieldMode::NamedStruct, &mut fields.named)
                 },
                 Fields::Unnamed(fields) => {
-                    (FieldMode::UnnamedStruct, &fields.unnamed)
+                    (FieldMode::UnnamedStruct, &mut fields.unnamed)
                 },
                 Fields::Unit => {
                     abort!(input, "#[bitfragment] cannot be used on a unit struct");
@@ -212,25 +401,32 @@ pub fn bitfragment(args: TokenStream, input: TokenStream) -> TokenStream {
             };
 
             field_mode = mode;
-            for (field_i, field) in fields.iter().enumerate() {
+            for (field_i, field) in fields.iter_mut().enumerate() {
                 let name_str = if let Some(id) = field.ident.as_ref() {
                     id.to_string()
                 } else {
                     field_i.to_string()
                 };
 
-                let parsed_attrs = parse_attrs(&field.attrs);
+                let parsed_attrs = parse_attrs(&mut field.attrs, &encode_variant);
                 if let Err(e) = parsed_attrs {
                     return e.to_compile_error().into();
                 }
                 let parsed_attrs = parsed_attrs.unwrap();
+
+                if parsed_attrs.errors_occurred {
+                    errors_occurred = true;
+                }
+
+                println!("{:?}", parsed_attrs);
 
                 obj_field_info.push(FieldInfo {
                     name_str,
                     field_id: field.ident.clone(),
                     docs: parsed_attrs.docs,
                     field_type_enum: BitFragmentFieldType::Pattern,  // TODO
-                    field_type_ty: Some(field.ty.clone())
+                    field_type_ty: Some(field.ty.clone()),
+                    patbits: parsed_attrs.patbits,
                 });
             }
         },
@@ -285,7 +481,7 @@ pub fn bitfragment(args: TokenStream, input: TokenStream) -> TokenStream {
     });
     
     let output = quote!{
-        #input_copy
+        #input
 
         impl ::bittwiddler::BitFragment<#encode_variant> for #obj_id {
             const IDX_DIMS: usize = #idx_dims;
