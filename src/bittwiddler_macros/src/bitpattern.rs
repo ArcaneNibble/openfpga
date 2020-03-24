@@ -374,12 +374,14 @@ pub fn bitpattern(args: TokenStream, input: TokenStream) -> TokenStream {
 
             const VARIANT_COUNT: usize = #num_variants;
 
+            #[inline]
             fn encode(&self) -> Self::BitsArrType {
                 match self {
                     #(Self::#encode_var_id => [#(#encode_values),*]),*
                 }
             }
 
+            #[inline]
             fn decode(bits: &Self::BitsArrType) -> Result<Self, Self::ErrType> {
                 match bits {
                     #([#(#decode_values),*] => Ok(Self::#decode_var_id)),*
@@ -387,10 +389,12 @@ pub fn bitpattern(args: TokenStream, input: TokenStream) -> TokenStream {
                 }
             }
 
+            #[inline]
             fn _pos_to_name(pos: usize) -> &'static str {
                 [#(#bit_names),*][pos]
             }
 
+            #[inline]
             fn _name_to_pos(name: &'static str) -> usize {
                 match name {
                     #(#bit_names2 => #bit_nums),*
@@ -398,15 +402,17 @@ pub fn bitpattern(args: TokenStream, input: TokenStream) -> TokenStream {
                 }
             }
 
+            #[inline]
             fn variantname(var: usize) -> &'static str {
                 [#(#variant_names),*][var]
             }
 
-
+            #[inline]
             fn variantdesc(var: usize) -> &'static str {
                 [#(#variant_docs),*][var]
             }
 
+            #[inline]
             fn variantbits(var: usize) -> &'static str {
                 [#(#variant_bits),*][var]
             }

@@ -109,18 +109,22 @@ impl BitPattern<()> for bool {
 
     const VARIANT_COUNT: usize = 2;
 
+    #[inline]
     fn encode(&self) -> Self::BitsArrType {
         [*self]
     }
 
+    #[inline]
     fn decode(bits: &Self::BitsArrType) -> Result<Self, Self::ErrType> {
         Ok(bits[0])
     }
 
+    #[inline]
     fn _pos_to_name(pos: usize) -> &'static str {
         ["0"][pos]
     }
 
+    #[inline]
     fn _name_to_pos(name: &'static str) -> usize {
         match name {
             "0" => 0,
@@ -128,14 +132,17 @@ impl BitPattern<()> for bool {
         }
     }
 
+    #[inline]
     fn variantname(var: usize) -> &'static str {
         ["false", "true"][var]
     }
 
+    #[inline]
     fn variantdesc(var: usize) -> &'static str {
         ["false", "true"][var]
     }
 
+    #[inline]
     fn variantbits(var: usize) -> &'static str {
         ["0", "1"][var]
     }

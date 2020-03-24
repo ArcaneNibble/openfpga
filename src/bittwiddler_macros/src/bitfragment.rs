@@ -715,24 +715,31 @@ pub fn bitfragment(args: TokenStream, input: TokenStream) -> TokenStream {
                 Ok(#decode_func_body)
             }
 
+            #[inline]
             fn fieldname(i: usize) -> &'static str {
                 [#(#field_names),*][i]
             }
+            #[inline]
             fn fielddesc(i: usize) -> &'static str {
                 [#(#field_docs),*][i]
             }
+            #[inline]
             fn fieldtype(i: usize) -> BitFragmentFieldType {
                 [#(#field_types),*][i]
             }
+            #[inline]
             fn field_offset(_field_i: usize, _arr_i: usize) -> Self::OffsettingType {
                 [0]
             }
+            #[inline]
             fn field_mirror(_field_i: usize, _arr_i: usize) -> Self::MirroringType {
                 [false]
             }
+            #[inline]
             fn field_bits(_field_i: usize) -> usize {
                 0
             }
+            #[inline]
             fn field_bit_base_pos(_field_i: usize, _bit_i: usize) -> Self::OffsettingType {
                 [0]
             }

@@ -43,8 +43,6 @@ fn basic_bitfragment_encode() {
 
 #[test]
 fn basic_bitfragment_decode() {
-    println!("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA");
-
     let x = [true, false, false];
     let out = MyStruct1::decode(&x[..], [0], [false]).unwrap();
     assert_eq!(out, MyStruct1 {
