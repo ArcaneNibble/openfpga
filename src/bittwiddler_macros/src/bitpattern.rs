@@ -228,13 +228,11 @@ pub fn bitpattern(args: TokenStream, input: TokenStream) -> TokenStream {
                 }
                 let doc_meta = doc_meta.unwrap();
 
-                if let Meta::NameValue(nv) = doc_meta {
-                    if let Lit::Str(s) = nv.lit {
-                        if bits_docs.len() != 0 {
-                            bits_docs.push_str(" ");
-                        }
-                        bits_docs.push_str(s.value().trim());
+                if let Meta::NameValue(MetaNameValue{lit: Lit::Str(s), ..}) = doc_meta {
+                    if bits_docs.len() != 0 {
+                        bits_docs.push_str(" ");
                     }
+                    bits_docs.push_str(s.value().trim());
                 }
             }
         }

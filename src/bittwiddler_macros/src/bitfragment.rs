@@ -151,6 +151,31 @@ impl Parse for PatBitsSetting {
 
 type PatBitsSettings = Punctuated<PatBitsSetting, token::Comma>;
 
+// Args for the #[pat_pict] attribute macro
+#[derive(Debug)]
+enum PatPictSetting {
+    PatString(LitStr),
+    FragVariant(ArgWithType),
+    PatVariant(ArgWithType),
+}
+
+impl Parse for PatPictSetting {
+    fn parse(input: ParseStream) -> syn::parse::Result<Self> {
+        let lookahead = input.lookahead1();
+        if lookahead.peek(LitStr) {
+            input.parse().map(PatPictSetting::PatString)
+        } else if lookahead.peek(kw::frag_variant) {
+            input.parse().map(PatPictSetting::FragVariant)
+        } else if lookahead.peek(kw::pat_variant) {
+            input.parse().map(PatPictSetting::PatVariant)
+        } else {
+            Err(lookahead.error())
+        }
+    }
+}
+
+type PatPictSettings = Punctuated<PatPictSetting, token::Comma>;
+
 fn parse_pat_bits_expr(expr: &Expr) -> Result<(bool, PatBitInfo)> {
     let mut errors_occurred = false;
     let ret = match expr {
@@ -217,6 +242,80 @@ fn parse_pat_bits_expr(expr: &Expr) -> Result<(bool, PatBitInfo)> {
     Ok((errors_occurred, ret))
 }
 
+// parsing something like this:
+// A B .  C
+// D . !E .
+// <blank>
+// F = true
+// G = false
+fn parse_pat_picture(pict_lit: &LitStr, idx_dims: usize) -> Option<PatBitsInfo> {
+    let mut ret = PatBitsInfo::new();
+    let pict_str = pict_lit.value();
+    let pict_str_lines = pict_str.lines().map(|x| x.trim()).collect::<Vec<_>>();
+
+    let mut pict_str_halves = pict_str_lines.splitn(2, |x| *x == "");
+    // the main pattern
+    let pict_str_bits = pict_str_halves.next().unwrap();
+    // additional fixed bits
+    let pict_str_extra = pict_str_halves.next();
+
+    // decode the main picture
+    for (y, l) in pict_str_bits.into_iter().enumerate() {
+        for (x, bit) in l.split_whitespace().enumerate() {
+            if bit != "." {
+                let (invert, bit) = if bit.starts_with("!") {
+                    (true, bit.split_at(1).1)
+                } else {
+                    (false, bit)
+                };
+
+                if idx_dims == 1 {
+                    ret.insert(bit.to_owned(), PatBitInfo {
+                        invert,
+                        pos: PatBitPos::Loc(vec![x as isize]),
+                    });
+                } else {
+                    ret.insert(bit.to_owned(), PatBitInfo {
+                        invert,
+                        pos: PatBitPos::Loc(vec![y as isize, x as isize]),
+                    });
+                }
+            }
+        }
+    }
+
+    // decode the additional bits
+    if let Some(pict_str_extra) = pict_str_extra {
+        for l in pict_str_extra {
+            if *l != "" {
+                let extra_bit_halves = l.splitn(2, '=').collect::<Vec<_>>();
+                if extra_bit_halves.len() != 2 {
+                    emit_error!(pict_lit, "Extra bit line \"{}\" is malformed", l);
+                    return None;
+                }
+
+                let bitname = extra_bit_halves[0].trim();
+                let bitval = extra_bit_halves[1].trim();
+                let bitval = match bitval {
+                    "true" => true,
+                    "false" => false,
+                    _ => {
+                        emit_error!(pict_lit, "Extra bit line value \"{}\" is malformed", bitval);
+                        return None;
+                    }
+                };
+
+                ret.insert(bitname.to_owned(), PatBitInfo {
+                    invert: false,
+                    pos: PatBitPos::Bool(bitval),
+                });
+            }
+        }
+    }
+
+    Some(ret)
+}
+
 fn parse_attrs(attrs: &mut Vec<Attribute>, encode_variant: &Option<Type>, idx_dims: usize) -> Result<ParsedAttrs> {
     let mut errors_occurred = false;
     let mut docs = String::new();
@@ -227,13 +326,11 @@ fn parse_attrs(attrs: &mut Vec<Attribute>, encode_variant: &Option<Type>, idx_di
         if attr.path.is_ident("doc") {
             let doc_meta = attr.parse_meta()?;
 
-            if let Meta::NameValue(nv) = doc_meta {
-                if let Lit::Str(s) = nv.lit {
-                    if docs.len() != 0 {
-                        docs.push_str(" ");
-                    }
-                    docs.push_str(s.value().trim());
+            if let Meta::NameValue(MetaNameValue{lit: Lit::Str(s), ..}) = doc_meta {
+                if docs.len() != 0 {
+                    docs.push_str(" ");
                 }
+                docs.push_str(s.value().trim());
             }
         }
 
@@ -309,9 +406,9 @@ fn parse_attrs(attrs: &mut Vec<Attribute>, encode_variant: &Option<Type>, idx_di
                 if patbits.is_some() {
                     errors_occurred = true;
                     if let Some(bitvar) = encode_variant.as_ref() {
-                        emit_error!(attr, "Only one #[pat_bits] attribute allowed for bit variant {}", quote!{#bitvar}.to_string());
+                        emit_error!(attr, "Only one #[pat_bits] or #[pat_pict] attribute allowed for bit variant {}", quote!{#bitvar}.to_string());
                     } else {
-                        emit_error!(attr, "Only one #[pat_bits] attribute allowed");
+                        emit_error!(attr, "Only one #[pat_bits] or #[pat_pict] attribute allowed");
                     }
                 }
 
@@ -320,9 +417,77 @@ fn parse_attrs(attrs: &mut Vec<Attribute>, encode_variant: &Option<Type>, idx_di
                 to_remove.push(i);
             }
         }
+
+        if attr.path.is_ident("pat_pict") {
+            let parser = PatPictSettings::parse_separated_nonempty;
+            let attr_args = attr.parse_args_with(parser)?;
+
+            // Loop through parsed list
+            let mut maybe_frag_var = None;
+            let mut maybe_pat_var = None;
+            let mut maybe_patstr = None;
+            for attr_arg in attr_args {
+                match attr_arg {
+                    PatPictSetting::FragVariant(x) => {
+                        if maybe_frag_var.is_some() {
+                            emit_error!(x, "Only one frag_variant arg allowed");
+                            errors_occurred = true;
+                        }
+                        maybe_frag_var = Some(x.ty);
+                    },
+                    PatPictSetting::PatVariant(x) => {
+                        if maybe_pat_var.is_some() {
+                            emit_error!(x, "Only one pat_variant arg allowed");
+                            errors_occurred = true;
+                        }
+                        maybe_pat_var = Some(x.ty);
+                    },
+                    PatPictSetting::PatString(x) => {
+                        if maybe_patstr.is_some() {
+                            emit_error!(x, "Only one string literal allowed");
+                            errors_occurred = true;
+                        }
+                        maybe_patstr = Some(x);
+                    },
+                }
+            }
+
+            // Possibly filter by fragment variant
+            if maybe_frag_var.is_none() && encode_variant.is_none() ||
+                (maybe_frag_var.is_some() && encode_variant.is_some() &&
+                    maybe_frag_var.as_ref().unwrap() == encode_variant.as_ref().unwrap()) {
+                if patbits.is_some() {
+                    errors_occurred = true;
+                    if let Some(bitvar) = encode_variant.as_ref() {
+                        emit_error!(attr, "Only one #[pat_bits] or #[pat_pict] attribute allowed for bit variant {}", quote!{#bitvar}.to_string());
+                    } else {
+                        emit_error!(attr, "Only one #[pat_bits] or #[pat_pict] attribute allowed");
+                    }
+                }
+
+                if idx_dims != 1 && idx_dims != 2 {
+                    emit_error!(attr, "#[pat_pict] can only be used on 1- or 2-dimensional fragments");
+                    errors_occurred = true;
+                } else {
+                    if let Some(patstr) = maybe_patstr {
+                        let parsed_patbits = parse_pat_picture(&patstr, idx_dims);
+                        if let Some(parsed_patbits) = parsed_patbits {
+                            patbits = Some(parsed_patbits)
+                        } else {
+                            errors_occurred = true;
+                        }
+                    } else {
+                        emit_error!(attr, "Missing bit pattern string literal");
+                        errors_occurred = true;
+                    }
+                    patvar = maybe_pat_var;
+                }
+                to_remove.push(i);
+            }
+        }
     }
 
-    for i in to_remove {
+    for i in to_remove.into_iter().rev() {
         attrs.remove(i);
     }
 
@@ -624,7 +789,7 @@ pub fn bitfragment(args: TokenStream, input: TokenStream) -> TokenStream {
                         },
                         PatBitPos::Bool(b) => {
                             quote!{
-                                #inv_token #b
+                                #inv_token #b;
                             }
                         }
                     };
