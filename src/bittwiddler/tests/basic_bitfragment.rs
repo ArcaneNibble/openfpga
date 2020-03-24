@@ -40,3 +40,15 @@ fn basic_bitfragment_encode() {
     x.encode(&mut out[..], [0], [false]);
     assert_eq!(out, [true, true, false]);
 }
+
+#[test]
+fn basic_bitfragment_decode() {
+    println!("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA");
+
+    let x = [true, false, false];
+    let out = MyStruct1::decode(&x[..], [0], [false]).unwrap();
+    assert_eq!(out, MyStruct1 {
+        field_enum: MyEnum::Choice1,
+        field_bool: true,
+    });
+}

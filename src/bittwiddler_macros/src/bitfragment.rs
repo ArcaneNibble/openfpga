@@ -99,7 +99,7 @@ enum BitFragmentFieldType {
     FragmentArray,
 }
 
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
 enum FieldMode {
     Enum,
     NamedStruct,
@@ -450,8 +450,6 @@ pub fn bitfragment(args: TokenStream, input: TokenStream) -> TokenStream {
                     errors_occurred = true;
                 }
 
-                println!("{:?}", parsed_attrs);
-
                 obj_field_info.push(FieldInfo {
                     name_str,
                     field_id: field.ident.clone(),
@@ -569,8 +567,115 @@ pub fn bitfragment(args: TokenStream, input: TokenStream) -> TokenStream {
                 #get_field_ref
                 #encode_field_ref
             }
-        })
+        });
     }
+
+    // decoding
+    let mut decode_field_names = Vec::new();
+    let mut decode_field_vals = Vec::new();
+    for field_info in &obj_field_info {
+        let field_type = match field_info.field_mode {
+            FieldMode::Enum => {
+                quote!{Self}
+            },
+            FieldMode::NamedStruct | FieldMode::UnnamedStruct => {
+                let field_ty = field_info.field_type_ty.as_ref().unwrap();
+                quote!{#field_ty}
+            },
+        };
+
+        let field_name_prefix = match field_info.field_mode {
+            FieldMode::NamedStruct => {
+                let field_id = field_info.field_id.as_ref().unwrap();
+                quote!{#field_id: }
+            },
+            FieldMode::Enum | FieldMode::UnnamedStruct => {
+                quote!{}
+            },
+        };
+        decode_field_names.push(field_name_prefix);
+
+        let decode_field = match field_info.field_type_enum {
+            BitFragmentFieldType::Pattern => {
+                let patvar = if let Some(patvar_ty) = &field_info.patvar {
+                    quote!{#patvar_ty}
+                } else {
+                    quote!{()}
+                };
+
+                let bitsinfo = field_info.patbits.as_ref().unwrap();
+                let num_bits = bitsinfo.len();
+
+                let mut decode_each_bit = Vec::new();
+                for (bitname, bitinfo) in bitsinfo {
+                    let inv_token = if bitinfo.invert {quote!{!}} else {quote!{}};
+                    let bitname_litstr = LitStr::new(bitname, Span::call_site());
+                    let decode_bitval = match &bitinfo.pos {
+                        PatBitPos::Loc(locs) => {
+                            let mut decode_each_dim = Vec::new();
+                            for dim in 0..idx_dims {
+                                let loc = locs[dim];
+                                decode_each_dim.push(quote!{
+                                    ((offset[#dim] as isize) + (if mirror[#dim] {-1} else {1}) * #loc) as usize
+                                });
+                            }
+
+                            quote!{
+                                #inv_token fuses[#(#decode_each_dim),*];
+                            }
+                        },
+                        PatBitPos::Bool(b) => {
+                            quote!{
+                                #inv_token #b
+                            }
+                        }
+                    };
+
+                    decode_each_bit.push(quote!{
+                        decode_arr[<#field_type as ::bittwiddler::BitPattern<#patvar>>::_name_to_pos(#bitname_litstr)] = #decode_bitval
+                    });
+                }
+
+                quote!{
+                    {
+                        let mut decode_arr = [false; #num_bits];
+
+                        #(#decode_each_bit)*
+
+                        <#field_type as ::bittwiddler::BitPattern<#patvar>>::decode(&decode_arr)?
+                    }
+                }
+            },
+            BitFragmentFieldType::Fragment => {
+                unimplemented!();
+            },
+            BitFragmentFieldType::PatternArray => {
+                unimplemented!();
+            },
+            BitFragmentFieldType::FragmentArray => {
+                unimplemented!();
+            },
+        };
+        decode_field_vals.push(decode_field);
+    }
+
+    let decode_func_body;
+    if obj_field_info.len() == 1 && obj_field_info[0].field_mode == FieldMode::Enum {
+        let field0 = &decode_field_vals[0];
+        decode_func_body = quote!{#field0};
+    } else if obj_field_info[0].field_mode == FieldMode::NamedStruct {
+        decode_func_body = quote!{
+            Self {
+                #(#decode_field_names #decode_field_vals),*
+            }
+        };
+    } else if obj_field_info[0].field_mode == FieldMode::UnnamedStruct {
+        decode_func_body = quote!{
+            Self (
+                #(#decode_field_vals),*
+            )
+        };
+    } else {unreachable!()}
 
     // for docs
     let num_fields = obj_field_info.len();
@@ -603,18 +708,11 @@ pub fn bitfragment(args: TokenStream, input: TokenStream) -> TokenStream {
                 where F: ::core::ops::IndexMut<Self::IndexingType, Output=bool> + ?Sized {
 
                 #(#encode_fields)*
-
-                // fuses[if mirror[0] {offset[0] - 0} else {offset[0] + 0}] = self.field1;
-                // fuses[if mirror[0] {offset[0] - 1} else {offset[0] + 1}] = self.field1;
             }
             fn decode<F>(fuses: &F, offset: Self::OffsettingType, mirror: Self::MirroringType) -> Result<Self, Self::ErrType>
                 where F: ::core::ops::Index<Self::IndexingType, Output=bool> + ?Sized {
 
-                // Ok(Self{
-                //     field1: fuses[if mirror[0] {offset[0] - 0} else {offset[0] + 0}],
-                //     field2: fuses[if mirror[0] {offset[0] - 1} else {offset[0] + 1}],
-                // })
-                Err(())
+                Ok(#decode_func_body)
             }
 
             fn fieldname(i: usize) -> &'static str {
