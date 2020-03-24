@@ -613,11 +613,19 @@ pub fn bitfragment(args: TokenStream, input: TokenStream) -> TokenStream {
                     errors_occurred = true;
                 }
 
+                // figure out what type of field this is supposed to be
+                let field_type_enum;
+                if parsed_attrs.patbits.is_some() {
+                    field_type_enum = BitFragmentFieldType::Pattern;
+                } else {
+                    field_type_enum = BitFragmentFieldType::Fragment;
+                } // TODO: arrays
+
                 obj_field_info.push(FieldInfo {
                     name_str,
                     field_id: field.ident.clone(),
                     docs: parsed_attrs.docs,
-                    field_type_enum: BitFragmentFieldType::Pattern,  // TODO
+                    field_type_enum,
                     field_type_ty: Some(field.ty.clone()),
                     patbits: parsed_attrs.patbits,
                     patvar: parsed_attrs.patvar,
@@ -723,7 +731,14 @@ pub fn bitfragment(args: TokenStream, input: TokenStream) -> TokenStream {
                 }
             },
             BitFragmentFieldType::Fragment => {
-                unimplemented!();
+                let fragvar = quote!{()};   // TODO
+
+                quote!{
+                    <#field_type as ::bittwiddler::BitFragment<#fragvar>>::encode(field_ref, fuses,
+                        offset, // TODO
+                        mirror  // TODO
+                    );
+                }
             },
             BitFragmentFieldType::PatternArray => {
                 unimplemented!();
@@ -825,7 +840,15 @@ pub fn bitfragment(args: TokenStream, input: TokenStream) -> TokenStream {
                 }
             },
             BitFragmentFieldType::Fragment => {
-                unimplemented!();
+                let fragvar = quote!{()};   // TODO
+
+                quote!{
+                    {
+                        <#field_type as ::bittwiddler::BitFragment<#fragvar>>::decode(fuses,
+                            offset,     // TODO
+                            mirror)?    // TODO
+                    }
+                }
             },
             BitFragmentFieldType::PatternArray => {
                 unimplemented!();
