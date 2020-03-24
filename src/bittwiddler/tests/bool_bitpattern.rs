@@ -20,7 +20,7 @@ fn bool_bitpattern_decode() {
 
 #[test]
 fn bool_bitpattern_docs() {
-    let reference =r#"x |       |
+    let reference =r#"0 |       |
 --+-------+------
 0 | false | false
 1 | true  | true

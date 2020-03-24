@@ -63,6 +63,31 @@ impl ToTokens for ArgWithExpr {
 }
 
 #[derive(Debug)]
+pub struct StrArgWithExpr {
+    pub litstr: LitStr,
+    _eq: syn::token::Eq,
+    pub expr: Expr,
+}
+
+impl Parse for StrArgWithExpr {
+    fn parse(input: ParseStream) -> syn::parse::Result<Self> {
+        Ok(StrArgWithExpr {
+            litstr: input.parse()?,
+            _eq: input.parse()?,
+            expr: input.parse()?,
+        })
+    }
+}
+
+impl ToTokens for StrArgWithExpr {
+    fn to_tokens(&self, tokens: &mut proc_macro2::TokenStream) {
+        self.litstr.to_tokens(tokens);
+        self._eq.to_tokens(tokens);
+        self.expr.to_tokens(tokens);
+    }
+}
+
+#[derive(Debug)]
 pub struct ArgWithType {
     _ident: Ident,
     _eq: syn::token::Eq,

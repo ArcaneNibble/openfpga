@@ -132,6 +132,7 @@ enum PatBitsSetting {
     FragVariant(ArgWithType),
     PatVariant(ArgWithType),
     Expr(ArgWithExpr),
+    StrExpr(StrArgWithExpr),
 }
 
 impl Parse for PatBitsSetting {
@@ -141,6 +142,8 @@ impl Parse for PatBitsSetting {
             input.parse().map(PatBitsSetting::FragVariant)
         } else if lookahead.peek(kw::pat_variant) {
             input.parse().map(PatBitsSetting::PatVariant)
+        } else if lookahead.peek(LitStr) {
+            input.parse().map(PatBitsSetting::StrExpr)
         } else {
             input.parse().map(PatBitsSetting::Expr)
         }
@@ -261,6 +264,25 @@ fn parse_attrs(attrs: &mut Vec<Attribute>, encode_variant: &Option<Type>, idx_di
                     },
                     PatBitsSetting::Expr(x) => {
                         let bit_id = x.ident.to_string();
+                        if maybe_patbits.contains_key(&bit_id) {
+                            emit_error!(x, "Duplicate bit {} position", bit_id);
+                            errors_occurred = true;
+                        }
+
+                        let (bit_info_error, bit_info) = parse_pat_bits_expr(&x.expr)?;
+                        if bit_info_error {
+                            errors_occurred = true;
+                        }
+                        if let PatBitInfo{pos: PatBitPos::Loc(locs), ..} = &bit_info {
+                            if locs.len() != idx_dims {
+                                emit_error!(x.expr, "Position doesn't match dimension (expected {})", idx_dims);
+                                errors_occurred = true;
+                            }
+                        }
+                        maybe_patbits.insert(bit_id, bit_info);
+                    },
+                    PatBitsSetting::StrExpr(x) => {
+                        let bit_id = x.litstr.value();
                         if maybe_patbits.contains_key(&bit_id) {
                             emit_error!(x, "Duplicate bit {} position", bit_id);
                             errors_occurred = true;
@@ -505,8 +527,30 @@ pub fn bitfragment(args: TokenStream, input: TokenStream) -> TokenStream {
                     quote!{()}
                 };
 
+                let mut encode_each_bit = Vec::new();
+                for (bitname, bitinfo) in field_info.patbits.as_ref().unwrap() {
+                    if let PatBitPos::Loc(locs) = &bitinfo.pos {
+                        let inv_token = if bitinfo.invert {quote!{!}} else {quote!{}};
+                        let bitname_litstr = LitStr::new(bitname, Span::call_site());
+
+                        let mut encode_each_dim = Vec::new();
+                        for dim in 0..idx_dims {
+                            let loc = locs[dim];
+                            encode_each_dim.push(quote!{
+                                ((offset[#dim] as isize) + (if mirror[#dim] {-1} else {1}) * #loc) as usize
+                            });
+                        }
+
+                        encode_each_bit.push(quote!{
+                            fuses[#(#encode_each_dim),*] =
+                                #inv_token encoded_arr[<#field_type as ::bittwiddler::BitPattern<#patvar>>::_name_to_pos(#bitname_litstr)];
+                        });
+                    }
+                }
+
                 quote!{
                     let encoded_arr = <#field_type as ::bittwiddler::BitPattern<#patvar>>::encode(field_ref);
+                    #(#encode_each_bit)*
                 }
             },
             BitFragmentFieldType::Fragment => {

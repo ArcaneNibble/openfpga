@@ -118,12 +118,12 @@ impl BitPattern<()> for bool {
     }
 
     fn _pos_to_name(pos: usize) -> &'static str {
-        ["x"][pos]
+        ["0"][pos]
     }
 
     fn _name_to_pos(name: &'static str) -> usize {
         match name {
-            "x" => 0,
+            "0" => 0,
             _ => unreachable!()
         }
     }
