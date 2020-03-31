@@ -119,6 +119,7 @@ struct FieldInfo {
     subvar: Option<Type>,
     arr_dim_exprs: Vec<Expr>,
     arr_off_expr: Option<ExprClosure>,
+    arr_mirror_expr: Option<ExprClosure>,
 }
 
 #[derive(Debug)]
@@ -128,6 +129,7 @@ struct ParsedAttrs {
     patbits: Option<PatBitsInfo>,
     subvar: Option<Type>,
     arr_off_expr: Option<ExprClosure>,
+    arr_mirror_expr: Option<ExprClosure>,
 }
 
 // Args for the #[pat_bits] attribute macro
@@ -203,27 +205,27 @@ impl Parse for FragSetting {
 
 type FragSettings = Punctuated<FragSetting, token::Comma>;
 
-// Args for the #[arr_off] attribute macro
+// Args for the #[arr_off] and #[arr_mirror] attribute macro
 #[derive(Debug)]
-enum ArrOffSetting {
+enum FragClosureSetting {
     FragVariant(ArgWithType),
     Expr(Expr),
 }
 
-impl Parse for ArrOffSetting {
+impl Parse for FragClosureSetting {
     fn parse(input: ParseStream) -> syn::parse::Result<Self> {
         let lookahead = input.lookahead1();
         if lookahead.peek(kw::variant) {
-            input.parse().map(ArrOffSetting::FragVariant)
+            input.parse().map(FragClosureSetting::FragVariant)
         } else if lookahead.peek(kw::frag_variant) {
-            input.parse().map(ArrOffSetting::FragVariant)
+            input.parse().map(FragClosureSetting::FragVariant)
         } else {
-            input.parse().map(ArrOffSetting::Expr)
+            input.parse().map(FragClosureSetting::Expr)
         }
     }
 }
 
-type ArrOffSettings = Punctuated<ArrOffSetting, token::Comma>;
+type FragClosureSettings = Punctuated<FragClosureSetting, token::Comma>;
 
 fn parse_pat_bits_expr(expr: &Expr) -> Result<(bool, PatBitInfo)> {
     let mut errors_occurred = false;
@@ -374,6 +376,7 @@ fn parse_attrs(attrs: &mut Vec<Attribute>, encode_variant: &Option<Type>, idx_di
     let mut seen_pat = false;
     let mut seen_frag = false;
     let mut arr_off_expr = None;
+    let mut arr_mirror_expr = None;
     for (i, attr) in attrs.into_iter().enumerate() {
         if attr.path.is_ident("doc") {
             let doc_meta = attr.parse_meta()?;
@@ -606,7 +609,7 @@ fn parse_attrs(attrs: &mut Vec<Attribute>, encode_variant: &Option<Type>, idx_di
         }
 
         if attr.path.is_ident("arr_off") {
-            let parser = ArrOffSettings::parse_separated_nonempty;
+            let parser = FragClosureSettings::parse_separated_nonempty;
             let attr_args = attr.parse_args_with(parser)?;
 
             // Loop through parsed list
@@ -614,14 +617,14 @@ fn parse_attrs(attrs: &mut Vec<Attribute>, encode_variant: &Option<Type>, idx_di
             let mut maybe_off_expr = None;
             for attr_arg in attr_args {
                 match attr_arg {
-                    ArrOffSetting::FragVariant(x) => {
+                    FragClosureSetting::FragVariant(x) => {
                         if maybe_frag_var.is_some() {
                             emit_error!(x, "Only one variant arg allowed");
                             errors_occurred = true;
                         }
                         maybe_frag_var = Some(x.ty);
                     },
-                    ArrOffSetting::Expr(x) => {
+                    FragClosureSetting::Expr(x) => {
                         if maybe_off_expr.is_some() {
                             emit_error!(x, "Only one expression arg allowed");
                             errors_occurred = true;
@@ -636,6 +639,15 @@ fn parse_attrs(attrs: &mut Vec<Attribute>, encode_variant: &Option<Type>, idx_di
                 (maybe_frag_var.is_some() && encode_variant.is_some() &&
                     maybe_frag_var.as_ref().unwrap() == encode_variant.as_ref().unwrap()) {
 
+                if arr_off_expr.is_some() {
+                    errors_occurred = true;
+                    if let Some(bitvar) = encode_variant.as_ref() {
+                        emit_error!(attr, "Only one #[arr_off] attribute allowed for variant {}", quote!{#bitvar}.to_string());
+                    } else {
+                        emit_error!(attr, "Only one #[arr_off] attribute allowed");
+                    }
+                }
+
                 if let Some(off_expr) = maybe_off_expr {
                     if let Expr::Closure(c) = off_expr {
                         arr_off_expr = Some(c);
@@ -645,6 +657,61 @@ fn parse_attrs(attrs: &mut Vec<Attribute>, encode_variant: &Option<Type>, idx_di
                     }
                 } else {
                     emit_error!(attr, "Missing offset expression");
+                    errors_occurred = true;
+                }
+                to_remove.push(i);
+            }
+        }
+
+        if attr.path.is_ident("arr_mirror") {
+            let parser = FragClosureSettings::parse_separated_nonempty;
+            let attr_args = attr.parse_args_with(parser)?;
+
+            // Loop through parsed list
+            let mut maybe_frag_var = None;
+            let mut maybe_mirror_expr = None;
+            for attr_arg in attr_args {
+                match attr_arg {
+                    FragClosureSetting::FragVariant(x) => {
+                        if maybe_frag_var.is_some() {
+                            emit_error!(x, "Only one variant arg allowed");
+                            errors_occurred = true;
+                        }
+                        maybe_frag_var = Some(x.ty);
+                    },
+                    FragClosureSetting::Expr(x) => {
+                        if maybe_mirror_expr.is_some() {
+                            emit_error!(x, "Only one expression arg allowed");
+                            errors_occurred = true;
+                        }
+                        maybe_mirror_expr = Some(x);
+                    },
+                }
+            }
+
+            // Possibly filter by fragment variant
+            if maybe_frag_var.is_none() && encode_variant.is_none() ||
+                (maybe_frag_var.is_some() && encode_variant.is_some() &&
+                    maybe_frag_var.as_ref().unwrap() == encode_variant.as_ref().unwrap()) {
+
+                if arr_mirror_expr.is_some() {
+                    errors_occurred = true;
+                    if let Some(bitvar) = encode_variant.as_ref() {
+                        emit_error!(attr, "Only one #[arr_mirror] attribute allowed for variant {}", quote!{#bitvar}.to_string());
+                    } else {
+                        emit_error!(attr, "Only one #[arr_mirror] attribute allowed");
+                    }
+                }
+
+                if let Some(mirror_expr) = maybe_mirror_expr {
+                    if let Expr::Closure(c) = mirror_expr {
+                        arr_mirror_expr = Some(c);
+                    } else {
+                        emit_error!(mirror_expr, "Mirror expression must be a closure");
+                        errors_occurred = true;
+                    }
+                } else {
+                    emit_error!(attr, "Missing mirror expression");
                     errors_occurred = true;
                 }
                 to_remove.push(i);
@@ -662,6 +729,7 @@ fn parse_attrs(attrs: &mut Vec<Attribute>, encode_variant: &Option<Type>, idx_di
         patbits,
         subvar,
         arr_off_expr,
+        arr_mirror_expr,
     })
 }
 
@@ -746,6 +814,7 @@ pub fn bitfragment(args: TokenStream, input: TokenStream) -> TokenStream {
                 subvar: parsed_attrs.subvar,
                 arr_dim_exprs: vec![],
                 arr_off_expr: None,
+                arr_mirror_expr: None,
             });
         },
         Item::Struct(struct_) => {
@@ -823,6 +892,7 @@ pub fn bitfragment(args: TokenStream, input: TokenStream) -> TokenStream {
                     subvar: parsed_attrs.subvar,
                     arr_dim_exprs,
                     arr_off_expr: parsed_attrs.arr_off_expr,
+                    arr_mirror_expr: parsed_attrs.arr_mirror_expr,
                 });
             }
         },
@@ -915,7 +985,6 @@ pub fn bitfragment(args: TokenStream, input: TokenStream) -> TokenStream {
 
         let encode_field_ref = match field_info.field_type_enum {
             BitFragmentFieldType::Pattern => {
-
                 let mut encode_each_bit = Vec::new();
                 for (bitname, bitinfo) in field_info.patbits.as_ref().unwrap() {
                     if let PatBitPos::Loc(locs) = &bitinfo.pos {
@@ -926,7 +995,7 @@ pub fn bitfragment(args: TokenStream, input: TokenStream) -> TokenStream {
                         for dim in 0..idx_dims {
                             let loc = locs[dim];
                             encode_each_dim.push(quote!{
-                                ((offset[#dim] as isize) + (if mirror[#dim] {-1} else {1}) * #loc) as usize
+                                (offset[#dim] + (if mirror[#dim] {-1} else {1}) * #loc) as usize
                             });
                         }
 
@@ -970,9 +1039,9 @@ pub fn bitfragment(args: TokenStream, input: TokenStream) -> TokenStream {
                         for dim in 0..idx_dims {
                             let loc = locs[dim];
                             encode_each_dim.push(quote!{
-                                ((offset[#dim] as isize) +
+                                (offset[#dim] +
                                     ((if mirror[#dim] {-1} else {1}) * (arr_elem_off[#dim] as isize)) +
-                                    (if mirror[#dim] {-1} else {1}) * #loc) as usize
+                                    (if mirror[#dim] ^ arr_elem_mirror[#dim] {-1} else {1}) * #loc) as usize
                             });
                         }
 
@@ -1000,11 +1069,22 @@ pub fn bitfragment(args: TokenStream, input: TokenStream) -> TokenStream {
                 // Stupid workaround for arrays that are oversize
                 let (arr_index_expr, arr_indexing_expr) = generate_array_indexing_helper(&field_info);
 
+                let arr_elem_mirror_expr = if let Some(arr_mirror_expr) = &field_info.arr_mirror_expr {
+                    quote!{
+                        let arr_elem_mirror = (#arr_mirror_expr)(arr_elem_i);
+                    }
+                } else {
+                    quote!{
+                        let arr_elem_mirror = [false; #idx_dims];
+                    }
+                };
+
                 // Here we generate the code to loop through the array
                 let mut encode_for_loops = quote!{
                     let arr_elem = &field_ref #arr_indexing_expr;
                     let arr_elem_i = #arr_index_expr;
                     let arr_elem_off = (#arr_off_expr)(arr_elem_i);
+                    #arr_elem_mirror_expr
                     #encode_innermost_pat
                 };
                 for (arr_layer_i, arr_layer_dim_expr) in field_info.arr_dim_exprs.iter().enumerate().rev() {
@@ -1020,8 +1100,8 @@ pub fn bitfragment(args: TokenStream, input: TokenStream) -> TokenStream {
             BitFragmentFieldType::FragmentArray => {
                 let encode_innermost_pat = quote!{
                     <#field_type as ::bittwiddler::BitFragment<#subvar>>::encode(arr_elem, fuses,
-                        arr_elem_off,
-                        mirror  // TODO
+                        subfrag_off,
+                        arr_elem_mirror
                     );
                 };
 
@@ -1029,18 +1109,35 @@ pub fn bitfragment(args: TokenStream, input: TokenStream) -> TokenStream {
                 // Stupid workaround for arrays that are oversize
                 let (arr_index_expr, arr_indexing_expr) = generate_array_indexing_helper(&field_info);
 
+                let arr_elem_mirror_expr = if let Some(arr_mirror_expr) = &field_info.arr_mirror_expr {
+                    quote!{
+                        let mut arr_elem_mirror = (#arr_mirror_expr)(arr_elem_i); 
+
+                        // mirroring
+                        for i in 0..#idx_dims {
+                            arr_elem_mirror[i] ^= mirror[i];
+                        }
+                    }
+                } else {
+                    quote!{
+                        let arr_elem_mirror = mirror;
+                    }
+                };
+
                 // Here we generate the code to loop through the array
                 let mut encode_for_loops = quote!{
                     let arr_elem = &field_ref #arr_indexing_expr;
                     let arr_elem_i = #arr_index_expr;
-                    let mut arr_elem_off = (#arr_off_expr)(arr_elem_i);
+                    let arr_elem_off = (#arr_off_expr)(arr_elem_i);
+                    #arr_elem_mirror_expr
 
                     // offsetting (still need field base offset)
+                    let mut subfrag_off = [0isize; #idx_dims];
                     for i in 0..#idx_dims {
-                        arr_elem_off[i] = if mirror[i] {
-                            offset[i] - arr_elem_off[i]
+                        subfrag_off[i] = if mirror[i] {
+                            offset[i] - (arr_elem_off[i] as isize)
                         } else {
-                            offset[i] + arr_elem_off[i]
+                            offset[i] + (arr_elem_off[i] as isize)
                         };
                     }
 
@@ -1112,7 +1209,7 @@ pub fn bitfragment(args: TokenStream, input: TokenStream) -> TokenStream {
                             for dim in 0..idx_dims {
                                 let loc = locs[dim];
                                 decode_each_dim.push(quote!{
-                                    ((offset[#dim] as isize) + (if mirror[#dim] {-1} else {1}) * #loc) as usize
+                                    (offset[#dim] + (if mirror[#dim] {-1} else {1}) * #loc) as usize
                                 });
                             }
 
@@ -1173,9 +1270,9 @@ pub fn bitfragment(args: TokenStream, input: TokenStream) -> TokenStream {
                             for dim in 0..idx_dims {
                                 let loc = locs[dim];
                                 decode_each_dim.push(quote!{
-                                    ((offset[#dim] as isize) +
+                                    (offset[#dim] +
                                         ((if mirror[#dim] {-1} else {1}) * (arr_elem_off[#dim] as isize)) +
-                                        (if mirror[#dim] {-1} else {1}) * #loc) as usize
+                                        (if mirror[#dim] ^ arr_elem_mirror[#dim] {-1} else {1}) * #loc) as usize
                                 });
                             }
 
@@ -1215,11 +1312,22 @@ pub fn bitfragment(args: TokenStream, input: TokenStream) -> TokenStream {
                 // Stupid workaround for arrays that are oversize
                 let (arr_index_expr, arr_indexing_expr) = generate_array_indexing_helper(&field_info);
 
+                let arr_elem_mirror_expr = if let Some(arr_mirror_expr) = &field_info.arr_mirror_expr {
+                    quote!{
+                        let arr_elem_mirror = (#arr_mirror_expr)(arr_elem_i);
+                    }
+                } else {
+                    quote!{
+                        let arr_elem_mirror = [false; #idx_dims];
+                    }
+                };
+
                 // Here we generate the code to loop through the array
                 let mut decode_for_loops = quote!{
                     let arr_elem = &mut out_arr #arr_indexing_expr;
                     let arr_elem_i = #arr_index_expr;
                     let arr_elem_off = (#arr_off_expr)(arr_elem_i);
+                    #arr_elem_mirror_expr
                     #decode_innermost_pat
                 };
                 for (arr_layer_i, arr_layer_dim_expr) in field_info.arr_dim_exprs.iter().enumerate().rev() {
@@ -1257,26 +1365,43 @@ pub fn bitfragment(args: TokenStream, input: TokenStream) -> TokenStream {
                 let decode_innermost_pat = quote!{
                     *arr_elem = ::core::mem::MaybeUninit::new(
                         <#field_type as ::bittwiddler::BitFragment<#subvar>>::decode(fuses,
-                            arr_elem_off,
-                            mirror)?);  // TODO
+                            subfrag_off,
+                            arr_elem_mirror)?);
                 };
 
                 let arr_off_expr = field_info.arr_off_expr.as_ref().unwrap();
                 // Stupid workaround for arrays that are oversize
                 let (arr_index_expr, arr_indexing_expr) = generate_array_indexing_helper(&field_info);
 
+                let arr_elem_mirror_expr = if let Some(arr_mirror_expr) = &field_info.arr_mirror_expr {
+                    quote!{
+                        let mut arr_elem_mirror = (#arr_mirror_expr)(arr_elem_i); 
+
+                        // mirroring
+                        for i in 0..#idx_dims {
+                            arr_elem_mirror[i] ^= mirror[i];
+                        }
+                    }
+                } else {
+                    quote!{
+                        let arr_elem_mirror = mirror;
+                    }
+                };
+
                 // Here we generate the code to loop through the array
                 let mut decode_for_loops = quote!{
                     let arr_elem = &mut out_arr #arr_indexing_expr;
                     let arr_elem_i = #arr_index_expr;
-                    let mut arr_elem_off = (#arr_off_expr)(arr_elem_i);
+                    let arr_elem_off = (#arr_off_expr)(arr_elem_i);
+                    #arr_elem_mirror_expr
 
                     // offsetting (still need field base offset)
+                    let mut subfrag_off = [0isize; #idx_dims];
                     for i in 0..#idx_dims {
-                        arr_elem_off[i] = if mirror[i] {
-                            offset[i] - arr_elem_off[i]
+                        subfrag_off[i] = if mirror[i] {
+                            offset[i] - (arr_elem_off[i] as isize)
                         } else {
-                            offset[i] + arr_elem_off[i]
+                            offset[i] + (arr_elem_off[i] as isize)
                         };
                     }
 
@@ -1381,7 +1506,7 @@ pub fn bitfragment(args: TokenStream, input: TokenStream) -> TokenStream {
         impl ::bittwiddler::BitFragment<#encode_variant> for #obj_id {
             const IDX_DIMS: usize = #idx_dims;
             type IndexingType = #indexingtype;
-            type OffsettingType = [usize; #idx_dims];
+            type OffsettingType = [isize; #idx_dims];
             type MirroringType = [bool; #idx_dims];
 
             type ErrType = #errtype;

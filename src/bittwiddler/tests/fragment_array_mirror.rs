@@ -21,7 +21,8 @@ const DIM2: usize = 3;
 #[bitfragment(dimensions = 1)]
 #[derive(Debug, PartialEq, Eq)]
 struct MyStruct1 {
-    #[arr_off(|i| [i * 2])]
+    #[arr_off(|i| if i == 0 { [3] } else if i == 5 { [13] } else { [i * 2] })]
+    #[arr_mirror(|i| [i == 0 || i == 5])]
     field_enum: [[[MyEnum; DIM1]; 1]; DIM2],
     #[pat_bits("0" = 0)]
     #[arr_off(|_| [0])]
@@ -29,7 +30,7 @@ struct MyStruct1 {
 }
 
 #[test]
-fn fragment_array_encode() {
+fn fragment_array_mirror_encode() {
     let mut out = [false; 13];
 
     let x = MyStruct1 {
@@ -59,12 +60,12 @@ fn fragment_array_encode() {
     };
     x.encode(&mut out[..], [0], [false]);
     assert_eq!(out, [false,
-        true, false,
+        false, true,
         false, true,
         false, false,
         true, true,
         true, true,
-        false, true]);
+        true, false]);
 
     let x = MyStruct1 {
         field_enum: [
@@ -94,24 +95,24 @@ fn fragment_array_encode() {
     };
     x.encode(&mut out[..], [12], [true]);
     assert_eq!(out, [
-        true, false,
+        false, true,
         true, true,
         true, true,
         false, false,
         true, false,
-        false, true,
+        true, false,
         false]);
 }
 
 #[test]
-fn fragment_array_decode() {
+fn fragment_array_mirror_decode() {
     let x = [true,
         false, false,
         true, false,
         false, true,
         true, true,
         true, false,
-        false, true];
+        true, false];
     let out = MyStruct1::decode(&x[..], [0], [false]).unwrap();
     assert_eq!(out, MyStruct1 {
         field_enum: [
@@ -123,12 +124,12 @@ fn fragment_array_decode() {
     });
 
     let x = [true,
-        false, true,
+        true, false,
         true, false,
         false, false,
         true, true,
         true, true,
-        false, true];
+        true, false];
     let out = MyStruct1::decode(&x[..], [0], [false]).unwrap();
     assert_eq!(out, MyStruct1 {
         field_enum: [
@@ -140,7 +141,7 @@ fn fragment_array_decode() {
     });
 
     let x = [
-        true, false,
+        false, true,
         false, true,
         true, true,
         true, false,
@@ -158,12 +159,12 @@ fn fragment_array_decode() {
     });
 
     let x = [
-        true, false,
+        false, true,
         true, true,
         true, true,
         false, false,
         false, true,
-        true, false,
+        false, true,
         true];
     let out = MyStruct1::decode(&x[..], [12], [true]).unwrap();
     assert_eq!(out, MyStruct1 {

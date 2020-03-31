@@ -34,7 +34,7 @@ pub enum BitFragmentFieldType {
 pub trait BitFragment<T> where Self: Sized {
     const IDX_DIMS: usize;
     type IndexingType;
-    type OffsettingType: AsRef<[usize]>;
+    type OffsettingType: AsRef<[isize]>;
     type MirroringType: AsRef<[bool]>;
 
     type ErrType;
