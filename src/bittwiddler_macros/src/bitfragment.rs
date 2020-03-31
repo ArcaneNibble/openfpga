@@ -1254,7 +1254,64 @@ pub fn bitfragment(args: TokenStream, input: TokenStream) -> TokenStream {
                 }}
             },
             BitFragmentFieldType::FragmentArray => {
-                quote!{{unimplemented!();}}
+                let decode_innermost_pat = quote!{
+                    *arr_elem = ::core::mem::MaybeUninit::new(
+                        <#field_type as ::bittwiddler::BitFragment<#subvar>>::decode(fuses,
+                            arr_elem_off,
+                            mirror)?);  // TODO
+                };
+
+                let arr_off_expr = field_info.arr_off_expr.as_ref().unwrap();
+                // Stupid workaround for arrays that are oversize
+                let (arr_index_expr, arr_indexing_expr) = generate_array_indexing_helper(&field_info);
+
+                // Here we generate the code to loop through the array
+                let mut decode_for_loops = quote!{
+                    let arr_elem = &mut out_arr #arr_indexing_expr;
+                    let arr_elem_i = #arr_index_expr;
+                    let mut arr_elem_off = (#arr_off_expr)(arr_elem_i);
+
+                    // offsetting (still need field base offset)
+                    for i in 0..#idx_dims {
+                        arr_elem_off[i] = if mirror[i] {
+                            offset[i] - arr_elem_off[i]
+                        } else {
+                            offset[i] + arr_elem_off[i]
+                        };
+                    }
+
+                    #decode_innermost_pat
+                };
+                for (arr_layer_i, arr_layer_dim_expr) in field_info.arr_dim_exprs.iter().enumerate().rev() {
+                    let arr_layer_ident = Ident::new(&format!("arr_layer_{}", arr_layer_i), Span::call_site());
+                    decode_for_loops = quote!{
+                        for #arr_layer_ident in 0..(#arr_layer_dim_expr) {
+                            #decode_for_loops
+                        }
+                    }
+                }
+
+                // Set up uninitialized array
+                let arr_dim_expr_n = field_info.arr_dim_exprs.last();
+                let mut uninit_array = quote!{
+                    [::core::mem::MaybeUninit<#field_type>; #arr_dim_expr_n]
+                };
+                for i in (0..(field_info.arr_dim_exprs.len() - 1)).rev() {
+                    let arr_dim_expr_i = &field_info.arr_dim_exprs[i];
+                    uninit_array = quote!{
+                        [#uninit_array; #arr_dim_expr_i]
+                    }
+                }
+
+                quote!{{
+                    let mut out_arr: #uninit_array = unsafe {
+                        ::core::mem::MaybeUninit::uninit().assume_init()
+                    };
+
+                    #decode_for_loops
+
+                    unsafe { ::core::mem::transmute::<_, _>(out_arr) }
+                }}
             },
         };
         decode_field_vals.push(decode_field);
