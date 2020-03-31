@@ -20,9 +20,11 @@ const DIM2: usize = 3;
 #[derive(Debug, PartialEq, Eq)]
 struct MyStruct1 {
     #[pat_bits("0" = 1, "1" = 2)]
-    field_enum: [[MyEnum; DIM1]; DIM2],
+    #[arr_off(|i| [i * 2])]
+    field_enum: [[[MyEnum; DIM1]; 1]; DIM2],
     #[pat_bits("0" = 0)]
-    field_bool: bool,
+    #[arr_off(|_| [0])]
+    field_bool: [bool; 1],
 }
 
 #[test]
@@ -31,11 +33,11 @@ fn pattern_array_encode() {
 
     let x = MyStruct1 {
         field_enum: [
-            [MyEnum::Choice1, MyEnum::Choice2],
-            [MyEnum::Choice3, MyEnum::Choice4],
-            [MyEnum::Choice1, MyEnum::Choice4],
+            [[MyEnum::Choice1, MyEnum::Choice2]],
+            [[MyEnum::Choice3, MyEnum::Choice4]],
+            [[MyEnum::Choice1, MyEnum::Choice4]],
         ],
-        field_bool: true,
+        field_bool: [true],
     };
     x.encode(&mut out[..], [0], [false]);
     assert_eq!(out, [true,
@@ -48,11 +50,11 @@ fn pattern_array_encode() {
 
     let x = MyStruct1 {
         field_enum: [
-            [MyEnum::Choice2, MyEnum::Choice3],
-            [MyEnum::Choice4, MyEnum::Choice1],
-            [MyEnum::Choice1, MyEnum::Choice3],
+            [[MyEnum::Choice2, MyEnum::Choice3]],
+            [[MyEnum::Choice4, MyEnum::Choice1]],
+            [[MyEnum::Choice1, MyEnum::Choice3]],
         ],
-        field_bool: true,
+        field_bool: [true],
     };
     x.encode(&mut out[..], [0], [false]);
     assert_eq!(out, [true,
@@ -62,6 +64,42 @@ fn pattern_array_encode() {
         false, false,
         false, false,
         true, false]);
+
+    let x = MyStruct1 {
+        field_enum: [
+            [[MyEnum::Choice1, MyEnum::Choice2]],
+            [[MyEnum::Choice3, MyEnum::Choice4]],
+            [[MyEnum::Choice1, MyEnum::Choice4]],
+        ],
+        field_bool: [true],
+    };
+    x.encode(&mut out[..], [12], [true]);
+    assert_eq!(out, [
+        true, true,
+        false, false,
+        true, true,
+        false, true,
+        true, false,
+        false, false,
+        true]);
+
+    let x = MyStruct1 {
+        field_enum: [
+            [[MyEnum::Choice2, MyEnum::Choice3]],
+            [[MyEnum::Choice4, MyEnum::Choice1]],
+            [[MyEnum::Choice1, MyEnum::Choice3]],
+        ],
+        field_bool: [true],
+    };
+    x.encode(&mut out[..], [12], [true]);
+    assert_eq!(out, [
+        false, true,
+        false, false,
+        false, false,
+        true, true,
+        false, true,
+        true, false,
+        true]);
 }
 
 // #[test]

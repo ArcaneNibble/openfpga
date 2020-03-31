@@ -50,6 +50,8 @@ impl Parse for BitFragmentSetting {
             input.parse().map(BitFragmentSetting::ErrType)
         } else if lookahead.peek(kw::variant) {
             input.parse().map(BitFragmentSetting::Variant)
+        } else if lookahead.peek(kw::frag_variant) {
+            input.parse().map(BitFragmentSetting::Variant)
         } else if lookahead.peek(kw::dimensions) {
             input.parse().map(BitFragmentSetting::Dims)
         } else {
@@ -116,6 +118,7 @@ struct FieldInfo {
     patbits: Option<PatBitsInfo>,
     subvar: Option<Type>,
     arr_dim_exprs: Vec<Expr>,
+    arr_off_expr: Option<ExprClosure>,
 }
 
 #[derive(Debug)]
@@ -124,6 +127,7 @@ struct ParsedAttrs {
     docs: String,
     patbits: Option<PatBitsInfo>,
     subvar: Option<Type>,
+    arr_off_expr: Option<ExprClosure>,
 }
 
 // Args for the #[pat_bits] attribute macro
@@ -198,6 +202,28 @@ impl Parse for FragSetting {
 }
 
 type FragSettings = Punctuated<FragSetting, token::Comma>;
+
+// Args for the #[arr_off] attribute macro
+#[derive(Debug)]
+enum ArrOffSetting {
+    FragVariant(ArgWithType),
+    Expr(Expr),
+}
+
+impl Parse for ArrOffSetting {
+    fn parse(input: ParseStream) -> syn::parse::Result<Self> {
+        let lookahead = input.lookahead1();
+        if lookahead.peek(kw::variant) {
+            input.parse().map(ArrOffSetting::FragVariant)
+        } else if lookahead.peek(kw::frag_variant) {
+            input.parse().map(ArrOffSetting::FragVariant)
+        } else {
+            input.parse().map(ArrOffSetting::Expr)
+        }
+    }
+}
+
+type ArrOffSettings = Punctuated<ArrOffSetting, token::Comma>;
 
 fn parse_pat_bits_expr(expr: &Expr) -> Result<(bool, PatBitInfo)> {
     let mut errors_occurred = false;
@@ -347,6 +373,7 @@ fn parse_attrs(attrs: &mut Vec<Attribute>, encode_variant: &Option<Type>, idx_di
     let mut to_remove = Vec::new();
     let mut seen_pat = false;
     let mut seen_frag = false;
+    let mut arr_off_expr = None;
     for (i, attr) in attrs.into_iter().enumerate() {
         if attr.path.is_ident("doc") {
             let doc_meta = attr.parse_meta()?;
@@ -577,6 +604,52 @@ fn parse_attrs(attrs: &mut Vec<Attribute>, encode_variant: &Option<Type>, idx_di
                 to_remove.push(i);
             }
         }
+
+        if attr.path.is_ident("arr_off") {
+            let parser = ArrOffSettings::parse_separated_nonempty;
+            let attr_args = attr.parse_args_with(parser)?;
+
+            // Loop through parsed list
+            let mut maybe_frag_var = None;
+            let mut maybe_off_expr = None;
+            for attr_arg in attr_args {
+                match attr_arg {
+                    ArrOffSetting::FragVariant(x) => {
+                        if maybe_frag_var.is_some() {
+                            emit_error!(x, "Only one variant arg allowed");
+                            errors_occurred = true;
+                        }
+                        maybe_frag_var = Some(x.ty);
+                    },
+                    ArrOffSetting::Expr(x) => {
+                        if maybe_off_expr.is_some() {
+                            emit_error!(x, "Only one expression arg allowed");
+                            errors_occurred = true;
+                        }
+                        maybe_off_expr = Some(x);
+                    },
+                }
+            }
+
+            // Possibly filter by fragment variant
+            if maybe_frag_var.is_none() && encode_variant.is_none() ||
+                (maybe_frag_var.is_some() && encode_variant.is_some() &&
+                    maybe_frag_var.as_ref().unwrap() == encode_variant.as_ref().unwrap()) {
+
+                if let Some(off_expr) = maybe_off_expr {
+                    if let Expr::Closure(c) = off_expr {
+                        arr_off_expr = Some(c);
+                    } else {
+                        emit_error!(off_expr, "Offset expression must be a closure");
+                        errors_occurred = true;
+                    }
+                } else {
+                    emit_error!(attr, "Missing offset expression");
+                    errors_occurred = true;
+                }
+                to_remove.push(i);
+            }
+        }
     }
 
     for i in to_remove.into_iter().rev() {
@@ -588,6 +661,7 @@ fn parse_attrs(attrs: &mut Vec<Attribute>, encode_variant: &Option<Type>, idx_di
         docs,
         patbits,
         subvar,
+        arr_off_expr,
     })
 }
 
@@ -671,6 +745,7 @@ pub fn bitfragment(args: TokenStream, input: TokenStream) -> TokenStream {
                 patbits: parsed_attrs.patbits,
                 subvar: parsed_attrs.subvar,
                 arr_dim_exprs: vec![],
+                arr_off_expr: None,
             });
         },
         Item::Struct(struct_) => {
@@ -716,7 +791,6 @@ pub fn bitfragment(args: TokenStream, input: TokenStream) -> TokenStream {
                 let is_array = arr_dim_exprs.len() > 0;
                 // field_type is the innermost non-array type
                 let field_type = maybe_ty_arr.clone();
-                println!("{:?} {:?}", field_type, arr_dim_exprs);
 
                 // figure out what type of field this is supposed to be
                 let field_type_enum;
@@ -734,6 +808,11 @@ pub fn bitfragment(args: TokenStream, input: TokenStream) -> TokenStream {
                     }
                 }
 
+                if is_array && parsed_attrs.arr_off_expr.is_none() {
+                    emit_error!(field, "Array field must have #[arr_off] attribute");
+                    errors_occurred = true;
+                }
+
                 obj_field_info.push(FieldInfo {
                     name_str,
                     field_id: field.ident.clone(),
@@ -743,6 +822,7 @@ pub fn bitfragment(args: TokenStream, input: TokenStream) -> TokenStream {
                     patbits: parsed_attrs.patbits,
                     subvar: parsed_attrs.subvar,
                     arr_dim_exprs,
+                    arr_off_expr: parsed_attrs.arr_off_expr,
                 });
             }
         },
@@ -854,8 +934,84 @@ pub fn bitfragment(args: TokenStream, input: TokenStream) -> TokenStream {
                 }
             },
             BitFragmentFieldType::PatternArray => {
-                // unimplemented!();
-                quote!{}
+
+                // FIXME: Code duplication
+                let mut encode_each_bit = Vec::new();
+                for (bitname, bitinfo) in field_info.patbits.as_ref().unwrap() {
+                    if let PatBitPos::Loc(locs) = &bitinfo.pos {
+                        let inv_token = if bitinfo.invert {quote!{!}} else {quote!{}};
+                        let bitname_litstr = LitStr::new(bitname, Span::call_site());
+
+                        let mut encode_each_dim = Vec::new();
+                        for dim in 0..idx_dims {
+                            let loc = locs[dim];
+                            encode_each_dim.push(quote!{
+                                ((offset[#dim] as isize) +
+                                    ((if mirror[#dim] {-1} else {1}) * (arr_elem_off[#dim] as isize)) +
+                                    (if mirror[#dim] {-1} else {1}) * #loc) as usize
+                            });
+                        }
+
+                        if idx_dims == 1 {
+                            let encode_dim0 = &encode_each_dim[0];
+                            encode_each_bit.push(quote!{
+                                fuses[#encode_dim0] =
+                                    #inv_token encoded_arr[<#field_type as ::bittwiddler::BitPattern<#subvar>>::_name_to_pos(#bitname_litstr)];
+                            });
+                        } else {
+                            encode_each_bit.push(quote!{
+                                fuses[[#(#encode_each_dim),*]] =
+                                    #inv_token encoded_arr[<#field_type as ::bittwiddler::BitPattern<#subvar>>::_name_to_pos(#bitname_litstr)];
+                            });
+                        }
+                    }
+                }
+
+                let encode_innermost_pat = quote!{
+                    let encoded_arr = <#field_type as ::bittwiddler::BitPattern<#subvar>>::encode(arr_elem);
+                    #(#encode_each_bit)*
+                };
+
+                let arr_off_expr = field_info.arr_off_expr.as_ref().unwrap();
+
+                // Stupid workaround for arrays that are oversize
+                // calc final real index
+                let mut arr_index_expr = quote!{arr_layer_0};
+                for arr_dim_expr_i in &field_info.arr_dim_exprs[1..] {
+                    arr_index_expr = quote!{#arr_index_expr * (#arr_dim_expr_i)};
+                }
+                arr_index_expr = quote!{(#arr_index_expr)};
+                // index the array to get that index
+                let mut arr_indexing_expr = quote!{[arr_layer_0]};
+                for arr_layer_i in 1..field_info.arr_dim_exprs.len() {
+                    let arr_layer_i_expr = Ident::new(&format!("arr_layer_{}", arr_layer_i), Span::call_site());
+                    arr_indexing_expr = quote!{#arr_indexing_expr[#arr_layer_i_expr]};
+
+                    let mut arr_index_layer_expr = quote!{#arr_layer_i_expr};
+                    for arr_dim_expr_i in &field_info.arr_dim_exprs[(arr_layer_i + 1)..] {
+                        arr_index_layer_expr = quote!{#arr_index_layer_expr * (#arr_dim_expr_i)};
+                    }
+                    arr_index_layer_expr = quote!{(#arr_index_layer_expr)};
+
+                    arr_index_expr = quote!{#arr_index_expr + #arr_index_layer_expr};
+                }
+
+                // Here we generate the code to loop through the array
+                let mut encode_for_loops = quote!{
+                    let arr_elem = &field_ref #arr_indexing_expr;
+                    let arr_elem_i = #arr_index_expr;
+                    let arr_elem_off = (#arr_off_expr)(arr_elem_i);
+                    #encode_innermost_pat
+                };
+                for (arr_layer_i, arr_layer_dim_expr) in field_info.arr_dim_exprs.iter().enumerate().rev() {
+                    let arr_layer_ident = Ident::new(&format!("arr_layer_{}", arr_layer_i), Span::call_site());
+                    encode_for_loops = quote!{
+                        for #arr_layer_ident in 0..(#arr_layer_dim_expr) {
+                            #encode_for_loops
+                        }
+                    }
+                }
+                encode_for_loops
             },
             BitFragmentFieldType::FragmentArray => {
                 unimplemented!();
