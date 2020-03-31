@@ -115,6 +115,7 @@ struct FieldInfo {
     field_type_ty: Option<Type>,
     patbits: Option<PatBitsInfo>,
     subvar: Option<Type>,
+    arr_dim_exprs: Vec<Expr>,
 }
 
 #[derive(Debug)]
@@ -669,6 +670,7 @@ pub fn bitfragment(args: TokenStream, input: TokenStream) -> TokenStream {
                 field_type_ty: None,
                 patbits: parsed_attrs.patbits,
                 subvar: parsed_attrs.subvar,
+                arr_dim_exprs: vec![],
             });
         },
         Item::Struct(struct_) => {
@@ -704,22 +706,43 @@ pub fn bitfragment(args: TokenStream, input: TokenStream) -> TokenStream {
                     errors_occurred = true;
                 }
 
+                // Do we have an array?
+                let mut arr_dim_exprs = Vec::new();
+                let mut maybe_ty_arr = &field.ty;
+                while let Type::Array(tyarr) = maybe_ty_arr {
+                    arr_dim_exprs.push(tyarr.len.clone());
+                    maybe_ty_arr = &*tyarr.elem;
+                }
+                let is_array = arr_dim_exprs.len() > 0;
+                // field_type is the innermost non-array type
+                let field_type = maybe_ty_arr.clone();
+                println!("{:?} {:?}", field_type, arr_dim_exprs);
+
                 // figure out what type of field this is supposed to be
                 let field_type_enum;
-                if parsed_attrs.patbits.is_some() {
-                    field_type_enum = BitFragmentFieldType::Pattern;
+                if is_array {
+                    if parsed_attrs.patbits.is_some() {
+                        field_type_enum = BitFragmentFieldType::PatternArray;
+                    } else {
+                        field_type_enum = BitFragmentFieldType::FragmentArray;
+                    }
                 } else {
-                    field_type_enum = BitFragmentFieldType::Fragment;
-                } // TODO: arrays
+                    if parsed_attrs.patbits.is_some() {
+                        field_type_enum = BitFragmentFieldType::Pattern;
+                    } else {
+                        field_type_enum = BitFragmentFieldType::Fragment;
+                    }
+                }
 
                 obj_field_info.push(FieldInfo {
                     name_str,
                     field_id: field.ident.clone(),
                     docs: parsed_attrs.docs,
                     field_type_enum,
-                    field_type_ty: Some(field.ty.clone()),
+                    field_type_ty: Some(field_type),
                     patbits: parsed_attrs.patbits,
                     subvar: parsed_attrs.subvar,
+                    arr_dim_exprs,
                 });
             }
         },
@@ -831,7 +854,8 @@ pub fn bitfragment(args: TokenStream, input: TokenStream) -> TokenStream {
                 }
             },
             BitFragmentFieldType::PatternArray => {
-                unimplemented!();
+                // unimplemented!();
+                quote!{}
             },
             BitFragmentFieldType::FragmentArray => {
                 unimplemented!();
@@ -939,7 +963,7 @@ pub fn bitfragment(args: TokenStream, input: TokenStream) -> TokenStream {
                 }
             },
             BitFragmentFieldType::PatternArray => {
-                unimplemented!();
+                quote!{{unimplemented!();}}
             },
             BitFragmentFieldType::FragmentArray => {
                 unimplemented!();
@@ -974,11 +998,30 @@ pub fn bitfragment(args: TokenStream, input: TokenStream) -> TokenStream {
     let field_names = obj_field_info.iter().map(|x| LitStr::new(&x.name_str, Span::call_site()));
     let field_docs = obj_field_info.iter().map(|x| LitStr::new(&x.docs, Span::call_site()));
     let field_types = obj_field_info.iter().map(|x| {
+        let arr_dim_total_expr = match x.field_type_enum {
+            BitFragmentFieldType::Pattern | BitFragmentFieldType::Fragment => None,
+            BitFragmentFieldType::PatternArray | BitFragmentFieldType::FragmentArray => {
+                let expr_0 = &x.arr_dim_exprs[0];
+                let mut ret = quote!{(#expr_0)};
+                for expr_n in &x.arr_dim_exprs[1..] {
+                    ret = quote!{(#expr_n) * #ret};
+                }
+
+                Some(ret)
+            }
+        };
+
         let fieldtype_id = match x.field_type_enum {
             BitFragmentFieldType::Pattern => quote!{Pattern},
             BitFragmentFieldType::Fragment => quote!{Fragment},
-            BitFragmentFieldType::PatternArray => quote!{PatternArray},
-            BitFragmentFieldType::FragmentArray => quote!{FragmentArray},
+            BitFragmentFieldType::PatternArray => {
+                let arr_dim_total_expr = arr_dim_total_expr.unwrap();
+                quote!{PatternArray(#arr_dim_total_expr)}
+            },
+            BitFragmentFieldType::FragmentArray => {
+                let arr_dim_total_expr = arr_dim_total_expr.unwrap();
+                quote!{FragmentArray(#arr_dim_total_expr)}
+            },
         };
         quote!{::bittwiddler::BitFragmentFieldType::#fieldtype_id}
     });
