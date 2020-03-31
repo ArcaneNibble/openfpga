@@ -959,7 +959,6 @@ pub fn bitfragment(args: TokenStream, input: TokenStream) -> TokenStream {
                 }
             },
             BitFragmentFieldType::PatternArray => {
-
                 // FIXME: Code duplication
                 let mut encode_each_bit = Vec::new();
                 for (bitname, bitinfo) in field_info.patbits.as_ref().unwrap() {
@@ -1019,7 +1018,43 @@ pub fn bitfragment(args: TokenStream, input: TokenStream) -> TokenStream {
                 encode_for_loops
             },
             BitFragmentFieldType::FragmentArray => {
-                unimplemented!();
+                let encode_innermost_pat = quote!{
+                    <#field_type as ::bittwiddler::BitFragment<#subvar>>::encode(arr_elem, fuses,
+                        arr_elem_off,
+                        mirror  // TODO
+                    );
+                };
+
+                let arr_off_expr = field_info.arr_off_expr.as_ref().unwrap();
+                // Stupid workaround for arrays that are oversize
+                let (arr_index_expr, arr_indexing_expr) = generate_array_indexing_helper(&field_info);
+
+                // Here we generate the code to loop through the array
+                let mut encode_for_loops = quote!{
+                    let arr_elem = &field_ref #arr_indexing_expr;
+                    let arr_elem_i = #arr_index_expr;
+                    let mut arr_elem_off = (#arr_off_expr)(arr_elem_i);
+
+                    // offsetting (still need field base offset)
+                    for i in 0..#idx_dims {
+                        arr_elem_off[i] = if mirror[i] {
+                            offset[i] - arr_elem_off[i]
+                        } else {
+                            offset[i] + arr_elem_off[i]
+                        };
+                    }
+
+                    #encode_innermost_pat
+                };
+                for (arr_layer_i, arr_layer_dim_expr) in field_info.arr_dim_exprs.iter().enumerate().rev() {
+                    let arr_layer_ident = Ident::new(&format!("arr_layer_{}", arr_layer_i), Span::call_site());
+                    encode_for_loops = quote!{
+                        for #arr_layer_ident in 0..(#arr_layer_dim_expr) {
+                            #encode_for_loops
+                        }
+                    }
+                }
+                encode_for_loops
             },
         };
 
@@ -1219,7 +1254,7 @@ pub fn bitfragment(args: TokenStream, input: TokenStream) -> TokenStream {
                 }}
             },
             BitFragmentFieldType::FragmentArray => {
-                unimplemented!();
+                quote!{{unimplemented!();}}
             },
         };
         decode_field_vals.push(decode_field);
