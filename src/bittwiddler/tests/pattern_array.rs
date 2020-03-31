@@ -102,49 +102,75 @@ fn pattern_array_encode() {
         true]);
 }
 
-// #[test]
-// fn pattern_array_decode() {
-//     let x = [true, false, false];
-//     let out = MyStruct1::decode(&x[..], [0], [false]).unwrap();
-//     assert_eq!(out, MyStruct1 {
-//         field_enum: MyEnum::Choice1,
-//         field_bool: true,
-//     });
+#[test]
+fn pattern_array_decode() {
+    let x = [false,
+        true, true,
+        false, true,
+        true, false,
+        false, false,
+        false, true,
+        true, false];
+    let out = MyStruct1::decode(&x[..], [0], [false]).unwrap();
+    assert_eq!(out, MyStruct1 {
+        field_enum: [
+            [[MyEnum::Choice4, MyEnum::Choice2]],
+            [[MyEnum::Choice3, MyEnum::Choice1]],
+            [[MyEnum::Choice2, MyEnum::Choice3]],
+        ],
+        field_bool: [false],
+    });
 
-//     let x = [false, true, true];
-//     let out = MyStruct1::decode(&x[..], [0], [false]).unwrap();
-//     assert_eq!(out, MyStruct1 {
-//         field_enum: MyEnum::Choice4,
-//         field_bool: false,
-//     });
+    let x = [false,
+        true, false,
+        false, true,
+        true, true,
+        false, false,
+        false, false,
+        true, false];
+    let out = MyStruct1::decode(&x[..], [0], [false]).unwrap();
+    assert_eq!(out, MyStruct1 {
+        field_enum: [
+            [[MyEnum::Choice3, MyEnum::Choice2]],
+            [[MyEnum::Choice4, MyEnum::Choice1]],
+            [[MyEnum::Choice1, MyEnum::Choice3]],
+        ],
+        field_bool: [false],
+    });
 
-//     // offset
-//     let x = [false, false, false, true, false, false];
-//     let out = MyStruct1::decode(&x[..], [3], [false]).unwrap();
-//     assert_eq!(out, MyStruct1 {
-//         field_enum: MyEnum::Choice1,
-//         field_bool: true,
-//     });
+    let x = [
+        false, true,
+        true, false,
+        false, false,
+        false, true,
+        true, false,
+        true, true,
+        false];
+    let out = MyStruct1::decode(&x[..], [12], [true]).unwrap();
+    assert_eq!(out, MyStruct1 {
+        field_enum: [
+            [[MyEnum::Choice4, MyEnum::Choice2]],
+            [[MyEnum::Choice3, MyEnum::Choice1]],
+            [[MyEnum::Choice2, MyEnum::Choice3]],
+        ],
+        field_bool: [false],
+    });
 
-//     let x = [true, true, true, false, true, true];
-//     let out = MyStruct1::decode(&x[..], [3], [false]).unwrap();
-//     assert_eq!(out, MyStruct1 {
-//         field_enum: MyEnum::Choice4,
-//         field_bool: false,
-//     });
-
-//     // mirroring
-//     let x = [true, false, false];
-//     let out = MyStruct1::decode(&x[..], [2], [true]).unwrap();
-//     assert_eq!(out, MyStruct1 {
-//         field_enum: MyEnum::Choice2,
-//         field_bool: false,
-//     });
-
-//     let x = [true, true, true, false, true, true];
-//     let out = MyStruct1::decode(&x[..], [5], [true]).unwrap();
-//     assert_eq!(out, MyStruct1 {
-//         field_enum: MyEnum::Choice3,
-//         field_bool: true,
-//     });
-// }
+    let x = [
+        false, true,
+        false, false,
+        false, false,
+        true, true,
+        true, false,
+        false, true,
+        false];
+    let out = MyStruct1::decode(&x[..], [12], [true]).unwrap();
+    assert_eq!(out, MyStruct1 {
+        field_enum: [
+            [[MyEnum::Choice3, MyEnum::Choice2]],
+            [[MyEnum::Choice4, MyEnum::Choice1]],
+            [[MyEnum::Choice1, MyEnum::Choice3]],
+        ],
+        field_bool: [false],
+    });
+}

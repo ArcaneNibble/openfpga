@@ -855,6 +855,31 @@ pub fn bitfragment(args: TokenStream, input: TokenStream) -> TokenStream {
         quote!{[usize; #idx_dims]}
     };
 
+    fn generate_array_indexing_helper(field_info: &FieldInfo) -> (proc_macro2::TokenStream, proc_macro2::TokenStream) {
+        // calc final real index
+        let mut arr_index_expr = quote!{arr_layer_0};
+        for arr_dim_expr_i in &field_info.arr_dim_exprs[1..] {
+            arr_index_expr = quote!{#arr_index_expr * (#arr_dim_expr_i)};
+        }
+        arr_index_expr = quote!{(#arr_index_expr)};
+        // index the array to get that index
+        let mut arr_indexing_expr = quote!{[arr_layer_0]};
+        for arr_layer_i in 1..field_info.arr_dim_exprs.len() {
+            let arr_layer_i_expr = Ident::new(&format!("arr_layer_{}", arr_layer_i), Span::call_site());
+            arr_indexing_expr = quote!{#arr_indexing_expr[#arr_layer_i_expr]};
+
+            let mut arr_index_layer_expr = quote!{#arr_layer_i_expr};
+            for arr_dim_expr_i in &field_info.arr_dim_exprs[(arr_layer_i + 1)..] {
+                arr_index_layer_expr = quote!{#arr_index_layer_expr * (#arr_dim_expr_i)};
+            }
+            arr_index_layer_expr = quote!{(#arr_index_layer_expr)};
+
+            arr_index_expr = quote!{#arr_index_expr + #arr_index_layer_expr};
+        }
+
+        (arr_index_expr, arr_indexing_expr)
+    }
+
     // encoding
     let mut encode_fields = Vec::new();
     for (field_i, field_info) in obj_field_info.iter().enumerate() {
@@ -973,28 +998,8 @@ pub fn bitfragment(args: TokenStream, input: TokenStream) -> TokenStream {
                 };
 
                 let arr_off_expr = field_info.arr_off_expr.as_ref().unwrap();
-
                 // Stupid workaround for arrays that are oversize
-                // calc final real index
-                let mut arr_index_expr = quote!{arr_layer_0};
-                for arr_dim_expr_i in &field_info.arr_dim_exprs[1..] {
-                    arr_index_expr = quote!{#arr_index_expr * (#arr_dim_expr_i)};
-                }
-                arr_index_expr = quote!{(#arr_index_expr)};
-                // index the array to get that index
-                let mut arr_indexing_expr = quote!{[arr_layer_0]};
-                for arr_layer_i in 1..field_info.arr_dim_exprs.len() {
-                    let arr_layer_i_expr = Ident::new(&format!("arr_layer_{}", arr_layer_i), Span::call_site());
-                    arr_indexing_expr = quote!{#arr_indexing_expr[#arr_layer_i_expr]};
-
-                    let mut arr_index_layer_expr = quote!{#arr_layer_i_expr};
-                    for arr_dim_expr_i in &field_info.arr_dim_exprs[(arr_layer_i + 1)..] {
-                        arr_index_layer_expr = quote!{#arr_index_layer_expr * (#arr_dim_expr_i)};
-                    }
-                    arr_index_layer_expr = quote!{(#arr_index_layer_expr)};
-
-                    arr_index_expr = quote!{#arr_index_expr + #arr_index_layer_expr};
-                }
+                let (arr_index_expr, arr_indexing_expr) = generate_array_indexing_helper(&field_info);
 
                 // Here we generate the code to loop through the array
                 let mut encode_for_loops = quote!{
@@ -1119,7 +1124,99 @@ pub fn bitfragment(args: TokenStream, input: TokenStream) -> TokenStream {
                 }
             },
             BitFragmentFieldType::PatternArray => {
-                quote!{{unimplemented!();}}
+                // FIXME: Code duplication
+                let bitsinfo = field_info.patbits.as_ref().unwrap();
+                let num_bits = bitsinfo.len();
+
+                let mut decode_each_bit = Vec::new();
+                for (bitname, bitinfo) in bitsinfo {
+                    let inv_token = if bitinfo.invert {quote!{!}} else {quote!{}};
+                    let bitname_litstr = LitStr::new(bitname, Span::call_site());
+                    let decode_bitval = match &bitinfo.pos {
+                        PatBitPos::Loc(locs) => {
+                            let mut decode_each_dim = Vec::new();
+                            for dim in 0..idx_dims {
+                                let loc = locs[dim];
+                                decode_each_dim.push(quote!{
+                                    ((offset[#dim] as isize) +
+                                        ((if mirror[#dim] {-1} else {1}) * (arr_elem_off[#dim] as isize)) +
+                                        (if mirror[#dim] {-1} else {1}) * #loc) as usize
+                                });
+                            }
+
+                            if idx_dims == 1 {
+                                let decode_dim0 = &decode_each_dim[0];
+                                quote!{
+                                    #inv_token fuses[#decode_dim0];
+                                }
+                            } else {
+                                quote!{
+                                    #inv_token fuses[[#(#decode_each_dim),*]];
+                                }
+                            }
+                        },
+                        PatBitPos::Bool(b) => {
+                            quote!{
+                                #inv_token #b;
+                            }
+                        }
+                    };
+
+                    decode_each_bit.push(quote!{
+                        decode_arr[<#field_type as ::bittwiddler::BitPattern<#subvar>>::_name_to_pos(#bitname_litstr)] = #decode_bitval
+                    });
+                }
+
+                let decode_innermost_pat = quote!{
+                    let mut decode_arr = [false; #num_bits];
+
+                    #(#decode_each_bit)*
+
+                    *arr_elem = ::core::mem::MaybeUninit::new(
+                        <#field_type as ::bittwiddler::BitPattern<#subvar>>::decode(&decode_arr)?);
+                };
+
+                let arr_off_expr = field_info.arr_off_expr.as_ref().unwrap();
+                // Stupid workaround for arrays that are oversize
+                let (arr_index_expr, arr_indexing_expr) = generate_array_indexing_helper(&field_info);
+
+                // Here we generate the code to loop through the array
+                let mut decode_for_loops = quote!{
+                    let arr_elem = &mut out_arr #arr_indexing_expr;
+                    let arr_elem_i = #arr_index_expr;
+                    let arr_elem_off = (#arr_off_expr)(arr_elem_i);
+                    #decode_innermost_pat
+                };
+                for (arr_layer_i, arr_layer_dim_expr) in field_info.arr_dim_exprs.iter().enumerate().rev() {
+                    let arr_layer_ident = Ident::new(&format!("arr_layer_{}", arr_layer_i), Span::call_site());
+                    decode_for_loops = quote!{
+                        for #arr_layer_ident in 0..(#arr_layer_dim_expr) {
+                            #decode_for_loops
+                        }
+                    }
+                }
+
+                // Set up uninitialized array
+                let arr_dim_expr_n = field_info.arr_dim_exprs.last();
+                let mut uninit_array = quote!{
+                    [::core::mem::MaybeUninit<#field_type>; #arr_dim_expr_n]
+                };
+                for i in (0..(field_info.arr_dim_exprs.len() - 1)).rev() {
+                    let arr_dim_expr_i = &field_info.arr_dim_exprs[i];
+                    uninit_array = quote!{
+                        [#uninit_array; #arr_dim_expr_i]
+                    }
+                }
+
+                quote!{{
+                    let mut out_arr: #uninit_array = unsafe {
+                        ::core::mem::MaybeUninit::uninit().assume_init()
+                    };
+
+                    #decode_for_loops
+
+                    unsafe { ::core::mem::transmute::<_, _>(out_arr) }
+                }}
             },
             BitFragmentFieldType::FragmentArray => {
                 unimplemented!();
