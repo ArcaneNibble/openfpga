@@ -1,7 +1,9 @@
 use bittwiddler::*;
 
 #[bitpattern]
+#[bitfragment(dimensions = 1)]
 #[derive(Debug, PartialEq, Eq)]
+#[pat_bits("0" = 300, "1" = 299)]
 enum MyEnum {
     #[bits("00")]
     Choice1,
@@ -18,14 +20,13 @@ enum MyEnum {
 struct MyStruct1 {
     #[offset([301usize])]
     #[mirror([true])]
-    #[pat_bits("0" = 300, "1" = 299)]
     field_enum: MyEnum,
     #[pat_bits("0" = 0)]
     field_bool: bool,
 }
 
 #[test]
-fn offset_and_mirror_pattern_encode() {
+fn offset_and_mirror_fragment_encode() {
     let mut out = [false; 3];
 
     let x = MyStruct1 {
@@ -78,7 +79,7 @@ fn offset_and_mirror_pattern_encode() {
 }
 
 #[test]
-fn offset_and_mirror_pattern_decode() {
+fn offset_and_mirror_fragment_decode() {
     let x = [true, false, false];
     let out = MyStruct1::decode(&x[..], [0], [false]).unwrap();
     assert_eq!(out, MyStruct1 {
