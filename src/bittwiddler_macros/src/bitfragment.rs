@@ -910,34 +910,138 @@ pub fn bitfragment(args: TokenStream, input: TokenStream) -> TokenStream {
         quote!{[usize; #idx_dims]}
     };
 
-    fn generate_array_indexing_helper(field_info: &FieldInfo) -> (proc_macro2::TokenStream, proc_macro2::TokenStream) {
-        // calc final real index
-        let mut arr_index_expr = quote!{arr_layer_0};
-        for arr_dim_expr_i in &field_info.arr_dim_exprs[1..] {
-            arr_index_expr = quote!{#arr_index_expr * (#arr_dim_expr_i)};
-        }
-        arr_index_expr = quote!{(#arr_index_expr)};
-        // index the array to get that index
-        let mut arr_indexing_expr = quote!{[arr_layer_0]};
-        for arr_layer_i in 1..field_info.arr_dim_exprs.len() {
-            let arr_layer_i_expr = Ident::new(&format!("arr_layer_{}", arr_layer_i), Span::call_site());
-            arr_indexing_expr = quote!{#arr_indexing_expr[#arr_layer_i_expr]};
-
-            let mut arr_index_layer_expr = quote!{#arr_layer_i_expr};
-            for arr_dim_expr_i in &field_info.arr_dim_exprs[(arr_layer_i + 1)..] {
-                arr_index_layer_expr = quote!{#arr_index_layer_expr * (#arr_dim_expr_i)};
+    // common code
+    let mut encode_decode_common = Vec::new();
+    for field_info in &obj_field_info {
+        // Field offset and mirroring configuration
+        let base_offset_setup = if let Some(base_offset_expr) = &field_info.base_off_expr {
+            quote!{
+                let base_offset = (#base_offset_expr);
             }
-            arr_index_layer_expr = quote!{(#arr_index_layer_expr)};
+        } else {
+            quote!{
+                let base_offset = [0; #idx_dims];
+            }
+        };
 
-            arr_index_expr = quote!{#arr_index_expr + #arr_index_layer_expr};
-        }
+        let base_mirror_setup = if let Some(base_mirror_expr) = &field_info.base_mirror_expr {
+            quote!{
+                let base_mirror = (#base_mirror_expr);
+            }
+        } else {
+            quote!{
+                let base_mirror = [false; #idx_dims];
+            }
+        };
 
-        (arr_index_expr, arr_indexing_expr)
+        let base_off_mirror_setup = quote!{
+            #base_offset_setup
+            #base_mirror_setup
+        };
+
+        // Array setup
+        let array_setup = if let Some(arr_off_expr) = &field_info.arr_off_expr {
+            // Stupid workaround for arrays that are oversize
+            // calc final real index
+            let mut arr_index_expr = quote!{arr_layer_0};
+            for arr_dim_expr_i in &field_info.arr_dim_exprs[1..] {
+                arr_index_expr = quote!{#arr_index_expr * (#arr_dim_expr_i)};
+            }
+            arr_index_expr = quote!{(#arr_index_expr)};
+            // index the array to get that index
+            let mut arr_indexing_expr = quote!{[arr_layer_0]};
+            for arr_layer_i in 1..field_info.arr_dim_exprs.len() {
+                let arr_layer_i_expr = Ident::new(&format!("arr_layer_{}", arr_layer_i), Span::call_site());
+                arr_indexing_expr = quote!{#arr_indexing_expr[#arr_layer_i_expr]};
+
+                let mut arr_index_layer_expr = quote!{#arr_layer_i_expr};
+                for arr_dim_expr_i in &field_info.arr_dim_exprs[(arr_layer_i + 1)..] {
+                    arr_index_layer_expr = quote!{#arr_index_layer_expr * (#arr_dim_expr_i)};
+                }
+                arr_index_layer_expr = quote!{(#arr_index_layer_expr)};
+
+                arr_index_expr = quote!{#arr_index_expr + #arr_index_layer_expr};
+            }
+
+            let arr_elem_mirror_expr = if let Some(arr_mirror_expr) = &field_info.arr_mirror_expr {
+                quote!{
+                    let arr_elem_mirror = (#arr_mirror_expr)(arr_elem_i);
+                }
+            } else {
+                quote!{
+                    let arr_elem_mirror = [false; #idx_dims];
+                }
+            };
+
+            quote!{
+                /* let var = &field OR &mut field */ #arr_indexing_expr;
+                let arr_elem_i = #arr_index_expr;
+                let arr_elem_off = (#arr_off_expr)(arr_elem_i);
+                #arr_elem_mirror_expr
+            }
+        } else {
+            quote!{}
+        };
+
+        // Final subblock offset/mirroring
+        let elem_off_mirror_setup = if field_info.arr_off_expr.is_some() {
+            quote!{
+                // offsetting 
+                let mut subfrag_off = [0isize; #idx_dims];
+                for i in 0..#idx_dims {
+                    subfrag_off[i] = offset[i];
+
+                    // TODO: WTF IS GOING ON HERE
+                    if mirror[i] ^ arr_elem_mirror[i] {
+                        subfrag_off[i] -= (base_offset[i] as isize);
+                    } else {
+                        subfrag_off[i] += (base_offset[i] as isize);
+                    }
+
+                    if mirror[i] {
+                        subfrag_off[i] -= (arr_elem_off[i] as isize);
+                    } else {
+                        subfrag_off[i] += (arr_elem_off[i] as isize);
+                    }
+                }
+
+                // mirroring
+                let mut subfrag_mirror = [false; #idx_dims];
+                for i in 0..#idx_dims {
+                    subfrag_mirror[i] = mirror[i] ^ base_mirror[i] ^ arr_elem_mirror[i];
+                }
+            }
+        } else {
+            quote!{
+                // offsetting 
+                let mut subfrag_off = [0isize; #idx_dims];
+                for i in 0..#idx_dims {
+                    subfrag_off[i] = offset[i];
+
+                    // TODO: WTF IS GOING ON HERE
+                    if mirror[i] {
+                        subfrag_off[i] -= (base_offset[i] as isize);
+                    } else {
+                        subfrag_off[i] += (base_offset[i] as isize);
+                    }
+                }
+
+                // mirroring
+                let mut subfrag_mirror = [false; #idx_dims];
+                for i in 0..#idx_dims {
+                    subfrag_mirror[i] = mirror[i] ^ base_mirror[i];
+                }
+            }
+        };
+
+        encode_decode_common.push((base_off_mirror_setup, array_setup, elem_off_mirror_setup));
     }
 
     // encoding
     let mut encode_fields = Vec::new();
     for (field_i, field_info) in obj_field_info.iter().enumerate() {
+        let (base_off_mirror_setup, array_setup, elem_off_mirror_setup) = &encode_decode_common[field_i];
+
         let get_field_ref = match field_mode {
             FieldMode::Enum => {
                 quote!{let field_ref = self;}
@@ -970,26 +1074,6 @@ pub fn bitfragment(args: TokenStream, input: TokenStream) -> TokenStream {
 
         let encode_field_ref = match field_info.field_type_enum {
             BitFragmentFieldType::Pattern => {
-                let base_offset_setup = if let Some(base_offset_expr) = &field_info.base_off_expr {
-                    quote!{
-                        let base_offset = (#base_offset_expr);
-                    }
-                } else {
-                    quote!{
-                        let base_offset = [0; #idx_dims];
-                    }
-                };
-
-                let base_mirror_setup = if let Some(base_mirror_expr) = &field_info.base_mirror_expr {
-                    quote!{
-                        let base_mirror = (#base_mirror_expr);
-                    }
-                } else {
-                    quote!{
-                        let base_mirror = [false; #idx_dims];
-                    }
-                };
-
                 let mut encode_each_bit = Vec::new();
                 for (bitname, bitinfo) in field_info.patbits.as_ref().unwrap() {
                     if let PatBitPos::Loc(locs) = &bitinfo.pos {
@@ -1022,77 +1106,21 @@ pub fn bitfragment(args: TokenStream, input: TokenStream) -> TokenStream {
                 }
 
                 quote!{
-                    #base_offset_setup;
-                    #base_mirror_setup;
+                    #base_off_mirror_setup
                     let encoded_arr = <#field_type as ::bittwiddler::BitPattern<#subvar>>::encode(field_ref);
                     #(#encode_each_bit)*
                 }
             },
             BitFragmentFieldType::Fragment => {
-                let base_offset_setup = if let Some(base_offset_expr) = &field_info.base_off_expr {
-                    quote!{
-                        let base_offset = (#base_offset_expr);
-                    }
-                } else {
-                    quote!{
-                        let base_offset = [0; #idx_dims];
-                    }
-                };
-
-                let base_mirror_setup = if let Some(base_mirror_expr) = &field_info.base_mirror_expr {
-                    quote!{
-                        let mut subfrag_mirror = (#base_mirror_expr);
-                    }
-                } else {
-                    quote!{
-                        let mut subfrag_mirror = [false; #idx_dims];
-                    }
-                };
-
                 quote!{
-                    #base_offset_setup;
-                    #base_mirror_setup;
-
-                    // offsetting
-                    let mut subfrag_off = [0isize; #idx_dims];
-                    for i in 0..#idx_dims {
-                        subfrag_off[i] = if mirror[i] {
-                            offset[i] - (base_offset[i] as isize)
-                        } else {
-                            offset[i] + (base_offset[i] as isize)
-                        };
-                    }
-
-                    // mirroring
-                    for i in 0..#idx_dims {
-                        subfrag_mirror[i] ^= mirror[i];
-                    }
+                    #base_off_mirror_setup
+                    #elem_off_mirror_setup
 
                     <#field_type as ::bittwiddler::BitFragment<#subvar>>::encode(field_ref, fuses, subfrag_off, subfrag_mirror);
                 }
             },
             BitFragmentFieldType::PatternArray => {
                 // FIXME: Code duplication
-                let base_offset_setup = if let Some(base_offset_expr) = &field_info.base_off_expr {
-                    quote!{
-                        let base_offset = (#base_offset_expr);
-                    }
-                } else {
-                    quote!{
-                        let base_offset = [0; #idx_dims];
-                    }
-                };
-
-                let base_mirror_setup = if let Some(base_mirror_expr) = &field_info.base_mirror_expr {
-                    quote!{
-                        let base_mirror = (#base_mirror_expr);
-                    }
-                } else {
-                    quote!{
-                        let base_mirror = [false; #idx_dims];
-                    }
-                };
-
                 let mut encode_each_bit = Vec::new();
                 for (bitname, bitinfo) in field_info.patbits.as_ref().unwrap() {
                     if let PatBitPos::Loc(locs) = &bitinfo.pos {
@@ -1130,28 +1158,10 @@ pub fn bitfragment(args: TokenStream, input: TokenStream) -> TokenStream {
                     #(#encode_each_bit)*
                 };
 
-                let arr_off_expr = field_info.arr_off_expr.as_ref().unwrap();
-                // Stupid workaround for arrays that are oversize
-                let (arr_index_expr, arr_indexing_expr) = generate_array_indexing_helper(&field_info);
-
-                let arr_elem_mirror_expr = if let Some(arr_mirror_expr) = &field_info.arr_mirror_expr {
-                    quote!{
-                        let arr_elem_mirror = (#arr_mirror_expr)(arr_elem_i);
-                    }
-                } else {
-                    quote!{
-                        let arr_elem_mirror = [false; #idx_dims];
-                    }
-                };
-
                 // Here we generate the code to loop through the array
                 let mut encode_for_loops = quote!{
-                    #base_offset_setup;
-                    #base_mirror_setup;
-                    let arr_elem = &field_ref #arr_indexing_expr;
-                    let arr_elem_i = #arr_index_expr;
-                    let arr_elem_off = (#arr_off_expr)(arr_elem_i);
-                    #arr_elem_mirror_expr
+                    #base_off_mirror_setup
+                    let arr_elem = &field_ref #array_setup
                     #encode_innermost_pat
                 };
                 for (arr_layer_i, arr_layer_dim_expr) in field_info.arr_dim_exprs.iter().enumerate().rev() {
@@ -1166,83 +1176,15 @@ pub fn bitfragment(args: TokenStream, input: TokenStream) -> TokenStream {
             },
             BitFragmentFieldType::FragmentArray => {
                 // FIXME: Code duplication
-                let base_offset_setup = if let Some(base_offset_expr) = &field_info.base_off_expr {
-                    quote!{
-                        let base_offset = (#base_offset_expr);
-                    }
-                } else {
-                    quote!{
-                        let base_offset = [0; #idx_dims];
-                    }
-                };
-
-                let base_mirror_setup = if let Some(base_mirror_expr) = &field_info.base_mirror_expr {
-                    quote!{
-                        let base_mirror = (#base_mirror_expr);
-                    }
-                } else {
-                    quote!{
-                        let base_mirror = [false; #idx_dims];
-                    }
-                };
-
                 let encode_innermost_pat = quote!{
                     <#field_type as ::bittwiddler::BitFragment<#subvar>>::encode(arr_elem, fuses, subfrag_off, subfrag_mirror);
                 };
 
-                let arr_off_expr = field_info.arr_off_expr.as_ref().unwrap();
-                // Stupid workaround for arrays that are oversize
-                let (arr_index_expr, arr_indexing_expr) = generate_array_indexing_helper(&field_info);
-
-                let arr_elem_mirror_expr = if let Some(arr_mirror_expr) = &field_info.arr_mirror_expr {
-                    quote!{
-                        let arr_elem_mirror = (#arr_mirror_expr)(arr_elem_i); 
-                        let mut subfrag_mirror = [false; #idx_dims];
-
-                        // mirroring
-                        for i in 0..#idx_dims {
-                            subfrag_mirror[i] = mirror[i] ^ base_mirror[i] ^ arr_elem_mirror[i];
-                        }
-                    }
-                } else {
-                    quote!{
-                        let arr_elem_mirror = [false; #idx_dims];
-                        let mut subfrag_mirror = [false; #idx_dims];
-
-                        // mirroring
-                        for i in 0..#idx_dims {
-                            subfrag_mirror[i] = mirror[i] ^ base_mirror[i];
-                        }
-                    }
-                };
-
                 // Here we generate the code to loop through the array
                 let mut encode_for_loops = quote!{
-                    #base_offset_setup;
-                    #base_mirror_setup;
-                    let arr_elem = &field_ref #arr_indexing_expr;
-                    let arr_elem_i = #arr_index_expr;
-                    let arr_elem_off = (#arr_off_expr)(arr_elem_i);
-                    #arr_elem_mirror_expr
-
-                    // offsetting 
-                    let mut subfrag_off = [0isize; #idx_dims];
-                    for i in 0..#idx_dims {
-                        subfrag_off[i] = offset[i];
-
-                        // TODO: WTF IS GOING ON HERE
-                        if mirror[i] ^ arr_elem_mirror[i] {
-                            subfrag_off[i] -= (base_offset[i] as isize);
-                        } else {
-                            subfrag_off[i] += (base_offset[i] as isize);
-                        }
-
-                        if mirror[i] {
-                            subfrag_off[i] -= (arr_elem_off[i] as isize);
-                        } else {
-                            subfrag_off[i] += (arr_elem_off[i] as isize);
-                        }
-                    }
+                    #base_off_mirror_setup
+                    let arr_elem = &field_ref #array_setup
+                    #elem_off_mirror_setup
 
                     #encode_innermost_pat
                 };
@@ -1269,7 +1211,9 @@ pub fn bitfragment(args: TokenStream, input: TokenStream) -> TokenStream {
     // decoding
     let mut decode_field_names = Vec::new();
     let mut decode_field_vals = Vec::new();
-    for field_info in &obj_field_info {
+    for (field_i, field_info) in obj_field_info.iter().enumerate() {
+        let (base_off_mirror_setup, array_setup, elem_off_mirror_setup) = &encode_decode_common[field_i];
+
         let field_type = match field_mode {
             FieldMode::Enum => {
                 quote!{Self}
@@ -1299,26 +1243,6 @@ pub fn bitfragment(args: TokenStream, input: TokenStream) -> TokenStream {
 
         let decode_field = match field_info.field_type_enum {
             BitFragmentFieldType::Pattern => {
-                let base_offset_setup = if let Some(base_offset_expr) = &field_info.base_off_expr {
-                    quote!{
-                        let base_offset = (#base_offset_expr);
-                    }
-                } else {
-                    quote!{
-                        let base_offset = [0; #idx_dims];
-                    }
-                };
-
-                let base_mirror_setup = if let Some(base_mirror_expr) = &field_info.base_mirror_expr {
-                    quote!{
-                        let base_mirror = (#base_mirror_expr);
-                    }
-                } else {
-                    quote!{
-                        let base_mirror = [false; #idx_dims];
-                    }
-                };
-
                 let bitsinfo = field_info.patbits.as_ref().unwrap();
                 let num_bits = bitsinfo.len();
 
@@ -1363,8 +1287,7 @@ pub fn bitfragment(args: TokenStream, input: TokenStream) -> TokenStream {
 
                 quote!{
                     {
-                        #base_offset_setup;
-                        #base_mirror_setup;
+                        #base_off_mirror_setup
                         let mut decode_arr = [false; #num_bits];
 
                         #(#decode_each_bit)*
@@ -1374,45 +1297,10 @@ pub fn bitfragment(args: TokenStream, input: TokenStream) -> TokenStream {
                 }
             },
             BitFragmentFieldType::Fragment => {
-                let base_offset_setup = if let Some(base_offset_expr) = &field_info.base_off_expr {
-                    quote!{
-                        let base_offset = (#base_offset_expr);
-                    }
-                } else {
-                    quote!{
-                        let base_offset = [0; #idx_dims];
-                    }
-                };
-
-                let base_mirror_setup = if let Some(base_mirror_expr) = &field_info.base_mirror_expr {
-                    quote!{
-                        let mut subfrag_mirror = (#base_mirror_expr);
-                    }
-                } else {
-                    quote!{
-                        let mut subfrag_mirror = [false; #idx_dims];
-                    }
-                };
-
                 quote!{
                     {
-                        #base_offset_setup;
-                        #base_mirror_setup;
-
-                        // offsetting
-                        let mut subfrag_off = [0isize; #idx_dims];
-                        for i in 0..#idx_dims {
-                            subfrag_off[i] = if mirror[i] {
-                                offset[i] - (base_offset[i] as isize)
-                            } else {
-                                offset[i] + (base_offset[i] as isize)
-                            };
-                        }
-
-                        // mirroring
-                        for i in 0..#idx_dims {
-                            subfrag_mirror[i] ^= mirror[i];
-                        }
+                        #base_off_mirror_setup
+                        #elem_off_mirror_setup
 
                         <#field_type as ::bittwiddler::BitFragment<#subvar>>::decode(fuses, subfrag_off, subfrag_mirror)?
                     }
@@ -1420,26 +1308,6 @@ pub fn bitfragment(args: TokenStream, input: TokenStream) -> TokenStream {
             },
             BitFragmentFieldType::PatternArray => {
                 // FIXME: Code duplication
-                let base_offset_setup = if let Some(base_offset_expr) = &field_info.base_off_expr {
-                    quote!{
-                        let base_offset = (#base_offset_expr);
-                    }
-                } else {
-                    quote!{
-                        let base_offset = [0; #idx_dims];
-                    }
-                };
-
-                let base_mirror_setup = if let Some(base_mirror_expr) = &field_info.base_mirror_expr {
-                    quote!{
-                        let base_mirror = (#base_mirror_expr);
-                    }
-                } else {
-                    quote!{
-                        let base_mirror = [false; #idx_dims];
-                    }
-                };
-
                 let bitsinfo = field_info.patbits.as_ref().unwrap();
                 let num_bits = bitsinfo.len();
 
@@ -1492,28 +1360,10 @@ pub fn bitfragment(args: TokenStream, input: TokenStream) -> TokenStream {
                         <#field_type as ::bittwiddler::BitPattern<#subvar>>::decode(&decode_arr)?);
                 };
 
-                let arr_off_expr = field_info.arr_off_expr.as_ref().unwrap();
-                // Stupid workaround for arrays that are oversize
-                let (arr_index_expr, arr_indexing_expr) = generate_array_indexing_helper(&field_info);
-
-                let arr_elem_mirror_expr = if let Some(arr_mirror_expr) = &field_info.arr_mirror_expr {
-                    quote!{
-                        let arr_elem_mirror = (#arr_mirror_expr)(arr_elem_i);
-                    }
-                } else {
-                    quote!{
-                        let arr_elem_mirror = [false; #idx_dims];
-                    }
-                };
-
                 // Here we generate the code to loop through the array
                 let mut decode_for_loops = quote!{
-                    #base_offset_setup;
-                    #base_mirror_setup;
-                    let arr_elem = &mut out_arr #arr_indexing_expr;
-                    let arr_elem_i = #arr_index_expr;
-                    let arr_elem_off = (#arr_off_expr)(arr_elem_i);
-                    #arr_elem_mirror_expr
+                    #base_off_mirror_setup
+                    let arr_elem = &mut out_arr #array_setup
                     #decode_innermost_pat
                 };
                 for (arr_layer_i, arr_layer_dim_expr) in field_info.arr_dim_exprs.iter().enumerate().rev() {
@@ -1549,84 +1399,16 @@ pub fn bitfragment(args: TokenStream, input: TokenStream) -> TokenStream {
             },
             BitFragmentFieldType::FragmentArray => {
                 // FIXME: Code duplication
-                let base_offset_setup = if let Some(base_offset_expr) = &field_info.base_off_expr {
-                    quote!{
-                        let base_offset = (#base_offset_expr);
-                    }
-                } else {
-                    quote!{
-                        let base_offset = [0; #idx_dims];
-                    }
-                };
-
-                let base_mirror_setup = if let Some(base_mirror_expr) = &field_info.base_mirror_expr {
-                    quote!{
-                        let base_mirror = (#base_mirror_expr);
-                    }
-                } else {
-                    quote!{
-                        let base_mirror = [false; #idx_dims];
-                    }
-                };
-
                 let decode_innermost_pat = quote!{
                     *arr_elem = ::core::mem::MaybeUninit::new(
                         <#field_type as ::bittwiddler::BitFragment<#subvar>>::decode(fuses, subfrag_off, subfrag_mirror)?);
                 };
 
-                let arr_off_expr = field_info.arr_off_expr.as_ref().unwrap();
-                // Stupid workaround for arrays that are oversize
-                let (arr_index_expr, arr_indexing_expr) = generate_array_indexing_helper(&field_info);
-
-                let arr_elem_mirror_expr = if let Some(arr_mirror_expr) = &field_info.arr_mirror_expr {
-                    quote!{
-                        let arr_elem_mirror = (#arr_mirror_expr)(arr_elem_i);
-                        let mut subfrag_mirror = [false; #idx_dims];
-
-                        // mirroring
-                        for i in 0..#idx_dims {
-                            subfrag_mirror[i] = mirror[i] ^ base_mirror[i] ^ arr_elem_mirror[i];
-                        }
-                    }
-                } else {
-                    quote!{
-                        let arr_elem_mirror = [false; #idx_dims];
-                        let mut subfrag_mirror = [false; #idx_dims];
-
-                        // mirroring
-                        for i in 0..#idx_dims {
-                            subfrag_mirror[i] = mirror[i] ^ base_mirror[i];
-                        }
-                    }
-                };
-
                 // Here we generate the code to loop through the array
                 let mut decode_for_loops = quote!{
-                    #base_offset_setup;
-                    #base_mirror_setup;
-                    let arr_elem = &mut out_arr #arr_indexing_expr;
-                    let arr_elem_i = #arr_index_expr;
-                    let arr_elem_off = (#arr_off_expr)(arr_elem_i);
-                    #arr_elem_mirror_expr
-
-                    // offsetting 
-                    let mut subfrag_off = [0isize; #idx_dims];
-                    for i in 0..#idx_dims {
-                        subfrag_off[i] = offset[i];
-
-                        // TODO: WTF IS GOING ON HERE
-                        if mirror[i] ^ arr_elem_mirror[i] {
-                            subfrag_off[i] -= (base_offset[i] as isize);
-                        } else {
-                            subfrag_off[i] += (base_offset[i] as isize);
-                        }
-
-                        if mirror[i] {
-                            subfrag_off[i] -= (arr_elem_off[i] as isize);
-                        } else {
-                            subfrag_off[i] += (arr_elem_off[i] as isize);
-                        }
-                    }
+                    #base_off_mirror_setup
+                    let arr_elem = &mut out_arr #array_setup
+                    #elem_off_mirror_setup
 
                     #decode_innermost_pat
                 };
