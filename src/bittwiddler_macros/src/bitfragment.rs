@@ -986,7 +986,7 @@ pub fn bitfragment(args: TokenStream, input: TokenStream) -> TokenStream {
         // Final subblock offset/mirroring
         let elem_off_mirror_setup = if field_info.arr_off_expr.is_some() {
             quote!{
-                // offsetting 
+                // offsetting
                 let mut subfrag_off = [0isize; #idx_dims];
                 for i in 0..#idx_dims {
                     subfrag_off[i] = offset[i];
@@ -1013,7 +1013,7 @@ pub fn bitfragment(args: TokenStream, input: TokenStream) -> TokenStream {
             }
         } else {
             quote!{
-                // offsetting 
+                // offsetting
                 let mut subfrag_off = [0isize; #idx_dims];
                 for i in 0..#idx_dims {
                     subfrag_off[i] = offset[i];
@@ -1036,6 +1036,19 @@ pub fn bitfragment(args: TokenStream, input: TokenStream) -> TokenStream {
 
         encode_decode_common.push((base_off_mirror_setup, array_setup, elem_off_mirror_setup));
     }
+
+    let array_loopgen = |field_info: &FieldInfo, inner_body| {
+        let mut for_loop = inner_body;
+        for (arr_layer_i, arr_layer_dim_expr) in field_info.arr_dim_exprs.iter().enumerate().rev() {
+            let arr_layer_ident = Ident::new(&format!("arr_layer_{}", arr_layer_i), Span::call_site());
+            for_loop = quote!{
+                for #arr_layer_ident in 0..(#arr_layer_dim_expr) {
+                    #for_loop
+                }
+            }
+        }
+        for_loop
+    };
 
     // encoding
     let mut encode_fields = Vec::new();
@@ -1072,136 +1085,79 @@ pub fn bitfragment(args: TokenStream, input: TokenStream) -> TokenStream {
             quote!{()}
         };
 
-        let encode_field_ref = match field_info.field_type_enum {
-            BitFragmentFieldType::Pattern => {
-                let mut encode_each_bit = Vec::new();
-                for (bitname, bitinfo) in field_info.patbits.as_ref().unwrap() {
-                    if let PatBitPos::Loc(locs) = &bitinfo.pos {
-                        let inv_token = if bitinfo.invert {quote!{!}} else {quote!{}};
-                        let bitname_litstr = LitStr::new(bitname, Span::call_site());
 
-                        let mut encode_each_dim = Vec::new();
-                        for dim in 0..idx_dims {
-                            let loc = locs[dim];
-                            encode_each_dim.push(quote!{
-                                (offset[#dim] +
-                                    (if mirror[#dim] {-1} else {1}) * (base_offset[#dim] as isize) +
-                                    (if mirror[#dim] ^ base_mirror[#dim] {-1} else {1}) * #loc) as usize
-                            });
-                        }
+        let encode_pattern = || {
+            let mut encode_each_bit = Vec::new();
+            for (bitname, bitinfo) in field_info.patbits.as_ref().unwrap() {
+                if let PatBitPos::Loc(locs) = &bitinfo.pos {
+                    let inv_token = if bitinfo.invert {quote!{!}} else {quote!{}};
+                    let bitname_litstr = LitStr::new(bitname, Span::call_site());
 
-                        if idx_dims == 1 {
-                            let encode_dim0 = &encode_each_dim[0];
-                            encode_each_bit.push(quote!{
-                                fuses[#encode_dim0] =
-                                    #inv_token encoded_arr[<#field_type as ::bittwiddler::BitPattern<#subvar>>::_name_to_pos(#bitname_litstr)];
-                            });
-                        } else {
-                            encode_each_bit.push(quote!{
-                                fuses[[#(#encode_each_dim),*]] =
-                                    #inv_token encoded_arr[<#field_type as ::bittwiddler::BitPattern<#subvar>>::_name_to_pos(#bitname_litstr)];
-                            });
-                        }
+                    let mut encode_each_dim = Vec::new();
+                    for dim in 0..idx_dims {
+                        let loc = locs[dim];
+                        encode_each_dim.push(quote!{
+                            (subfrag_off[#dim] + (if subfrag_mirror[#dim] {-1} else {1}) * #loc) as usize
+                        });
+                    }
+
+                    if idx_dims == 1 {
+                        let encode_dim0 = &encode_each_dim[0];
+                        encode_each_bit.push(quote!{
+                            fuses[#encode_dim0] =
+                                #inv_token encoded_arr[<#field_type as ::bittwiddler::BitPattern<#subvar>>::_name_to_pos(#bitname_litstr)];
+                        });
+                    } else {
+                        encode_each_bit.push(quote!{
+                            fuses[[#(#encode_each_dim),*]] =
+                                #inv_token encoded_arr[<#field_type as ::bittwiddler::BitPattern<#subvar>>::_name_to_pos(#bitname_litstr)];
+                        });
                     }
                 }
+            }
 
+            quote!{
+                let encoded_arr = <#field_type as ::bittwiddler::BitPattern<#subvar>>::encode(field_ref);
+                #(#encode_each_bit)*
+            }
+        };
+
+        let encode_field_ref = match field_info.field_type_enum {
+            BitFragmentFieldType::Pattern => {
+                let encode_pattern_core = encode_pattern();
                 quote!{
-                    #base_off_mirror_setup
-                    let encoded_arr = <#field_type as ::bittwiddler::BitPattern<#subvar>>::encode(field_ref);
-                    #(#encode_each_bit)*
+                    #elem_off_mirror_setup
+                    #encode_pattern_core
                 }
             },
             BitFragmentFieldType::Fragment => {
                 quote!{
-                    #base_off_mirror_setup
                     #elem_off_mirror_setup
-
                     <#field_type as ::bittwiddler::BitFragment<#subvar>>::encode(field_ref, fuses, subfrag_off, subfrag_mirror);
                 }
             },
             BitFragmentFieldType::PatternArray => {
-                // FIXME: Code duplication
-                let mut encode_each_bit = Vec::new();
-                for (bitname, bitinfo) in field_info.patbits.as_ref().unwrap() {
-                    if let PatBitPos::Loc(locs) = &bitinfo.pos {
-                        let inv_token = if bitinfo.invert {quote!{!}} else {quote!{}};
-                        let bitname_litstr = LitStr::new(bitname, Span::call_site());
-
-                        let mut encode_each_dim = Vec::new();
-                        for dim in 0..idx_dims {
-                            let loc = locs[dim];
-                            encode_each_dim.push(quote!{
-                                (offset[#dim] +
-                                    ((if mirror[#dim] {-1} else {1}) * (arr_elem_off[#dim] as isize)) +
-                                    ((if mirror[#dim] ^ arr_elem_mirror[#dim] {-1} else {1}) * (base_offset[#dim] as isize)) +
-                                    (if mirror[#dim] ^ arr_elem_mirror[#dim] ^ base_mirror[#dim] {-1} else {1}) * #loc) as usize
-                            });
-                        }
-
-                        if idx_dims == 1 {
-                            let encode_dim0 = &encode_each_dim[0];
-                            encode_each_bit.push(quote!{
-                                fuses[#encode_dim0] =
-                                    #inv_token encoded_arr[<#field_type as ::bittwiddler::BitPattern<#subvar>>::_name_to_pos(#bitname_litstr)];
-                            });
-                        } else {
-                            encode_each_bit.push(quote!{
-                                fuses[[#(#encode_each_dim),*]] =
-                                    #inv_token encoded_arr[<#field_type as ::bittwiddler::BitPattern<#subvar>>::_name_to_pos(#bitname_litstr)];
-                            });
-                        }
-                    }
-                }
-
-                let encode_innermost_pat = quote!{
-                    let encoded_arr = <#field_type as ::bittwiddler::BitPattern<#subvar>>::encode(arr_elem);
-                    #(#encode_each_bit)*
+                let encode_pattern_core = encode_pattern();
+                let encode_elem = quote!{
+                    let field_ref = &field_ref #array_setup
+                    #elem_off_mirror_setup
+                    #encode_pattern_core
                 };
-
-                // Here we generate the code to loop through the array
-                let mut encode_for_loops = quote!{
-                    #base_off_mirror_setup
-                    let arr_elem = &field_ref #array_setup
-                    #encode_innermost_pat
-                };
-                for (arr_layer_i, arr_layer_dim_expr) in field_info.arr_dim_exprs.iter().enumerate().rev() {
-                    let arr_layer_ident = Ident::new(&format!("arr_layer_{}", arr_layer_i), Span::call_site());
-                    encode_for_loops = quote!{
-                        for #arr_layer_ident in 0..(#arr_layer_dim_expr) {
-                            #encode_for_loops
-                        }
-                    }
-                }
-                encode_for_loops
+                array_loopgen(field_info, encode_elem)
             },
             BitFragmentFieldType::FragmentArray => {
-                // FIXME: Code duplication
-                let encode_innermost_pat = quote!{
-                    <#field_type as ::bittwiddler::BitFragment<#subvar>>::encode(arr_elem, fuses, subfrag_off, subfrag_mirror);
-                };
-
-                // Here we generate the code to loop through the array
-                let mut encode_for_loops = quote!{
-                    #base_off_mirror_setup
+                let encode_elem = quote!{
                     let arr_elem = &field_ref #array_setup
                     #elem_off_mirror_setup
-
-                    #encode_innermost_pat
+                    <#field_type as ::bittwiddler::BitFragment<#subvar>>::encode(arr_elem, fuses, subfrag_off, subfrag_mirror);
                 };
-                for (arr_layer_i, arr_layer_dim_expr) in field_info.arr_dim_exprs.iter().enumerate().rev() {
-                    let arr_layer_ident = Ident::new(&format!("arr_layer_{}", arr_layer_i), Span::call_site());
-                    encode_for_loops = quote!{
-                        for #arr_layer_ident in 0..(#arr_layer_dim_expr) {
-                            #encode_for_loops
-                        }
-                    }
-                }
-                encode_for_loops
+                array_loopgen(field_info, encode_elem)
             },
         };
 
         encode_fields.push(quote!{
             {
+                #base_off_mirror_setup
                 #get_field_ref
                 #encode_field_ref
             }
@@ -1241,58 +1197,65 @@ pub fn bitfragment(args: TokenStream, input: TokenStream) -> TokenStream {
             quote!{()}
         };
 
-        let decode_field = match field_info.field_type_enum {
-            BitFragmentFieldType::Pattern => {
-                let bitsinfo = field_info.patbits.as_ref().unwrap();
-                let num_bits = bitsinfo.len();
+        let decode_pattern = || {
+            let bitsinfo = field_info.patbits.as_ref().unwrap();
+            let num_bits = bitsinfo.len();
 
-                let mut decode_each_bit = Vec::new();
-                for (bitname, bitinfo) in bitsinfo {
-                    let inv_token = if bitinfo.invert {quote!{!}} else {quote!{}};
-                    let bitname_litstr = LitStr::new(bitname, Span::call_site());
-                    let decode_bitval = match &bitinfo.pos {
-                        PatBitPos::Loc(locs) => {
-                            let mut decode_each_dim = Vec::new();
-                            for dim in 0..idx_dims {
-                                let loc = locs[dim];
-                                decode_each_dim.push(quote!{
-                                    (offset[#dim] +
-                                        (if mirror[#dim] {-1} else {1}) * (base_offset[#dim] as isize) +
-                                        (if mirror[#dim] ^ base_mirror[#dim] {-1} else {1}) * #loc) as usize
-                                });
-                            }
+            let mut decode_each_bit = Vec::new();
+            for (bitname, bitinfo) in bitsinfo {
+                let inv_token = if bitinfo.invert {quote!{!}} else {quote!{}};
+                let bitname_litstr = LitStr::new(bitname, Span::call_site());
+                let decode_bitval = match &bitinfo.pos {
+                    PatBitPos::Loc(locs) => {
+                        let mut decode_each_dim = Vec::new();
+                        for dim in 0..idx_dims {
+                            let loc = locs[dim];
+                            decode_each_dim.push(quote!{
+                                (subfrag_off[#dim] + (if subfrag_mirror[#dim] {-1} else {1}) * #loc) as usize
+                            });
+                        }
 
-                            if idx_dims == 1 {
-                                let decode_dim0 = &decode_each_dim[0];
-                                quote!{
-                                    #inv_token fuses[#decode_dim0];
-                                }
-                            } else {
-                                quote!{
-                                    #inv_token fuses[[#(#decode_each_dim),*]];
-                                }
-                            }
-                        },
-                        PatBitPos::Bool(b) => {
+                        if idx_dims == 1 {
+                            let decode_dim0 = &decode_each_dim[0];
                             quote!{
-                                #inv_token #b;
+                                #inv_token fuses[#decode_dim0];
+                            }
+                        } else {
+                            quote!{
+                                #inv_token fuses[[#(#decode_each_dim),*]];
                             }
                         }
-                    };
+                    },
+                    PatBitPos::Bool(b) => {
+                        quote!{
+                            #inv_token #b;
+                        }
+                    }
+                };
 
-                    decode_each_bit.push(quote!{
-                        decode_arr[<#field_type as ::bittwiddler::BitPattern<#subvar>>::_name_to_pos(#bitname_litstr)] = #decode_bitval
-                    });
+                decode_each_bit.push(quote!{
+                    decode_arr[<#field_type as ::bittwiddler::BitPattern<#subvar>>::_name_to_pos(#bitname_litstr)] = #decode_bitval
+                });
+            }
+
+            quote!{
+                {
+                    let mut decode_arr = [false; #num_bits];
+                    #(#decode_each_bit)*
+                    <#field_type as ::bittwiddler::BitPattern<#subvar>>::decode(&decode_arr)?
                 }
+            }
+        };
+
+        let decode_field = match field_info.field_type_enum {
+            BitFragmentFieldType::Pattern => {
+                let decode_pattern_core = decode_pattern();
 
                 quote!{
                     {
                         #base_off_mirror_setup
-                        let mut decode_arr = [false; #num_bits];
-
-                        #(#decode_each_bit)*
-
-                        <#field_type as ::bittwiddler::BitPattern<#subvar>>::decode(&decode_arr)?
+                        #elem_off_mirror_setup
+                        #decode_pattern_core
                     }
                 }
             },
@@ -1301,79 +1264,20 @@ pub fn bitfragment(args: TokenStream, input: TokenStream) -> TokenStream {
                     {
                         #base_off_mirror_setup
                         #elem_off_mirror_setup
-
                         <#field_type as ::bittwiddler::BitFragment<#subvar>>::decode(fuses, subfrag_off, subfrag_mirror)?
                     }
                 }
             },
             BitFragmentFieldType::PatternArray => {
-                // FIXME: Code duplication
-                let bitsinfo = field_info.patbits.as_ref().unwrap();
-                let num_bits = bitsinfo.len();
-
-                let mut decode_each_bit = Vec::new();
-                for (bitname, bitinfo) in bitsinfo {
-                    let inv_token = if bitinfo.invert {quote!{!}} else {quote!{}};
-                    let bitname_litstr = LitStr::new(bitname, Span::call_site());
-                    let decode_bitval = match &bitinfo.pos {
-                        PatBitPos::Loc(locs) => {
-                            let mut decode_each_dim = Vec::new();
-                            for dim in 0..idx_dims {
-                                let loc = locs[dim];
-                                decode_each_dim.push(quote!{
-                                    (offset[#dim] +
-                                    ((if mirror[#dim] {-1} else {1}) * (arr_elem_off[#dim] as isize)) +
-                                    ((if mirror[#dim] ^ arr_elem_mirror[#dim] {-1} else {1}) * (base_offset[#dim] as isize)) +
-                                    (if mirror[#dim] ^ arr_elem_mirror[#dim] ^ base_mirror[#dim] {-1} else {1}) * #loc) as usize
-                                });
-                            }
-
-                            if idx_dims == 1 {
-                                let decode_dim0 = &decode_each_dim[0];
-                                quote!{
-                                    #inv_token fuses[#decode_dim0];
-                                }
-                            } else {
-                                quote!{
-                                    #inv_token fuses[[#(#decode_each_dim),*]];
-                                }
-                            }
-                        },
-                        PatBitPos::Bool(b) => {
-                            quote!{
-                                #inv_token #b;
-                            }
-                        }
-                    };
-
-                    decode_each_bit.push(quote!{
-                        decode_arr[<#field_type as ::bittwiddler::BitPattern<#subvar>>::_name_to_pos(#bitname_litstr)] = #decode_bitval
-                    });
-                }
-
-                let decode_innermost_pat = quote!{
-                    let mut decode_arr = [false; #num_bits];
-
-                    #(#decode_each_bit)*
-
-                    *arr_elem = ::core::mem::MaybeUninit::new(
-                        <#field_type as ::bittwiddler::BitPattern<#subvar>>::decode(&decode_arr)?);
-                };
+                let decode_pattern_core = decode_pattern();
 
                 // Here we generate the code to loop through the array
-                let mut decode_for_loops = quote!{
-                    #base_off_mirror_setup
+                let decode_elem = quote!{
                     let arr_elem = &mut out_arr #array_setup
-                    #decode_innermost_pat
+                    #elem_off_mirror_setup
+                    *arr_elem = ::core::mem::MaybeUninit::new(#decode_pattern_core);
                 };
-                for (arr_layer_i, arr_layer_dim_expr) in field_info.arr_dim_exprs.iter().enumerate().rev() {
-                    let arr_layer_ident = Ident::new(&format!("arr_layer_{}", arr_layer_i), Span::call_site());
-                    decode_for_loops = quote!{
-                        for #arr_layer_ident in 0..(#arr_layer_dim_expr) {
-                            #decode_for_loops
-                        }
-                    }
-                }
+                let decode_for_loops = array_loopgen(field_info, decode_elem);
 
                 // Set up uninitialized array
                 let arr_dim_expr_n = field_info.arr_dim_exprs.last();
@@ -1388,6 +1292,8 @@ pub fn bitfragment(args: TokenStream, input: TokenStream) -> TokenStream {
                 }
 
                 quote!{{
+                    #base_off_mirror_setup
+
                     let mut out_arr: #uninit_array = unsafe {
                         ::core::mem::MaybeUninit::uninit().assume_init()
                     };
@@ -1398,28 +1304,14 @@ pub fn bitfragment(args: TokenStream, input: TokenStream) -> TokenStream {
                 }}
             },
             BitFragmentFieldType::FragmentArray => {
-                // FIXME: Code duplication
-                let decode_innermost_pat = quote!{
+                // Here we generate the code to loop through the array
+                let decode_elem = quote!{
+                    let arr_elem = &mut out_arr #array_setup
+                    #elem_off_mirror_setup
                     *arr_elem = ::core::mem::MaybeUninit::new(
                         <#field_type as ::bittwiddler::BitFragment<#subvar>>::decode(fuses, subfrag_off, subfrag_mirror)?);
                 };
-
-                // Here we generate the code to loop through the array
-                let mut decode_for_loops = quote!{
-                    #base_off_mirror_setup
-                    let arr_elem = &mut out_arr #array_setup
-                    #elem_off_mirror_setup
-
-                    #decode_innermost_pat
-                };
-                for (arr_layer_i, arr_layer_dim_expr) in field_info.arr_dim_exprs.iter().enumerate().rev() {
-                    let arr_layer_ident = Ident::new(&format!("arr_layer_{}", arr_layer_i), Span::call_site());
-                    decode_for_loops = quote!{
-                        for #arr_layer_ident in 0..(#arr_layer_dim_expr) {
-                            #decode_for_loops
-                        }
-                    }
-                }
+                let decode_for_loops = array_loopgen(field_info, decode_elem);
 
                 // Set up uninitialized array
                 let arr_dim_expr_n = field_info.arr_dim_exprs.last();
@@ -1434,6 +1326,8 @@ pub fn bitfragment(args: TokenStream, input: TokenStream) -> TokenStream {
                 }
 
                 quote!{{
+                    #base_off_mirror_setup
+
                     let mut out_arr: #uninit_array = unsafe {
                         ::core::mem::MaybeUninit::uninit().assume_init()
                     };
@@ -1504,7 +1398,7 @@ pub fn bitfragment(args: TokenStream, input: TokenStream) -> TokenStream {
     // dummy for now
     let dim_zeros = (0..idx_dims).map(|_| quote!{0}).collect::<Vec<_>>();
     let dim_false = (0..idx_dims).map(|_| quote!{false}).collect::<Vec<_>>();
-    
+
     let output = quote!{
         #input
 
