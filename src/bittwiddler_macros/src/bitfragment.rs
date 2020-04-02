@@ -117,6 +117,8 @@ struct FieldInfo {
     field_type_ty: Option<Type>,
     patbits: Option<PatBitsInfo>,
     subvar: Option<Type>,
+    base_off_expr: Option<Expr>,
+    base_mirror_expr: Option<Expr>,
     arr_dim_exprs: Vec<Expr>,
     arr_off_expr: Option<ExprClosure>,
     arr_mirror_expr: Option<ExprClosure>,
@@ -128,6 +130,8 @@ struct ParsedAttrs {
     docs: String,
     patbits: Option<PatBitsInfo>,
     subvar: Option<Type>,
+    base_off_expr: Option<Expr>,
+    base_mirror_expr: Option<Expr>,
     arr_off_expr: Option<ExprClosure>,
     arr_mirror_expr: Option<ExprClosure>,
 }
@@ -205,27 +209,28 @@ impl Parse for FragSetting {
 
 type FragSettings = Punctuated<FragSetting, token::Comma>;
 
-// Args for the #[arr_off] and #[arr_mirror] attribute macro
+// Args for the #[offset], #[mirror],
+// #[arr_off] and #[arr_mirror] attribute macro
 #[derive(Debug)]
-enum FragClosureSetting {
+enum FragExprSetting {
     FragVariant(ArgWithType),
     Expr(Expr),
 }
 
-impl Parse for FragClosureSetting {
+impl Parse for FragExprSetting {
     fn parse(input: ParseStream) -> syn::parse::Result<Self> {
         let lookahead = input.lookahead1();
         if lookahead.peek(kw::variant) {
-            input.parse().map(FragClosureSetting::FragVariant)
+            input.parse().map(FragExprSetting::FragVariant)
         } else if lookahead.peek(kw::frag_variant) {
-            input.parse().map(FragClosureSetting::FragVariant)
+            input.parse().map(FragExprSetting::FragVariant)
         } else {
-            input.parse().map(FragClosureSetting::Expr)
+            input.parse().map(FragExprSetting::Expr)
         }
     }
 }
 
-type FragClosureSettings = Punctuated<FragClosureSetting, token::Comma>;
+type FragExprSettings = Punctuated<FragExprSetting, token::Comma>;
 
 fn parse_pat_bits_expr(expr: &Expr) -> Result<(bool, PatBitInfo)> {
     let mut errors_occurred = false;
@@ -375,6 +380,8 @@ fn parse_attrs(attrs: &mut Vec<Attribute>, encode_variant: &Option<Type>, idx_di
     let mut to_remove = Vec::new();
     let mut seen_pat = false;
     let mut seen_frag = false;
+    let mut base_off_expr = None;
+    let mut base_mirror_expr = None;
     let mut arr_off_expr = None;
     let mut arr_mirror_expr = None;
     for (i, attr) in attrs.into_iter().enumerate() {
@@ -609,7 +616,7 @@ fn parse_attrs(attrs: &mut Vec<Attribute>, encode_variant: &Option<Type>, idx_di
         }
 
         if attr.path.is_ident("arr_off") {
-            let parser = FragClosureSettings::parse_separated_nonempty;
+            let parser = FragExprSettings::parse_separated_nonempty;
             let attr_args = attr.parse_args_with(parser)?;
 
             // Loop through parsed list
@@ -617,14 +624,14 @@ fn parse_attrs(attrs: &mut Vec<Attribute>, encode_variant: &Option<Type>, idx_di
             let mut maybe_off_expr = None;
             for attr_arg in attr_args {
                 match attr_arg {
-                    FragClosureSetting::FragVariant(x) => {
+                    FragExprSetting::FragVariant(x) => {
                         if maybe_frag_var.is_some() {
                             emit_error!(x, "Only one variant arg allowed");
                             errors_occurred = true;
                         }
                         maybe_frag_var = Some(x.ty);
                     },
-                    FragClosureSetting::Expr(x) => {
+                    FragExprSetting::Expr(x) => {
                         if maybe_off_expr.is_some() {
                             emit_error!(x, "Only one expression arg allowed");
                             errors_occurred = true;
@@ -664,7 +671,7 @@ fn parse_attrs(attrs: &mut Vec<Attribute>, encode_variant: &Option<Type>, idx_di
         }
 
         if attr.path.is_ident("arr_mirror") {
-            let parser = FragClosureSettings::parse_separated_nonempty;
+            let parser = FragExprSettings::parse_separated_nonempty;
             let attr_args = attr.parse_args_with(parser)?;
 
             // Loop through parsed list
@@ -672,14 +679,14 @@ fn parse_attrs(attrs: &mut Vec<Attribute>, encode_variant: &Option<Type>, idx_di
             let mut maybe_mirror_expr = None;
             for attr_arg in attr_args {
                 match attr_arg {
-                    FragClosureSetting::FragVariant(x) => {
+                    FragExprSetting::FragVariant(x) => {
                         if maybe_frag_var.is_some() {
                             emit_error!(x, "Only one variant arg allowed");
                             errors_occurred = true;
                         }
                         maybe_frag_var = Some(x.ty);
                     },
-                    FragClosureSetting::Expr(x) => {
+                    FragExprSetting::Expr(x) => {
                         if maybe_mirror_expr.is_some() {
                             emit_error!(x, "Only one expression arg allowed");
                             errors_occurred = true;
@@ -717,6 +724,106 @@ fn parse_attrs(attrs: &mut Vec<Attribute>, encode_variant: &Option<Type>, idx_di
                 to_remove.push(i);
             }
         }
+
+        if attr.path.is_ident("offset") {
+            let parser = FragExprSettings::parse_separated_nonempty;
+            let attr_args = attr.parse_args_with(parser)?;
+
+            // Loop through parsed list
+            let mut maybe_frag_var = None;
+            let mut maybe_off_expr = None;
+            for attr_arg in attr_args {
+                match attr_arg {
+                    FragExprSetting::FragVariant(x) => {
+                        if maybe_frag_var.is_some() {
+                            emit_error!(x, "Only one variant arg allowed");
+                            errors_occurred = true;
+                        }
+                        maybe_frag_var = Some(x.ty);
+                    },
+                    FragExprSetting::Expr(x) => {
+                        if maybe_off_expr.is_some() {
+                            emit_error!(x, "Only one expression arg allowed");
+                            errors_occurred = true;
+                        }
+                        maybe_off_expr = Some(x);
+                    },
+                }
+            }
+
+            // Possibly filter by fragment variant
+            if maybe_frag_var.is_none() && encode_variant.is_none() ||
+                (maybe_frag_var.is_some() && encode_variant.is_some() &&
+                    maybe_frag_var.as_ref().unwrap() == encode_variant.as_ref().unwrap()) {
+
+                if base_off_expr.is_some() {
+                    errors_occurred = true;
+                    if let Some(bitvar) = encode_variant.as_ref() {
+                        emit_error!(attr, "Only one #[offset] attribute allowed for variant {}", quote!{#bitvar}.to_string());
+                    } else {
+                        emit_error!(attr, "Only one #[offset] attribute allowed");
+                    }
+                }
+
+                if let Some(off_expr) = maybe_off_expr {
+                    base_off_expr = Some(off_expr);
+                } else {
+                    emit_error!(attr, "Missing offset expression");
+                    errors_occurred = true;
+                }
+                to_remove.push(i);
+            }
+        }
+
+        if attr.path.is_ident("mirror") {
+            let parser = FragExprSettings::parse_separated_nonempty;
+            let attr_args = attr.parse_args_with(parser)?;
+
+            // Loop through parsed list
+            let mut maybe_frag_var = None;
+            let mut maybe_off_expr = None;
+            for attr_arg in attr_args {
+                match attr_arg {
+                    FragExprSetting::FragVariant(x) => {
+                        if maybe_frag_var.is_some() {
+                            emit_error!(x, "Only one variant arg allowed");
+                            errors_occurred = true;
+                        }
+                        maybe_frag_var = Some(x.ty);
+                    },
+                    FragExprSetting::Expr(x) => {
+                        if maybe_off_expr.is_some() {
+                            emit_error!(x, "Only one expression arg allowed");
+                            errors_occurred = true;
+                        }
+                        maybe_off_expr = Some(x);
+                    },
+                }
+            }
+
+            // Possibly filter by fragment variant
+            if maybe_frag_var.is_none() && encode_variant.is_none() ||
+                (maybe_frag_var.is_some() && encode_variant.is_some() &&
+                    maybe_frag_var.as_ref().unwrap() == encode_variant.as_ref().unwrap()) {
+
+                if base_mirror_expr.is_some() {
+                    errors_occurred = true;
+                    if let Some(bitvar) = encode_variant.as_ref() {
+                        emit_error!(attr, "Only one #[mirror] attribute allowed for variant {}", quote!{#bitvar}.to_string());
+                    } else {
+                        emit_error!(attr, "Only one #[mirror] attribute allowed");
+                    }
+                }
+
+                if let Some(off_expr) = maybe_off_expr {
+                    base_mirror_expr = Some(off_expr);
+                } else {
+                    emit_error!(attr, "Missing mirror expression");
+                    errors_occurred = true;
+                }
+                to_remove.push(i);
+            }
+        }
     }
 
     for i in to_remove.into_iter().rev() {
@@ -728,6 +835,8 @@ fn parse_attrs(attrs: &mut Vec<Attribute>, encode_variant: &Option<Type>, idx_di
         docs,
         patbits,
         subvar,
+        base_off_expr,
+        base_mirror_expr,
         arr_off_expr,
         arr_mirror_expr,
     })
@@ -812,6 +921,8 @@ pub fn bitfragment(args: TokenStream, input: TokenStream) -> TokenStream {
                 field_type_ty: None,
                 patbits: parsed_attrs.patbits,
                 subvar: parsed_attrs.subvar,
+                base_off_expr: parsed_attrs.base_off_expr,
+                base_mirror_expr: parsed_attrs.base_mirror_expr,
                 arr_dim_exprs: vec![],
                 arr_off_expr: None,
                 arr_mirror_expr: None,
@@ -890,6 +1001,8 @@ pub fn bitfragment(args: TokenStream, input: TokenStream) -> TokenStream {
                     field_type_ty: Some(field_type),
                     patbits: parsed_attrs.patbits,
                     subvar: parsed_attrs.subvar,
+                    base_off_expr: parsed_attrs.base_off_expr,
+                    base_mirror_expr: parsed_attrs.base_mirror_expr,
                     arr_dim_exprs,
                     arr_off_expr: parsed_attrs.arr_off_expr,
                     arr_mirror_expr: parsed_attrs.arr_mirror_expr,
@@ -985,6 +1098,26 @@ pub fn bitfragment(args: TokenStream, input: TokenStream) -> TokenStream {
 
         let encode_field_ref = match field_info.field_type_enum {
             BitFragmentFieldType::Pattern => {
+                let base_offset_setup = if let Some(base_offset_expr) = &field_info.base_off_expr {
+                    quote!{
+                        let base_offset = (#base_offset_expr);
+                    }
+                } else {
+                    quote!{
+                        let base_offset = [0; #idx_dims];
+                    }
+                };
+
+                let base_mirror_setup = if let Some(base_mirror_expr) = &field_info.base_mirror_expr {
+                    quote!{
+                        let base_mirror = (#base_mirror_expr);
+                    }
+                } else {
+                    quote!{
+                        let base_mirror = [false; #idx_dims];
+                    }
+                };
+
                 let mut encode_each_bit = Vec::new();
                 for (bitname, bitinfo) in field_info.patbits.as_ref().unwrap() {
                     if let PatBitPos::Loc(locs) = &bitinfo.pos {
@@ -995,7 +1128,9 @@ pub fn bitfragment(args: TokenStream, input: TokenStream) -> TokenStream {
                         for dim in 0..idx_dims {
                             let loc = locs[dim];
                             encode_each_dim.push(quote!{
-                                (offset[#dim] + (if mirror[#dim] {-1} else {1}) * #loc) as usize
+                                (offset[#dim] +
+                                    (if mirror[#dim] {-1} else {1}) * base_offset[#dim] +
+                                    (if mirror[#dim] ^ base_mirror[#dim] {-1} else {1}) * #loc) as usize
                             });
                         }
 
@@ -1015,6 +1150,8 @@ pub fn bitfragment(args: TokenStream, input: TokenStream) -> TokenStream {
                 }
 
                 quote!{
+                    #base_offset_setup;
+                    #base_mirror_setup;
                     let encoded_arr = <#field_type as ::bittwiddler::BitPattern<#subvar>>::encode(field_ref);
                     #(#encode_each_bit)*
                 }
@@ -1196,6 +1333,26 @@ pub fn bitfragment(args: TokenStream, input: TokenStream) -> TokenStream {
 
         let decode_field = match field_info.field_type_enum {
             BitFragmentFieldType::Pattern => {
+                let base_offset_setup = if let Some(base_offset_expr) = &field_info.base_off_expr {
+                    quote!{
+                        let base_offset = (#base_offset_expr);
+                    }
+                } else {
+                    quote!{
+                        let base_offset = [0; #idx_dims];
+                    }
+                };
+
+                let base_mirror_setup = if let Some(base_mirror_expr) = &field_info.base_mirror_expr {
+                    quote!{
+                        let base_mirror = (#base_mirror_expr);
+                    }
+                } else {
+                    quote!{
+                        let base_mirror = [false; #idx_dims];
+                    }
+                };
+
                 let bitsinfo = field_info.patbits.as_ref().unwrap();
                 let num_bits = bitsinfo.len();
 
@@ -1209,7 +1366,9 @@ pub fn bitfragment(args: TokenStream, input: TokenStream) -> TokenStream {
                             for dim in 0..idx_dims {
                                 let loc = locs[dim];
                                 decode_each_dim.push(quote!{
-                                    (offset[#dim] + (if mirror[#dim] {-1} else {1}) * #loc) as usize
+                                    (offset[#dim] +
+                                        (if mirror[#dim] {-1} else {1}) * base_offset[#dim] +
+                                        (if mirror[#dim] ^ base_mirror[#dim] {-1} else {1}) * #loc) as usize
                                 });
                             }
 
@@ -1238,6 +1397,8 @@ pub fn bitfragment(args: TokenStream, input: TokenStream) -> TokenStream {
 
                 quote!{
                     {
+                        #base_offset_setup;
+                        #base_mirror_setup;
                         let mut decode_arr = [false; #num_bits];
 
                         #(#decode_each_bit)*
