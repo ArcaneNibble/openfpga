@@ -615,215 +615,87 @@ fn parse_attrs(attrs: &mut Vec<Attribute>, encode_variant: &Option<Type>, idx_di
             }
         }
 
-        if attr.path.is_ident("arr_off") {
-            let parser = FragExprSettings::parse_separated_nonempty;
-            let attr_args = attr.parse_args_with(parser)?;
+        macro_rules! parse_frag_expr_attr {
+            ($attr_name:literal, $missing_expr_err:literal, $dup_check_expr:expr, $do_stuff:expr) => {
+                if attr.path.is_ident($attr_name) {
+                    let parser = FragExprSettings::parse_separated_nonempty;
+                    let attr_args = attr.parse_args_with(parser)?;
 
-            // Loop through parsed list
-            let mut maybe_frag_var = None;
-            let mut maybe_off_expr = None;
-            for attr_arg in attr_args {
-                match attr_arg {
-                    FragExprSetting::FragVariant(x) => {
-                        if maybe_frag_var.is_some() {
-                            emit_error!(x, "Only one variant arg allowed");
+                    // Loop through parsed list
+                    let mut maybe_frag_var = None;
+                    let mut maybe_expr = None;
+                    for attr_arg in attr_args {
+                        match attr_arg {
+                            FragExprSetting::FragVariant(x) => {
+                                if maybe_frag_var.is_some() {
+                                    emit_error!(x, "Only one variant arg allowed");
+                                    errors_occurred = true;
+                                }
+                                maybe_frag_var = Some(x.ty);
+                            },
+                            FragExprSetting::Expr(x) => {
+                                if maybe_expr.is_some() {
+                                    emit_error!(x, "Only one expression arg allowed");
+                                    errors_occurred = true;
+                                }
+                                maybe_expr = Some(x);
+                            },
+                        }
+                    }
+
+                    // Possibly filter by fragment variant
+                    if maybe_frag_var.is_none() && encode_variant.is_none() ||
+                        (maybe_frag_var.is_some() && encode_variant.is_some() &&
+                            maybe_frag_var.as_ref().unwrap() == encode_variant.as_ref().unwrap()) {
+
+                        if $dup_check_expr {
+                            errors_occurred = true;
+                            if let Some(bitvar) = encode_variant.as_ref() {
+                                emit_error!(attr, concat!("Only one #[", $attr_name, "] attribute allowed for variant {}"),
+                                    quote!{#bitvar}.to_string());
+                            } else {
+                                emit_error!(attr, concat!("Only one #[", $attr_name, "] attribute allowed"));
+                            }
+                        }
+
+                        if let Some(expr) = maybe_expr {
+                            $do_stuff(expr);
+                        } else {
+                            emit_error!(attr, $missing_expr_err);
                             errors_occurred = true;
                         }
-                        maybe_frag_var = Some(x.ty);
-                    },
-                    FragExprSetting::Expr(x) => {
-                        if maybe_off_expr.is_some() {
-                            emit_error!(x, "Only one expression arg allowed");
-                            errors_occurred = true;
-                        }
-                        maybe_off_expr = Some(x);
-                    },
-                }
-            }
-
-            // Possibly filter by fragment variant
-            if maybe_frag_var.is_none() && encode_variant.is_none() ||
-                (maybe_frag_var.is_some() && encode_variant.is_some() &&
-                    maybe_frag_var.as_ref().unwrap() == encode_variant.as_ref().unwrap()) {
-
-                if arr_off_expr.is_some() {
-                    errors_occurred = true;
-                    if let Some(bitvar) = encode_variant.as_ref() {
-                        emit_error!(attr, "Only one #[arr_off] attribute allowed for variant {}", quote!{#bitvar}.to_string());
-                    } else {
-                        emit_error!(attr, "Only one #[arr_off] attribute allowed");
+                        to_remove.push(i);
                     }
                 }
-
-                if let Some(off_expr) = maybe_off_expr {
-                    if let Expr::Closure(c) = off_expr {
-                        arr_off_expr = Some(c);
-                    } else {
-                        emit_error!(off_expr, "Offset expression must be a closure");
-                        errors_occurred = true;
-                    }
-                } else {
-                    emit_error!(attr, "Missing offset expression");
-                    errors_occurred = true;
-                }
-                to_remove.push(i);
-            }
+            };
         }
 
-        if attr.path.is_ident("arr_mirror") {
-            let parser = FragExprSettings::parse_separated_nonempty;
-            let attr_args = attr.parse_args_with(parser)?;
+        parse_frag_expr_attr!("arr_off", "Missing offset expression", arr_off_expr.is_some(), |off_expr| {
+            if let Expr::Closure(c) = off_expr {
 
-            // Loop through parsed list
-            let mut maybe_frag_var = None;
-            let mut maybe_mirror_expr = None;
-            for attr_arg in attr_args {
-                match attr_arg {
-                    FragExprSetting::FragVariant(x) => {
-                        if maybe_frag_var.is_some() {
-                            emit_error!(x, "Only one variant arg allowed");
-                            errors_occurred = true;
-                        }
-                        maybe_frag_var = Some(x.ty);
-                    },
-                    FragExprSetting::Expr(x) => {
-                        if maybe_mirror_expr.is_some() {
-                            emit_error!(x, "Only one expression arg allowed");
-                            errors_occurred = true;
-                        }
-                        maybe_mirror_expr = Some(x);
-                    },
-                }
+                arr_off_expr = Some(c);
+            } else {
+                emit_error!(off_expr, "Offset expression must be a closure");
+                errors_occurred = true;
             }
+        });
 
-            // Possibly filter by fragment variant
-            if maybe_frag_var.is_none() && encode_variant.is_none() ||
-                (maybe_frag_var.is_some() && encode_variant.is_some() &&
-                    maybe_frag_var.as_ref().unwrap() == encode_variant.as_ref().unwrap()) {
-
-                if arr_mirror_expr.is_some() {
-                    errors_occurred = true;
-                    if let Some(bitvar) = encode_variant.as_ref() {
-                        emit_error!(attr, "Only one #[arr_mirror] attribute allowed for variant {}", quote!{#bitvar}.to_string());
-                    } else {
-                        emit_error!(attr, "Only one #[arr_mirror] attribute allowed");
-                    }
-                }
-
-                if let Some(mirror_expr) = maybe_mirror_expr {
-                    if let Expr::Closure(c) = mirror_expr {
-                        arr_mirror_expr = Some(c);
-                    } else {
-                        emit_error!(mirror_expr, "Mirror expression must be a closure");
-                        errors_occurred = true;
-                    }
-                } else {
-                    emit_error!(attr, "Missing mirror expression");
-                    errors_occurred = true;
-                }
-                to_remove.push(i);
+        parse_frag_expr_attr!("arr_mirror", "Missing mirror expression", arr_mirror_expr.is_some(), |mirror_expr| {
+            if let Expr::Closure(c) = mirror_expr {
+                arr_mirror_expr = Some(c);
+            } else {
+                emit_error!(mirror_expr, "Mirror expression must be a closure");
+                errors_occurred = true;
             }
-        }
+        });
 
-        if attr.path.is_ident("offset") {
-            let parser = FragExprSettings::parse_separated_nonempty;
-            let attr_args = attr.parse_args_with(parser)?;
+        parse_frag_expr_attr!("offset", "Missing offset expression", base_off_expr.is_some(), |off_expr| {
+            base_off_expr = Some(off_expr);
+        });
 
-            // Loop through parsed list
-            let mut maybe_frag_var = None;
-            let mut maybe_off_expr = None;
-            for attr_arg in attr_args {
-                match attr_arg {
-                    FragExprSetting::FragVariant(x) => {
-                        if maybe_frag_var.is_some() {
-                            emit_error!(x, "Only one variant arg allowed");
-                            errors_occurred = true;
-                        }
-                        maybe_frag_var = Some(x.ty);
-                    },
-                    FragExprSetting::Expr(x) => {
-                        if maybe_off_expr.is_some() {
-                            emit_error!(x, "Only one expression arg allowed");
-                            errors_occurred = true;
-                        }
-                        maybe_off_expr = Some(x);
-                    },
-                }
-            }
-
-            // Possibly filter by fragment variant
-            if maybe_frag_var.is_none() && encode_variant.is_none() ||
-                (maybe_frag_var.is_some() && encode_variant.is_some() &&
-                    maybe_frag_var.as_ref().unwrap() == encode_variant.as_ref().unwrap()) {
-
-                if base_off_expr.is_some() {
-                    errors_occurred = true;
-                    if let Some(bitvar) = encode_variant.as_ref() {
-                        emit_error!(attr, "Only one #[offset] attribute allowed for variant {}", quote!{#bitvar}.to_string());
-                    } else {
-                        emit_error!(attr, "Only one #[offset] attribute allowed");
-                    }
-                }
-
-                if let Some(off_expr) = maybe_off_expr {
-                    base_off_expr = Some(off_expr);
-                } else {
-                    emit_error!(attr, "Missing offset expression");
-                    errors_occurred = true;
-                }
-                to_remove.push(i);
-            }
-        }
-
-        if attr.path.is_ident("mirror") {
-            let parser = FragExprSettings::parse_separated_nonempty;
-            let attr_args = attr.parse_args_with(parser)?;
-
-            // Loop through parsed list
-            let mut maybe_frag_var = None;
-            let mut maybe_off_expr = None;
-            for attr_arg in attr_args {
-                match attr_arg {
-                    FragExprSetting::FragVariant(x) => {
-                        if maybe_frag_var.is_some() {
-                            emit_error!(x, "Only one variant arg allowed");
-                            errors_occurred = true;
-                        }
-                        maybe_frag_var = Some(x.ty);
-                    },
-                    FragExprSetting::Expr(x) => {
-                        if maybe_off_expr.is_some() {
-                            emit_error!(x, "Only one expression arg allowed");
-                            errors_occurred = true;
-                        }
-                        maybe_off_expr = Some(x);
-                    },
-                }
-            }
-
-            // Possibly filter by fragment variant
-            if maybe_frag_var.is_none() && encode_variant.is_none() ||
-                (maybe_frag_var.is_some() && encode_variant.is_some() &&
-                    maybe_frag_var.as_ref().unwrap() == encode_variant.as_ref().unwrap()) {
-
-                if base_mirror_expr.is_some() {
-                    errors_occurred = true;
-                    if let Some(bitvar) = encode_variant.as_ref() {
-                        emit_error!(attr, "Only one #[mirror] attribute allowed for variant {}", quote!{#bitvar}.to_string());
-                    } else {
-                        emit_error!(attr, "Only one #[mirror] attribute allowed");
-                    }
-                }
-
-                if let Some(off_expr) = maybe_off_expr {
-                    base_mirror_expr = Some(off_expr);
-                } else {
-                    emit_error!(attr, "Missing mirror expression");
-                    errors_occurred = true;
-                }
-                to_remove.push(i);
-            }
-        }
+        parse_frag_expr_attr!("mirror", "Missing mirror expression", base_mirror_expr.is_some(), |mirror_expr| {
+            base_mirror_expr = Some(mirror_expr);
+        });
     }
 
     for i in to_remove.into_iter().rev() {
