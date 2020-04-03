@@ -333,7 +333,7 @@ fn parse_pat_picture(pict_lit: &LitStr, idx_dims: usize) -> Option<PatBitsInfo> 
                 } else {
                     ret.insert(bit.to_owned(), PatBitInfo {
                         invert,
-                        pos: PatBitPos::Loc(vec![y as isize, x as isize]),
+                        pos: PatBitPos::Loc(vec![x as isize, y as isize]),
                     });
                 }
             }

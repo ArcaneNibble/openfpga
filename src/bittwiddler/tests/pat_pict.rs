@@ -142,13 +142,13 @@ impl Index<[usize; 2]> for My2DArray {
     type Output = bool;
 
     fn index(&self, coords: [usize; 2]) -> &bool {
-        &self.0[coords[0] * 2 + coords[1]]
+        &self.0[coords[1] * 2 + coords[0]]
     }
 }
 
 impl IndexMut<[usize; 2]> for My2DArray {
     fn index_mut(&mut self, coords: [usize; 2]) -> &mut bool {
-        &mut self.0[coords[0] * 2 + coords[1]]
+        &mut self.0[coords[1] * 2 + coords[0]]
     }
 }
 
