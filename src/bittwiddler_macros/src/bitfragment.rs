@@ -1133,7 +1133,7 @@ pub fn bitfragment(args: TokenStream, input: TokenStream) -> TokenStream {
             BitFragmentFieldType::Fragment => {
                 quote!{
                     #elem_off_mirror_setup
-                    <#field_type as ::bittwiddler::BitFragment<#subvar>>::encode(field_ref, fuses, subfrag_off, subfrag_mirror);
+                    <#field_type as ::bittwiddler::BitFragment<#subvar>>::encode(field_ref, fuses, subfrag_off, subfrag_mirror, ());
                 }
             },
             BitFragmentFieldType::PatternArray => {
@@ -1149,7 +1149,7 @@ pub fn bitfragment(args: TokenStream, input: TokenStream) -> TokenStream {
                 let encode_elem = quote!{
                     let arr_elem = &field_ref #array_setup
                     #elem_off_mirror_setup
-                    <#field_type as ::bittwiddler::BitFragment<#subvar>>::encode(arr_elem, fuses, subfrag_off, subfrag_mirror);
+                    <#field_type as ::bittwiddler::BitFragment<#subvar>>::encode(arr_elem, fuses, subfrag_off, subfrag_mirror, ());
                 };
                 array_loopgen(field_info, encode_elem)
             },
@@ -1264,7 +1264,7 @@ pub fn bitfragment(args: TokenStream, input: TokenStream) -> TokenStream {
                     {
                         #base_off_mirror_setup
                         #elem_off_mirror_setup
-                        <#field_type as ::bittwiddler::BitFragment<#subvar>>::decode(fuses, subfrag_off, subfrag_mirror)?
+                        <#field_type as ::bittwiddler::BitFragment<#subvar>>::decode(fuses, subfrag_off, subfrag_mirror, ())?
                     }
                 }
             },
@@ -1309,7 +1309,7 @@ pub fn bitfragment(args: TokenStream, input: TokenStream) -> TokenStream {
                     let arr_elem = &mut out_arr #array_setup
                     #elem_off_mirror_setup
                     *arr_elem = ::core::mem::MaybeUninit::new(
-                        <#field_type as ::bittwiddler::BitFragment<#subvar>>::decode(fuses, subfrag_off, subfrag_mirror)?);
+                        <#field_type as ::bittwiddler::BitFragment<#subvar>>::decode(fuses, subfrag_off, subfrag_mirror, ())?);
                 };
                 let decode_for_loops = array_loopgen(field_info, decode_elem);
 
@@ -1410,14 +1410,21 @@ pub fn bitfragment(args: TokenStream, input: TokenStream) -> TokenStream {
 
             type ErrType = #errtype;
 
+            type EncodeExtraType = ();
+            type DecodeExtraType = ();
+
             const FIELD_COUNT: usize = #num_fields;
 
-            fn encode<F>(&self, fuses: &mut F, offset: Self::OffsettingType, mirror: Self::MirroringType)
+            fn encode<F>(&self, fuses: &mut F,
+                offset: Self::OffsettingType, mirror: Self::MirroringType,
+                extra_data: Self::EncodeExtraType)
                 where F: ::core::ops::IndexMut<Self::IndexingType, Output=bool> + ?Sized {
 
                 #(#encode_fields)*
             }
-            fn decode<F>(fuses: &F, offset: Self::OffsettingType, mirror: Self::MirroringType) -> Result<Self, Self::ErrType>
+            fn decode<F>(fuses: &F,
+                offset: Self::OffsettingType, mirror: Self::MirroringType,
+                extra_data: Self::DecodeExtraType) -> Result<Self, Self::ErrType>
                 where F: ::core::ops::Index<Self::IndexingType, Output=bool> + ?Sized {
 
                 Ok(#decode_func_body)

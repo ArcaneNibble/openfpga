@@ -35,28 +35,28 @@ fn subfragment_variant_encode() {
         field1: MyEnum::Choice2,
         field2: MyEnum::Choice3,
     };
-    x.encode(&mut out[..], [0], [false]);
+    x.encode(&mut out[..], [0], [false], ());
     assert_eq!(out, [false, true, true, false]);
 
     let x = MyStruct1 {
         field1: MyEnum::Choice4,
         field2: MyEnum::Choice1,
     };
-    x.encode(&mut out[..], [0], [false]);
+    x.encode(&mut out[..], [0], [false], ());
     assert_eq!(out, [true, false, true, false]);
 }
 
 #[test]
 fn subfragment_variant_decode() {
     let x = [true, false, false, true];
-    let out = MyStruct1::decode(&x[..], [0], [false]).unwrap();
+    let out = MyStruct1::decode(&x[..], [0], [false], ()).unwrap();
     assert_eq!(out, MyStruct1 {
         field1: MyEnum::Choice3,
         field2: MyEnum::Choice2,
     });
 
     let x = [false, true, false, true];
-    let out = MyStruct1::decode(&x[..], [0], [false]).unwrap();
+    let out = MyStruct1::decode(&x[..], [0], [false], ()).unwrap();
     assert_eq!(out, MyStruct1 {
         field1: MyEnum::Choice1,
         field2: MyEnum::Choice4,

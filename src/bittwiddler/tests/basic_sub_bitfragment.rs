@@ -45,28 +45,28 @@ fn basic_sub_bitfragment_encode() {
         field1: MyEnum1::Choice2,
         field2: MyEnum2::Choice3,
     };
-    x.encode(&mut out[..], [0], [false]);
+    x.encode(&mut out[..], [0], [false], ());
     assert_eq!(out, [false, true, true, false]);
 
     let x = MyStruct1 {
         field1: MyEnum1::Choice4,
         field2: MyEnum2::Choice1,
     };
-    x.encode(&mut out[..], [0], [false]);
+    x.encode(&mut out[..], [0], [false], ());
     assert_eq!(out, [true, false, true, false]);
 }
 
 #[test]
 fn basic_sub_bitfragment_decode() {
     let x = [true, false, false, true];
-    let out = MyStruct1::decode(&x[..], [0], [false]).unwrap();
+    let out = MyStruct1::decode(&x[..], [0], [false], ()).unwrap();
     assert_eq!(out, MyStruct1 {
         field1: MyEnum1::Choice3,
         field2: MyEnum2::Choice2,
     });
 
     let x = [false, true, false, true];
-    let out = MyStruct1::decode(&x[..], [0], [false]).unwrap();
+    let out = MyStruct1::decode(&x[..], [0], [false], ()).unwrap();
     assert_eq!(out, MyStruct1 {
         field1: MyEnum1::Choice1,
         field2: MyEnum2::Choice4,

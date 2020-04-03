@@ -47,7 +47,7 @@ fn frag_variants_encode() {
         field_enum: MyEnum::Choice2,
         field_bool: false,
     };
-    BitFragment::<FragVar1>::encode(&x, &mut out[..], [0], [false]);
+    BitFragment::<FragVar1>::encode(&x, &mut out[..], [0], [false], ());
     assert_eq!(out, [false, false, true, false, false]);
 
     let mut out = [false; 5];
@@ -55,7 +55,7 @@ fn frag_variants_encode() {
         field_enum: MyEnum::Choice2,
         field_bool: false,
     };
-    BitFragment::<FragVar2>::encode(&x, &mut out[..], [0], [false]);
+    BitFragment::<FragVar2>::encode(&x, &mut out[..], [0], [false], ());
     assert_eq!(out, [false, false, false, true, false]);
 
     let mut out = [false; 5];
@@ -63,28 +63,28 @@ fn frag_variants_encode() {
         field_enum: MyEnum::Choice2,
         field_bool: false,
     };
-    BitFragment::<FragVar3>::encode(&x, &mut out[..], [0], [false]);
+    BitFragment::<FragVar3>::encode(&x, &mut out[..], [0], [false], ());
     assert_eq!(out, [false, false, false, true, false]);
 }
 
 #[test]
 fn frag_variants_decode() {
     let x = [true, true, false, true, true];
-    let out = <MyStruct1 as BitFragment<FragVar1>>::decode(&x[..], [0], [false]).unwrap();
+    let out = <MyStruct1 as BitFragment<FragVar1>>::decode(&x[..], [0], [false], ()).unwrap();
     assert_eq!(out, MyStruct1 {
         field_enum: MyEnum::Choice3,
         field_bool: true,
     });
 
     let x = [true, true, true, false, true];
-    let out = <MyStruct1 as BitFragment<FragVar2>>::decode(&x[..], [0], [false]).unwrap();
+    let out = <MyStruct1 as BitFragment<FragVar2>>::decode(&x[..], [0], [false], ()).unwrap();
     assert_eq!(out, MyStruct1 {
         field_enum: MyEnum::Choice3,
         field_bool: true,
     });
 
     let x = [true, true, true, true, false];
-    let out = <MyStruct1 as BitFragment<FragVar3>>::decode(&x[..], [0], [false]).unwrap();
+    let out = <MyStruct1 as BitFragment<FragVar3>>::decode(&x[..], [0], [false], ()).unwrap();
     assert_eq!(out, MyStruct1 {
         field_enum: MyEnum::Choice2,
         field_bool: true,

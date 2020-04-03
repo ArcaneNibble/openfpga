@@ -39,7 +39,7 @@ fn pattern_array_encode() {
         ],
         field_bool: [true],
     };
-    x.encode(&mut out[..], [0], [false]);
+    x.encode(&mut out[..], [0], [false], ());
     assert_eq!(out, [true,
         false, false,
         false, true,
@@ -56,7 +56,7 @@ fn pattern_array_encode() {
         ],
         field_bool: [true],
     };
-    x.encode(&mut out[..], [0], [false]);
+    x.encode(&mut out[..], [0], [false], ());
     assert_eq!(out, [true,
         false, true,
         true, false,
@@ -73,7 +73,7 @@ fn pattern_array_encode() {
         ],
         field_bool: [true],
     };
-    x.encode(&mut out[..], [12], [true]);
+    x.encode(&mut out[..], [12], [true], ());
     assert_eq!(out, [
         true, true,
         false, false,
@@ -91,7 +91,7 @@ fn pattern_array_encode() {
         ],
         field_bool: [true],
     };
-    x.encode(&mut out[..], [12], [true]);
+    x.encode(&mut out[..], [12], [true], ());
     assert_eq!(out, [
         false, true,
         false, false,
@@ -111,7 +111,7 @@ fn pattern_array_decode() {
         false, false,
         false, true,
         true, false];
-    let out = MyStruct1::decode(&x[..], [0], [false]).unwrap();
+    let out = MyStruct1::decode(&x[..], [0], [false], ()).unwrap();
     assert_eq!(out, MyStruct1 {
         field_enum: [
             [[MyEnum::Choice4, MyEnum::Choice2]],
@@ -128,7 +128,7 @@ fn pattern_array_decode() {
         false, false,
         false, false,
         true, false];
-    let out = MyStruct1::decode(&x[..], [0], [false]).unwrap();
+    let out = MyStruct1::decode(&x[..], [0], [false], ()).unwrap();
     assert_eq!(out, MyStruct1 {
         field_enum: [
             [[MyEnum::Choice3, MyEnum::Choice2]],
@@ -146,7 +146,7 @@ fn pattern_array_decode() {
         true, false,
         true, true,
         false];
-    let out = MyStruct1::decode(&x[..], [12], [true]).unwrap();
+    let out = MyStruct1::decode(&x[..], [12], [true], ()).unwrap();
     assert_eq!(out, MyStruct1 {
         field_enum: [
             [[MyEnum::Choice4, MyEnum::Choice2]],
@@ -164,7 +164,7 @@ fn pattern_array_decode() {
         true, false,
         false, true,
         false];
-    let out = MyStruct1::decode(&x[..], [12], [true]).unwrap();
+    let out = MyStruct1::decode(&x[..], [12], [true], ()).unwrap();
     assert_eq!(out, MyStruct1 {
         field_enum: [
             [[MyEnum::Choice3, MyEnum::Choice2]],

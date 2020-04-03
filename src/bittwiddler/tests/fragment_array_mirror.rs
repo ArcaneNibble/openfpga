@@ -41,7 +41,7 @@ fn fragment_array_mirror_encode() {
         ],
         field_bool: [false],
     };
-    x.encode(&mut out[..], [0], [false]);
+    x.encode(&mut out[..], [0], [false], ());
     assert_eq!(out, [false,
         true, true,
         true, false,
@@ -58,7 +58,7 @@ fn fragment_array_mirror_encode() {
         ],
         field_bool: [false],
     };
-    x.encode(&mut out[..], [0], [false]);
+    x.encode(&mut out[..], [0], [false], ());
     assert_eq!(out, [false,
         false, true,
         false, true,
@@ -75,7 +75,7 @@ fn fragment_array_mirror_encode() {
         ],
         field_bool: [false],
     };
-    x.encode(&mut out[..], [12], [true]);
+    x.encode(&mut out[..], [12], [true], ());
     assert_eq!(out, [
         false, false,
         true, true,
@@ -93,7 +93,7 @@ fn fragment_array_mirror_encode() {
         ],
         field_bool: [false],
     };
-    x.encode(&mut out[..], [12], [true]);
+    x.encode(&mut out[..], [12], [true], ());
     assert_eq!(out, [
         false, true,
         true, true,
@@ -113,7 +113,7 @@ fn fragment_array_mirror_decode() {
         true, true,
         true, false,
         true, false];
-    let out = MyStruct1::decode(&x[..], [0], [false]).unwrap();
+    let out = MyStruct1::decode(&x[..], [0], [false], ()).unwrap();
     assert_eq!(out, MyStruct1 {
         field_enum: [
             [[MyEnum::Choice1, MyEnum::Choice3]],
@@ -130,7 +130,7 @@ fn fragment_array_mirror_decode() {
         true, true,
         true, true,
         true, false];
-    let out = MyStruct1::decode(&x[..], [0], [false]).unwrap();
+    let out = MyStruct1::decode(&x[..], [0], [false], ()).unwrap();
     assert_eq!(out, MyStruct1 {
         field_enum: [
             [[MyEnum::Choice2, MyEnum::Choice3]],
@@ -148,7 +148,7 @@ fn fragment_array_mirror_decode() {
         false, true,
         false, false,
         true];
-    let out = MyStruct1::decode(&x[..], [12], [true]).unwrap();
+    let out = MyStruct1::decode(&x[..], [12], [true], ()).unwrap();
     assert_eq!(out, MyStruct1 {
         field_enum: [
             [[MyEnum::Choice1, MyEnum::Choice3]],
@@ -166,7 +166,7 @@ fn fragment_array_mirror_decode() {
         false, true,
         false, true,
         true];
-    let out = MyStruct1::decode(&x[..], [12], [true]).unwrap();
+    let out = MyStruct1::decode(&x[..], [12], [true], ()).unwrap();
     assert_eq!(out, MyStruct1 {
         field_enum: [
             [[MyEnum::Choice2, MyEnum::Choice3]],

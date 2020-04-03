@@ -39,11 +39,18 @@ pub trait BitFragment<T> where Self: Sized {
 
     type ErrType;
 
+    type EncodeExtraType;
+    type DecodeExtraType;
+
     const FIELD_COUNT: usize;
 
-    fn encode<F>(&self, fuses: &mut F, offset: Self::OffsettingType, mirror: Self::MirroringType)
+    fn encode<F>(&self, fuses: &mut F,
+        offset: Self::OffsettingType, mirror: Self::MirroringType,
+        extra_data: Self::EncodeExtraType)
         where F: ::core::ops::IndexMut<Self::IndexingType, Output=bool> + ?Sized;
-    fn decode<F>(fuses: &F, offset: Self::OffsettingType, mirror: Self::MirroringType) -> Result<Self, Self::ErrType>
+    fn decode<F>(fuses: &F,
+        offset: Self::OffsettingType, mirror: Self::MirroringType,
+        extra_data: Self::DecodeExtraType) -> Result<Self, Self::ErrType>
         where F: ::core::ops::Index<Self::IndexingType, Output=bool> + ?Sized;
 
     fn fieldname(i: usize) -> &'static str;
