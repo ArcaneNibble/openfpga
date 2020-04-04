@@ -39,6 +39,8 @@ use crate::args::*;
 #[derive(Debug)]
 enum BitFragmentSetting {
     ErrType(ArgWithType),
+    EncodeExtraType(ArgWithType),
+    DecodeExtraType(ArgWithType),
     Variant(ArgWithType),
     Dims(ArgWithLitInt),
 }
@@ -48,6 +50,10 @@ impl Parse for BitFragmentSetting {
         let lookahead = input.lookahead1();
         if lookahead.peek(kw::errtype) {
             input.parse().map(BitFragmentSetting::ErrType)
+        } else if lookahead.peek(kw::encode_extra_type) {
+            input.parse().map(BitFragmentSetting::EncodeExtraType)
+        } else if lookahead.peek(kw::decode_extra_type) {
+            input.parse().map(BitFragmentSetting::DecodeExtraType)
         } else if lookahead.peek(kw::variant) {
             input.parse().map(BitFragmentSetting::Variant)
         } else if lookahead.peek(kw::frag_variant) {
@@ -64,6 +70,8 @@ impl ToTokens for BitFragmentSetting {
     fn to_tokens(&self, tokens: &mut proc_macro2::TokenStream) {
         match self {
             BitFragmentSetting::ErrType(x) => x.to_tokens(tokens),
+            BitFragmentSetting::EncodeExtraType(x) => x.to_tokens(tokens),
+            BitFragmentSetting::DecodeExtraType(x) => x.to_tokens(tokens),
             BitFragmentSetting::Variant(x) => x.to_tokens(tokens),
             BitFragmentSetting::Dims(x) => x.to_tokens(tokens),
         }
@@ -122,6 +130,8 @@ struct FieldInfo {
     arr_dim_exprs: Vec<Expr>,
     arr_off_expr: Option<ExprClosure>,
     arr_mirror_expr: Option<ExprClosure>,
+    enc_sub_extra_data_expr: Option<Expr>,
+    dec_sub_extra_data_expr: Option<Expr>,
 }
 
 #[derive(Debug)]
@@ -134,6 +144,8 @@ struct ParsedAttrs {
     base_mirror_expr: Option<Expr>,
     arr_off_expr: Option<ExprClosure>,
     arr_mirror_expr: Option<ExprClosure>,
+    enc_sub_extra_data_expr: Option<Expr>,
+    dec_sub_extra_data_expr: Option<Expr>,
 }
 
 // Args for the #[pat_bits] attribute macro
@@ -384,6 +396,9 @@ fn parse_attrs(attrs: &mut Vec<Attribute>, encode_variant: &Option<Type>, idx_di
     let mut base_mirror_expr = None;
     let mut arr_off_expr = None;
     let mut arr_mirror_expr = None;
+    let mut enc_sub_extra_data_expr = None;
+    let mut dec_sub_extra_data_expr = None;
+
     for (i, attr) in attrs.into_iter().enumerate() {
         if attr.path.is_ident("doc") {
             let doc_meta = attr.parse_meta()?;
@@ -696,10 +711,34 @@ fn parse_attrs(attrs: &mut Vec<Attribute>, encode_variant: &Option<Type>, idx_di
         parse_frag_expr_attr!("mirror", "Missing mirror expression", base_mirror_expr.is_some(), |mirror_expr| {
             base_mirror_expr = Some(mirror_expr);
         });
+
+        parse_frag_expr_attr!("encode_sub_extra_data", "Missing extra data expression",
+            enc_sub_extra_data_expr.is_some(), |extra_data_expr| {
+                enc_sub_extra_data_expr = Some(extra_data_expr);
+            }
+        );
+
+        parse_frag_expr_attr!("decode_sub_extra_data", "Missing extra data expression",
+            dec_sub_extra_data_expr.is_some(), |extra_data_expr| {
+                dec_sub_extra_data_expr = Some(extra_data_expr);
+            }
+        );
     }
 
     for i in to_remove.into_iter().rev() {
         attrs.remove(i);
+    }
+
+    if patbits.is_some() && enc_sub_extra_data_expr.is_some() {
+        emit_error!(enc_sub_extra_data_expr.as_ref().unwrap(),
+            "Can only have extra data on a fragment");
+        errors_occurred = true;
+    }
+
+    if patbits.is_some() && dec_sub_extra_data_expr.is_some() {
+        emit_error!(dec_sub_extra_data_expr.as_ref().unwrap(),
+            "Can only have extra data on a fragment");
+        errors_occurred = true;
     }
 
     Ok(ParsedAttrs {
@@ -711,6 +750,8 @@ fn parse_attrs(attrs: &mut Vec<Attribute>, encode_variant: &Option<Type>, idx_di
         base_mirror_expr,
         arr_off_expr,
         arr_mirror_expr,
+        enc_sub_extra_data_expr,
+        dec_sub_extra_data_expr,
     })
 }
 
@@ -722,6 +763,8 @@ pub fn bitfragment(args: TokenStream, input: TokenStream) -> TokenStream {
     let mut errtype = None;
     let mut encode_variant = None;
     let mut idx_dims = None;
+    let mut encode_extra_type = None;
+    let mut decode_extra_type = None;
 
     // Tracks if errors (that we can recover from) occurred. If so, we bail
     // before doing final codegen
@@ -736,6 +779,20 @@ pub fn bitfragment(args: TokenStream, input: TokenStream) -> TokenStream {
                     errors_occurred = true;
                 }
                 errtype = Some(x.ty.clone());
+            },
+            BitFragmentSetting::EncodeExtraType(x) => {
+                if encode_extra_type.is_some() {
+                    emit_error!(args.0, "Only one encode_extra_type arg allowed");
+                    errors_occurred = true;
+                }
+                encode_extra_type = Some(x.ty.clone());
+            },
+            BitFragmentSetting::DecodeExtraType(x) => {
+                if decode_extra_type.is_some() {
+                    emit_error!(args.0, "Only one decode_extra_type arg allowed");
+                    errors_occurred = true;
+                }
+                decode_extra_type = Some(x.ty.clone());
             },
             BitFragmentSetting::Variant(x) => {
                 if encode_variant.is_some() {
@@ -798,6 +855,8 @@ pub fn bitfragment(args: TokenStream, input: TokenStream) -> TokenStream {
                 arr_dim_exprs: vec![],
                 arr_off_expr: None,
                 arr_mirror_expr: None,
+                enc_sub_extra_data_expr: None,
+                dec_sub_extra_data_expr: None,
             });
         },
         Item::Struct(struct_) => {
@@ -878,6 +937,8 @@ pub fn bitfragment(args: TokenStream, input: TokenStream) -> TokenStream {
                     arr_dim_exprs,
                     arr_off_expr: parsed_attrs.arr_off_expr,
                     arr_mirror_expr: parsed_attrs.arr_mirror_expr,
+                    enc_sub_extra_data_expr: parsed_attrs.enc_sub_extra_data_expr,
+                    dec_sub_extra_data_expr: parsed_attrs.dec_sub_extra_data_expr,
                 });
             }
         },
@@ -902,6 +963,18 @@ pub fn bitfragment(args: TokenStream, input: TokenStream) -> TokenStream {
         quote!{()}
     } else {
         quote!{#errtype}
+    };
+
+    let encode_extra_type = if encode_extra_type.is_none() {
+        quote!{()}
+    } else {
+        quote!{#encode_extra_type}
+    };
+
+    let decode_extra_type = if decode_extra_type.is_none() {
+        quote!{()}
+    } else {
+        quote!{#decode_extra_type}
     };
 
     let indexingtype = if idx_dims == 1 {
@@ -1085,6 +1158,15 @@ pub fn bitfragment(args: TokenStream, input: TokenStream) -> TokenStream {
             quote!{()}
         };
 
+        let sub_extra_data = if let Some(extra_data_expr) = &field_info.enc_sub_extra_data_expr {
+            quote!{
+                let sub_extra_data = (#extra_data_expr);
+            }
+        } else {
+            quote!{
+                let sub_extra_data = ();
+            }
+        };
 
         let encode_pattern = || {
             let mut encode_each_bit = Vec::new();
@@ -1133,7 +1215,9 @@ pub fn bitfragment(args: TokenStream, input: TokenStream) -> TokenStream {
             BitFragmentFieldType::Fragment => {
                 quote!{
                     #elem_off_mirror_setup
-                    <#field_type as ::bittwiddler::BitFragment<#subvar>>::encode(field_ref, fuses, subfrag_off, subfrag_mirror, ());
+                    #sub_extra_data
+                    <#field_type as ::bittwiddler::BitFragment<#subvar>>::encode(
+                        field_ref, fuses, subfrag_off, subfrag_mirror, sub_extra_data);
                 }
             },
             BitFragmentFieldType::PatternArray => {
@@ -1149,7 +1233,9 @@ pub fn bitfragment(args: TokenStream, input: TokenStream) -> TokenStream {
                 let encode_elem = quote!{
                     let arr_elem = &field_ref #array_setup
                     #elem_off_mirror_setup
-                    <#field_type as ::bittwiddler::BitFragment<#subvar>>::encode(arr_elem, fuses, subfrag_off, subfrag_mirror, ());
+                    #sub_extra_data
+                    <#field_type as ::bittwiddler::BitFragment<#subvar>>::encode(
+                        arr_elem, fuses, subfrag_off, subfrag_mirror, sub_extra_data);
                 };
                 array_loopgen(field_info, encode_elem)
             },
@@ -1195,6 +1281,16 @@ pub fn bitfragment(args: TokenStream, input: TokenStream) -> TokenStream {
             quote!{#subvar_ty}
         } else {
             quote!{()}
+        };
+
+        let sub_extra_data = if let Some(extra_data_expr) = &field_info.dec_sub_extra_data_expr {
+            quote!{
+                let sub_extra_data = (#extra_data_expr);
+            }
+        } else {
+            quote!{
+                let sub_extra_data = ();
+            }
         };
 
         let decode_pattern = || {
@@ -1264,7 +1360,9 @@ pub fn bitfragment(args: TokenStream, input: TokenStream) -> TokenStream {
                     {
                         #base_off_mirror_setup
                         #elem_off_mirror_setup
-                        <#field_type as ::bittwiddler::BitFragment<#subvar>>::decode(fuses, subfrag_off, subfrag_mirror, ())?
+                        #sub_extra_data
+                        <#field_type as ::bittwiddler::BitFragment<#subvar>>::decode(
+                            fuses, subfrag_off, subfrag_mirror, sub_extra_data)?
                     }
                 }
             },
@@ -1308,8 +1406,10 @@ pub fn bitfragment(args: TokenStream, input: TokenStream) -> TokenStream {
                 let decode_elem = quote!{
                     let arr_elem = &mut out_arr #array_setup
                     #elem_off_mirror_setup
+                    #sub_extra_data
                     *arr_elem = ::core::mem::MaybeUninit::new(
-                        <#field_type as ::bittwiddler::BitFragment<#subvar>>::decode(fuses, subfrag_off, subfrag_mirror, ())?);
+                        <#field_type as ::bittwiddler::BitFragment<#subvar>>::decode(
+                            fuses, subfrag_off, subfrag_mirror, sub_extra_data)?);
                 };
                 let decode_for_loops = array_loopgen(field_info, decode_elem);
 
@@ -1410,8 +1510,8 @@ pub fn bitfragment(args: TokenStream, input: TokenStream) -> TokenStream {
 
             type ErrType = #errtype;
 
-            type EncodeExtraType = ();
-            type DecodeExtraType = ();
+            type EncodeExtraType = #encode_extra_type;
+            type DecodeExtraType = #decode_extra_type;
 
             const FIELD_COUNT: usize = #num_fields;
 
