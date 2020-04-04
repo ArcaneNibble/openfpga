@@ -154,3 +154,16 @@ impl IndexMut<(usize, usize)> for FuseArray {
     }
 }
 
+impl Index<[usize; 2]> for FuseArray {
+    type Output = bool;
+
+    fn index(&self, coords: [usize; 2]) -> &bool {
+        &self.v[coords[1] * self.w + coords[0]]
+    }
+}
+
+impl IndexMut<[usize; 2]> for FuseArray {
+    fn index_mut(&mut self, coords: [usize; 2]) -> &mut bool {
+        &mut self.v[coords[1] * self.w + coords[0]]
+    }
+}

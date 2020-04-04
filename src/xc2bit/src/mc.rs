@@ -128,117 +128,272 @@ pub enum XC2MCXorMode {
     PTCB,
 }
 
+pub enum JedSmall {}
+pub enum JedLarge {}
+pub enum JedLargeBuried {}
+pub enum Crbit32 {}
+pub enum Crbit64 {}
+pub enum Crbit256 {}
+pub enum CrbitLarge {}
+
 /// Represents a macrocell.
+#[bitfragment(variant = JedSmall, dimensions = 1)]
+#[bitfragment(variant = JedLarge, dimensions = 1)]
+#[bitfragment(variant = JedLargeBuried, dimensions = 1)]
+#[bitfragment(variant = Crbit32, dimensions = 2)]
+#[bitfragment(variant = Crbit64, dimensions = 2)]
+#[bitfragment(variant = Crbit256, dimensions = 2)]
+#[bitfragment(variant = CrbitLarge, dimensions = 2)]
 #[derive(Copy, Clone, Eq, PartialEq, Hash, Debug, Serialize, Deserialize)]
-#[derive(BitTwiddler)]
-#[bittwiddler = "jed_internal_small"]
-#[bittwiddler = "jed_internal_large"]
-#[bittwiddler = "jed_internal_large_buried"]
-#[bittwiddler = "crbit32 mirror0"]
-#[bittwiddler = "crbit64 mirror0"]
-#[bittwiddler = "crbit256 mirror0"]
-#[bittwiddler = "crbit_large mirror0"]
 pub struct XC2Macrocell {
     /// Clock source for the register
-    #[bittwiddler_field = "jed_internal_small arr 0 2 3"]
-    #[bittwiddler_field = "jed_internal_large arr 0 1 2"]
-    #[bittwiddler_field = "jed_internal_large_buried arr 0 1 2"]
-    #[bittwiddler_field = "crbit32 arr 0|0 2|0 3|0"]
-    #[bittwiddler_field = "crbit64 arr 8|0 5|0 6|0"]
-    #[bittwiddler_field = "crbit256 arr 9|0 7|0 8|0"]
-    #[bittwiddler_field = "crbit_large arr 8|0 9|0 10|0"]
+    #[pat_pict(frag_variant = JedSmall, "0  .   1 2     .   . .     . .     . .     . .     . .     .   .   . .     .   . . . .     .   .   .")]
+
+    #[pat_pict(frag_variant = JedLarge, "0  1 2     .   .   .   . .     . .     .   . .     . . . .     . .     .   .   . .     . .     .   .   . .")]
+
+    #[pat_pict(frag_variant = JedLargeBuried, "0    1 2     .   .   . .     . .     .   . .     . .     . .")]
+
+    #[pat_pict(frag_variant = Crbit32, "0  .  1  2  .  .  .  .  .
+                                        .  .  .  .  .  .  .  .  .
+                                        .  .  .  .  .  .  .  .  .")]
+
+    #[pat_pict(frag_variant = Crbit64, ".  .  .  .  .  1  2  .  0
+                                        .  .  .  .  .  .  .  .  .
+                                        .  .  .  .  .  .  .  .  .")]
+
+    #[pat_pict(frag_variant = Crbit256, ".  .  .  .  .  .  .  1  2  0
+                                         .  .  .  .  .  .  .  .  .  .
+                                         .  .  .  .  .  .  .  .  .  .")]
+
+    #[pat_pict(frag_variant = CrbitLarge, ".  .  .  .  .  .  .  .  0  1  2  .  .  .  .
+                                           .  .  .  .  .  .  .  .  .  .  .  .  .  .  .")]
     pub clk_src: XC2MCRegClkSrc,
+
+
     /// Specifies the clock polarity for the register
     ///
     /// `false` = rising edge triggered flip-flop, transparent-when-high latch
     ///
     /// `true` = falling edge triggered flip-flop, transparent-when-low latch
-    #[bittwiddler_field = "jed_internal_small 1"]
-    #[bittwiddler_field = "jed_internal_large 4"]
-    #[bittwiddler_field = "jed_internal_large_buried 4"]
-    #[bittwiddler_field = "crbit32 1|0"]
-    #[bittwiddler_field = "crbit64 7|0"]
-    #[bittwiddler_field = "crbit256 5|0"]
-    #[bittwiddler_field = "crbit_large 12|0"]
+    #[pat_pict(frag_variant = JedSmall, ".  0   . .     .   . .     . .     . .     . .     . .     .   .   . .     .   . . . .     .   .   .")]
+
+    #[pat_pict(frag_variant = JedLarge, ".   . .    .   0   .   . .     . .     .   . .     . . . .     . .     .   .   . .     . .     .   .   . .")]
+
+    #[pat_pict(frag_variant = JedLargeBuried, ".    . .     .   0   . .     . .     .   . .     . .     . .")]
+
+    #[pat_pict(frag_variant = Crbit32, ".  0  .  .  .  .  .  .  .
+                                        .  .  .  .  .  .  .  .  .
+                                        .  .  .  .  .  .  .  .  .")]
+
+    #[pat_pict(frag_variant = Crbit64, ".  .  .  .  .  .  .  0  .
+                                        .  .  .  .  .  .  .  .  .
+                                        .  .  .  .  .  .  .  .  .")]
+
+    #[pat_pict(frag_variant = Crbit256, ".  .  .  .  .  0  .  .  .  .
+                                         .  .  .  .  .  .  .  .  .  .
+                                         .  .  .  .  .  .  .  .  .  .")]
+
+    #[pat_pict(frag_variant = CrbitLarge, ".  .  .  .  .  .  .  .  .  .  .  .  0  .  .
+                                           .  .  .  .  .  .  .  .  .  .  .  .  .  .  .")]
     pub clk_invert_pol: bool,
+
+
     /// Specifies whether flip-flop are triggered on both clock edges
     ///
     /// It is currently unknown what happens when this is used on a transparent latch
-    #[bittwiddler_field = "jed_internal_small 4"]
-    #[bittwiddler_field = "jed_internal_large 3"]
-    #[bittwiddler_field = "jed_internal_large_buried 3"]
-    #[bittwiddler_field = "crbit32 4|0"]
-    #[bittwiddler_field = "crbit64 4|0"]
-    #[bittwiddler_field = "crbit256 6|0"]
-    #[bittwiddler_field = "crbit_large 11|0"]
+    #[pat_pict(frag_variant = JedSmall, ".  .   . .     0   . .     . .     . .     . .     . .     .   .   . .     .   . . . .     .   .   .")]
+
+    #[pat_pict(frag_variant = JedLarge, ".   . .     0  .   .   . .     . .     .   . .     . . . .     . .     .   .   . .     . .     .   .   . .")]
+
+    #[pat_pict(frag_variant = JedLargeBuried, ".    . .     0   .   . .     . .     .   . .     . .     . .")]
+
+    #[pat_pict(frag_variant = Crbit32, ".  .  .  .  0  .  .  .  .
+                                        .  .  .  .  .  .  .  .  .
+                                        .  .  .  .  .  .  .  .  .")]
+
+    #[pat_pict(frag_variant = Crbit64, ".  .  .  .  0  .  .  .  .
+                                        .  .  .  .  .  .  .  .  .
+                                        .  .  .  .  .  .  .  .  .")]
+
+    #[pat_pict(frag_variant = Crbit256, ".  .  .  .  .  .  0  .  .  .
+                                         .  .  .  .  .  .  .  .  .  .
+                                         .  .  .  .  .  .  .  .  .  .")]
+
+    #[pat_pict(frag_variant = CrbitLarge, ".  .  .  .  .  .  .  .  .  .  .  0  .  .  .
+                                           .  .  .  .  .  .  .  .  .  .  .  .  .  .  .")]
     pub is_ddr: bool,
+
+
     /// Reset source for the register
-    #[bittwiddler_field = "jed_internal_small arr 5 6"]
-    #[bittwiddler_field = "jed_internal_large arr 23 24"]
-    #[bittwiddler_field = "jed_internal_large_buried arr 12 13"]
-    #[bittwiddler_field = "crbit32 arr 5|0 6|0"]
-    #[bittwiddler_field = "crbit64 arr 2|0 3|0"]
-    #[bittwiddler_field = "crbit256 arr 4|2 5|2"]
-    #[bittwiddler_field = "crbit_large arr 11|1 12|1"]
+    #[pat_pict(frag_variant = JedSmall, ".  .   . .     .   0 1     . .     . .     . .     . .     .   .   . .     .   . . . .     .   .   .")]
+
+    #[pat_pict(frag_variant = JedLarge, ".   . .    .   .   .   . .     . .     .   . .     . . . .     . .     .   .   . .     0 1     .   .   . .")]
+
+    #[pat_pict(frag_variant = JedLargeBuried, ".    . .     .   .   . .     . .     .   . .     0 1     . .")]
+
+    #[pat_pict(frag_variant = Crbit32, ".  .  .  .  .  0  1  .  .
+                                        .  .  .  .  .  .  .  .  .
+                                        .  .  .  .  .  .  .  .  .")]
+
+    #[pat_pict(frag_variant = Crbit64, ".  .  0  1  .  .  .  .  .
+                                        .  .  .  .  .  .  .  .  .
+                                        .  .  .  .  .  .  .  .  .")]
+
+    #[pat_pict(frag_variant = Crbit256, ".  .  .  .  .  .  .  .  .  .
+                                         .  .  .  .  .  .  .  .  .  .
+                                         .  .  .  .  0  1  .  .  .  .")]
+
+    #[pat_pict(frag_variant = CrbitLarge, ".  .  .  .  .  .  .  .  .  .  .  .  .  .  .
+                                           .  .  .  .  .  .  .  .  .  .  .  0  1  .  .")]
     pub r_src: XC2MCRegResetSrc,
+
+
     /// Set source for the register
-    #[bittwiddler_field = "jed_internal_small arr 7 8"]
-    #[bittwiddler_field = "jed_internal_large arr 17 18"]
-    #[bittwiddler_field = "jed_internal_large_buried arr 7 8"]
-    #[bittwiddler_field = "crbit32 arr 7|0 8|0"]
-    #[bittwiddler_field = "crbit64 arr 0|0 1|0"]
-    #[bittwiddler_field = "crbit256 arr 1|1 2|1"]
-    #[bittwiddler_field = "crbit_large arr 13|1 14|1"]
+    #[pat_pict(frag_variant = JedSmall, ".  .   . .     .   . .     0 1     . .     . .     . .     .   .   . .     .   . . . .     .   .   .")]
+
+    #[pat_pict(frag_variant = JedLarge, ".   . .    .   .   .   . .     . .     .   . .     . . . .    0 1     .   .   . .     . .     .   .   . .")]
+
+    #[pat_pict(frag_variant = JedLargeBuried, ".    . .     .   .   . .     0 1     .   . .     . .     . .")]
+
+    #[pat_pict(frag_variant = Crbit32, ".  .  .  .  .  .  .  0  1
+                                        .  .  .  .  .  .  .  .  .
+                                        .  .  .  .  .  .  .  .  .")]
+
+    #[pat_pict(frag_variant = Crbit64, "0  1  .  .  .  .  .  .  .
+                                        .  .  .  .  .  .  .  .  .
+                                        .  .  .  .  .  .  .  .  .")]
+
+    #[pat_pict(frag_variant = Crbit256, ".  .  .  .  .  .  .  .  .  .
+                                         .  0  1  .  .  .  .  .  .  .
+                                         .  .  .  .  .  .  .  .  .  .")]
+
+    #[pat_pict(frag_variant = CrbitLarge, ".  .  .  .  .  .  .  .  .  .  .  .  .  .  .
+                                           .  .  .  .  .  .  .  .  .  .  .  .  .  0  1")]
     pub s_src: XC2MCRegSetSrc,
+
+
     /// Power-up state of the register
     ///
     /// `false` = init to 0, `true` = init to 1
-    #[bittwiddler_field = "jed_internal_small !26"]
-    #[bittwiddler_field = "jed_internal_large !19"]
-    #[bittwiddler_field = "jed_internal_large_buried !9"]
-    #[bittwiddler_field = "crbit32 !8|2"]
-    #[bittwiddler_field = "crbit64 !0|2"]
-    #[bittwiddler_field = "crbit256 !0|1"]
-    #[bittwiddler_field = "crbit_large !14|0"]
+    #[pat_pict(frag_variant = JedSmall, ".  .   . .     .   . .     . .     . .     . .     . .     .   .   . .     .   . . . .     .   .   !0")]
+
+    #[pat_pict(frag_variant = JedLarge, ".  . .     .   .   .   . .     . .     .   . .     . . . .     . .     !0  .   . .     . .     .   .   . .")]
+
+    #[pat_pict(frag_variant = JedLargeBuried, ".    . .     .   .   . .     . .     !0  . .     . .     . .")]
+
+    #[pat_pict(frag_variant = Crbit32, ".  .  .  .  .  .  .  .  .
+                                        .  .  .  .  .  .  .  .  .
+                                        .  .  .  .  .  .  .  .  !0")]
+
+    #[pat_pict(frag_variant = Crbit64, ".  .  .  .  .  .  .  .  .
+                                        .  .  .  .  .  .  .  .  .
+                                        !0 .  .  .  .  .  .  .  .")]
+
+    #[pat_pict(frag_variant = Crbit256, ".  .  .  .  .  .  .  .  .  .
+                                         !0 .  .  .  .  .  .  .  .  .
+                                         .  .  .  .  .  .  .  .  .  .")]
+
+    #[pat_pict(frag_variant = CrbitLarge, ".  .  .  .  .  .  .  .  .  .  .  .  .  .  !0
+                                           .  .  .  .  .  .  .  .  .  .  .  .  .  .  .")]
     pub init_state: bool,
+
+
     /// Register mode
-    #[bittwiddler_field = "jed_internal_small arr 9 10"]
-    #[bittwiddler_field = "jed_internal_large arr 21 22"]
-    #[bittwiddler_field = "jed_internal_large_buried arr 10 11"]
-    #[bittwiddler_field = "crbit32 arr 0|1 1|1"]
-    #[bittwiddler_field = "crbit64 arr 7|1 8|1"]
-    #[bittwiddler_field = "crbit256 arr 6|2 7|2"]
-    #[bittwiddler_field = "crbit_large arr 9|1 10|1"]
+    #[pat_pict(frag_variant = JedSmall, ".  .   . .     .   . .     . .     0 1     . .     . .     .   .   . .     .   . . . .     .   .   .")]
+
+    #[pat_pict(frag_variant = JedLarge, ".  . .     .   .   .   . .     . .     .   . .     . . . .     . .     .   .   0 1     . .     .   .   . .")]
+
+    #[pat_pict(frag_variant = JedLargeBuried, ".    . .     .   .   . .     . .     .   0 1     . .     . .")]
+
+    #[pat_pict(frag_variant = Crbit32, ".  .  .  .  .  .  .  .  .
+                                        0  1  .  .  .  .  .  .  .
+                                        .  .  .  .  .  .  .  .  .")]
+
+    #[pat_pict(frag_variant = Crbit64, ".  .  .  .  .  .  .  .  .
+                                        .  .  .  .  .  .  .  0  1
+                                        .  .  .  .  .  .  .  .  .")]
+
+    #[pat_pict(frag_variant = Crbit256, ".  .  .  .  .  .  .  .  .  .
+                                         .  .  .  .  .  .  .  .  .  .
+                                         .  .  .  .  .  .  0  1  .  .")]
+
+    #[pat_pict(frag_variant = CrbitLarge, ".  .  .  .  .  .  .  .  .  .  .  .  .  .  .
+                                           .  .  .  .  .  .  .  .  .  0  1  .  .  .  .")]
     pub reg_mode: XC2MCRegMode,
+
+
     /// ZIA input mode for feedback from this macrocell
-    #[bittwiddler_field = "jed_internal_small arr 13 14"]
-    #[bittwiddler_field = "jed_internal_large arr 6 7"]
-    #[bittwiddler_field = "jed_internal_large_buried arr 5 6"]
-    #[bittwiddler_field = "crbit32 arr 4|1 5|1"]
-    #[bittwiddler_field = "crbit64 arr 3|1 4|1"]
-    #[bittwiddler_field = "crbit256 arr 2|0 3|0"]
-    #[bittwiddler_field = "crbit_large arr 2|0 3|0"]
+    #[pat_pict(frag_variant = JedSmall, ".  .   . .     .   . .     . .     . .     . .     0 1     .   .   . .     .   . . . .     .   .   .")]
+
+    #[pat_pict(frag_variant = JedLarge, ".  . .     .   .   .   0 1     . .     .   . .     . . . .     . .     .   .   . .     . .     .   .   . .")]
+
+    #[pat_pict(frag_variant = JedLargeBuried, ".    . .     .   .   0 1     . .     .   . .     . .     . .")]
+
+    #[pat_pict(frag_variant = Crbit32, ".  .  .  .  .  .  .  .  .
+                                        .  .  .  .  0  1  .  .  .
+                                        .  .  .  .  .  .  .  .  .")]
+
+    #[pat_pict(frag_variant = Crbit64, ".  .  .  .  .  .  .  .  .
+                                        .  .  .  0  1  .  .  .  .
+                                        .  .  .  .  .  .  .  .  .")]
+
+    #[pat_pict(frag_variant = Crbit256, ".  .  0  1  .  .  .  .  .  .
+                                         .  .  .  .  .  .  .  .  .  .
+                                         .  .  .  .  .  .  .  .  .  .")]
+
+    #[pat_pict(frag_variant = CrbitLarge, ".  .  0  1  .  .  .  .  .  .  .  .  .  .  .
+                                           .  .  .  .  .  .  .  .  .  .  .  .  .  .  .")]
     pub fb_mode: XC2MCFeedbackMode,
+
+
     /// Controls the input for the register
     ///
     /// `false` = use the output of the XOR gate (combinatorial path), `true` = use IOB direct path
     /// (`true` is illegal for buried macrocells in the larger devices)
-    #[bittwiddler_field = "jed_internal_small !15"]
-    #[bittwiddler_field = "jed_internal_large !10"]
-    #[bittwiddler_field = "jed_internal_large_buried F"]
-    #[bittwiddler_field = "crbit32 !6|1"]
-    #[bittwiddler_field = "crbit64 !2|1"]
-    #[bittwiddler_field = "crbit256 !9|1"]
-    #[bittwiddler_field = "crbit_large !13|0"]
+    #[pat_pict(frag_variant = JedSmall, ".  .   . .     .   . .     . .     . .     . .     . .     !0  .   . .     .   . . . .     .   .   .")]
+
+    #[pat_pict(frag_variant = JedLarge, ".  . .     .   .   .   . .     . .     !0  . .     . . . .     . .     .   .   . .     . .     .   .   . .")]
+
+    #[pat_pict(frag_variant = JedLargeBuried, "\n0=false")]
+
+    #[pat_pict(frag_variant = Crbit32, ".  .  .  .  .  .  .  .  .
+                                        .  .  .  .  .  .  !0 .  .
+                                        .  .  .  .  .  .  .  .  .")]
+
+    #[pat_pict(frag_variant = Crbit64, ".  .  .  .  .  .  .  .  .
+                                        .  .  !0 .  .  .  .  .  .
+                                        .  .  .  .  .  .  .  .  .")]
+
+    #[pat_pict(frag_variant = Crbit256, ".  .  .  .  .  .  .  .  .  .
+                                         .  .  .  .  .  .  .  .  .  !0
+                                         .  .  .  .  .  .  .  .  .  .")]
+
+    #[pat_pict(frag_variant = CrbitLarge, ".  .  .  .  .  .  .  .  .  .  .  .  .  !0 .
+                                           .  .  .  .  .  .  .  .  .  .  .  .  .  .  .")]
     pub ff_in_ibuf: bool,
+
+
     /// Controls the "other" (not from the OR term) input to the XOR gate
-    #[bittwiddler_field = "jed_internal_small arr 17 18"]
-    #[bittwiddler_field = "jed_internal_large arr 27 28"]
-    #[bittwiddler_field = "jed_internal_large_buried arr 14 15"]
-    #[bittwiddler_field = "crbit32 arr 8|1 0|2"]
-    #[bittwiddler_field = "crbit64 arr 7|2 8|2"]
-    #[bittwiddler_field = "crbit256 arr 0|2 1|2"]
-    #[bittwiddler_field = "crbit_large arr 0|1 1|1"]
+    #[pat_pict(frag_variant = JedSmall, ".  .   . .     .   . .     . .     . .     . .     . .     .   .   0 1     .   . . . .     .   .   .")]
+
+    #[pat_pict(frag_variant = JedLarge, ".  . .     .   .   .   . .     . .     .   . .     . . . .     . .     .   .   . .     . .     .   .   0 1")]
+
+    #[pat_pict(frag_variant = JedLargeBuried, ".    . .     .   .   . .     . .     .   . .     . .     0 1")]
+
+    #[pat_pict(frag_variant = Crbit32, ".  .  .  .  .  .  .  .  .
+                                        .  .  .  .  .  .  .  .  0
+                                        1  .  .  .  .  .  .  .  .")]
+
+    #[pat_pict(frag_variant = Crbit64, ".  .  .  .  .  .  .  .  .
+                                        .  .  .  .  .  .  .  .  .
+                                        .  .  .  .  .  .  .  0  1")]
+
+    #[pat_pict(frag_variant = Crbit256, ".  .  .  .  .  .  .  .  .  .
+                                         .  .  .  .  .  .  .  .  .  .
+                                         0  1  .  .  .  .  .  .  .  .")]
+
+    #[pat_pict(frag_variant = CrbitLarge, ".  .  .  .  .  .  .  .  .  .  .  .  .  .  .
+                                           0  1  .  .  .  .  .  .  .  .  .  .  .  .  .")]
     pub xor_mode: XC2MCXorMode,
 }
 
@@ -261,7 +416,7 @@ impl Default for XC2Macrocell {
     }
 }
 
-pub static MC_TO_ROW_MAP_LARGE: [usize; MCS_PER_FB] = 
+pub static MC_TO_ROW_MAP_LARGE: [usize; MCS_PER_FB] =
     [0, 3, 5, 8, 10, 13, 15, 18, 20, 23, 25, 28, 30, 33, 35, 38];
 
 impl fmt::Display for XC2Macrocell {
@@ -320,25 +475,25 @@ impl XC2Macrocell {
                 // The "32" variant
                 // each macrocell is 3 rows high
                 let y = y + (mc as usize) * 3;
-                self.encode_crbit32(fuse_array, (x, y), mirror);
+                BitFragment::<Crbit32>::encode(self, fuse_array, [x as isize, y as isize], [mirror, false], ());
             },
             XC2Device::XC2C64 | XC2Device::XC2C64A => {
                 // The "64" variant
                 // each macrocell is 3 rows high
                 let y = y + (mc as usize) * 3;
-                self.encode_crbit64(fuse_array, (x, y), mirror);
+                BitFragment::<Crbit64>::encode(self, fuse_array, [x as isize, y as isize], [mirror, false], ());
             },
             XC2Device::XC2C256 => {
                 // The "256" variant
                 // each macrocell is 3 rows high
                 let y = y + (mc as usize) * 3;
-                self.encode_crbit256(fuse_array, (x, y), mirror);
+                BitFragment::<Crbit256>::encode(self, fuse_array, [x as isize, y as isize], [mirror, false], ());
             },
             XC2Device::XC2C128 | XC2Device::XC2C384 | XC2Device::XC2C512 => {
                 // The "common large macrocell" variant
                 // we need this funny lookup table, but otherwise macrocells are 2x15
                 let y = y + MC_TO_ROW_MAP_LARGE[mc as usize];
-                self.encode_crbit_large(fuse_array, (x, y), mirror);
+                BitFragment::<CrbitLarge>::encode(self, fuse_array, [x as isize, y as isize], [mirror, false], ());
             }
         }
     }
@@ -351,42 +506,42 @@ impl XC2Macrocell {
                 // The "32" variant
                 // each macrocell is 3 rows high
                 let y = y + (mc as usize) * 3;
-                Self::decode_crbit32(fuse_array, (x, y), mirror)
+                <Self as BitFragment::<Crbit32>>::decode(fuse_array, [x as isize, y as isize], [mirror, false], ()).unwrap()
             },
             XC2Device::XC2C64 | XC2Device::XC2C64A => {
                 // The "64" variant
                 // each macrocell is 3 rows high
                 let y = y + (mc as usize) * 3;
-                Self::decode_crbit64(fuse_array, (x, y), mirror)
+                <Self as BitFragment::<Crbit64>>::decode(fuse_array, [x as isize, y as isize], [mirror, false], ()).unwrap()
             },
             XC2Device::XC2C256 => {
                 // The "256" variant
                 // each macrocell is 3 rows high
                 let y = y + (mc as usize) * 3;
-                Self::decode_crbit256(fuse_array, (x, y), mirror)
+                <Self as BitFragment::<Crbit256>>::decode(fuse_array, [x as isize, y as isize], [mirror, false], ()).unwrap()
             },
             XC2Device::XC2C128 | XC2Device::XC2C384 | XC2Device::XC2C512 => {
                 // The "common large macrocell" variant
                 // we need this funny lookup table, but otherwise macrocells are 2x15
                 let y = y + MC_TO_ROW_MAP_LARGE[mc as usize];
-                Self::decode_crbit_large(fuse_array, (x, y), mirror)
+                <Self as BitFragment::<CrbitLarge>>::decode(fuse_array, [x as isize, y as isize], [mirror, false], ()).unwrap()
             }
         }
     }
 
     ///  Internal function that reads only the macrocell-related bits from the macrcocell configuration
     pub fn from_jed_small(fuses: &[bool], block_idx: usize, mc_idx: usize) -> Self {
-        Self::decode_jed_internal_small(fuses, block_idx + mc_idx * 27)
+        <Self as BitFragment::<JedSmall>>::decode(fuses, [(block_idx + mc_idx * 27) as isize], [false], ()).unwrap()
     }
 
     ///  Internal function that reads only the macrocell-related bits from the macrcocell configuration
     pub fn from_jed_large(fuses: &[bool], fuse_idx: usize) -> Self {
-        Self::decode_jed_internal_large(fuses, fuse_idx)
+        <Self as BitFragment::<JedLarge>>::decode(fuses, [fuse_idx as isize], [false], ()).unwrap()
     }
 
     ///  Internal function that reads only the macrocell-related bits from the macrcocell configuration
     pub fn from_jed_large_buried(fuses: &[bool], fuse_idx: usize) -> Self {
-        Self::decode_jed_internal_large_buried(fuses, fuse_idx)
+        <Self as BitFragment::<JedLargeBuried>>::decode(fuses, [fuse_idx as isize], [false], ()).unwrap()
     }
 
     /// Helper that prints the macrocell configuration on the "small" parts
@@ -398,13 +553,13 @@ impl XC2Macrocell {
         for i in 0..MCS_PER_FB {
             let mc_fuse_base = fuse_base + zia_row_width * INPUTS_PER_ANDTERM +
                 ANDTERMS_PER_FB * INPUTS_PER_ANDTERM * 2 + ANDTERMS_PER_FB * MCS_PER_FB + i * 27;
-                
+
             linebreaks.add(mc_fuse_base);
             if i == 0 {
                 linebreaks.add(mc_fuse_base);
             }
 
-            fb.mcs[i].encode_jed_internal_small(&mut jed.f, mc_fuse_base);
+            BitFragment::<JedSmall>::encode(&fb.mcs[i], &mut jed.f, [mc_fuse_base as isize], [false], ());
         }
     }
 
@@ -425,10 +580,10 @@ impl XC2Macrocell {
             let iob = fb_mc_num_to_iob_num(device, fb_i as u32, i as u32);
 
             if iob.is_some() {
-                fb.mcs[i].encode_jed_internal_large(&mut jed.f, current_fuse_offset);
+                BitFragment::<JedLarge>::encode(&fb.mcs[i], &mut jed.f, [current_fuse_offset as isize], [false], ());
                 current_fuse_offset += 29;
             } else {
-                fb.mcs[i].encode_jed_internal_large_buried(&mut jed.f, current_fuse_offset);
+                BitFragment::<JedLargeBuried>::encode(&fb.mcs[i], &mut jed.f, [current_fuse_offset as isize], [false], ());
                 current_fuse_offset += 16;
             }
         }
