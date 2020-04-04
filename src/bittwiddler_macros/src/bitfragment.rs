@@ -725,18 +725,6 @@ fn parse_attrs(attrs: &mut Vec<Attribute>, encode_variant: &Option<Type>, idx_di
         attrs.remove(i);
     }
 
-    if patbits.is_some() && enc_sub_extra_data_expr.is_some() {
-        emit_error!(enc_sub_extra_data_expr.as_ref().unwrap(),
-            "Can only have extra data on a fragment");
-        errors_occurred = true;
-    }
-
-    if patbits.is_some() && dec_sub_extra_data_expr.is_some() {
-        emit_error!(dec_sub_extra_data_expr.as_ref().unwrap(),
-            "Can only have extra data on a fragment");
-        errors_occurred = true;
-    }
-
     Ok(ParsedAttrs {
         errors_occurred,
         docs,
@@ -1195,7 +1183,8 @@ pub fn bitfragment(args: TokenStream, input: TokenStream) -> TokenStream {
             }
 
             quote!{
-                let encoded_arr = <#field_type as ::bittwiddler::BitPattern<#subvar>>::encode(field_ref);
+                #sub_extra_data
+                let encoded_arr = <#field_type as ::bittwiddler::BitPattern<#subvar>>::encode(field_ref, sub_extra_data);
                 #(#encode_each_bit)*
             }
         };
@@ -1334,7 +1323,8 @@ pub fn bitfragment(args: TokenStream, input: TokenStream) -> TokenStream {
                 {
                     let mut decode_arr = [false; #num_bits];
                     #(#decode_each_bit)*
-                    <#field_type as ::bittwiddler::BitPattern<#subvar>>::decode(&decode_arr)?
+                    #sub_extra_data
+                    <#field_type as ::bittwiddler::BitPattern<#subvar>>::decode(&decode_arr, sub_extra_data)?
                 }
             }
         };

@@ -3,19 +3,19 @@ use bittwiddler::*;
 #[test]
 fn bool_bitpattern_encode() {
     let x = true;
-    assert_eq!(x.encode(), [true]);
+    assert_eq!(x.encode(()), [true]);
 
     let x = false;
-    assert_eq!(x.encode(), [false]);
+    assert_eq!(x.encode(()), [false]);
 }
 
 #[test]
 fn bool_bitpattern_decode() {
     let x = [true];
-    assert_eq!(bool::decode(&x).unwrap(), true);
+    assert_eq!(bool::decode(&x, ()).unwrap(), true);
 
     let x = [false];
-    assert_eq!(bool::decode(&x).unwrap(), false);
+    assert_eq!(bool::decode(&x, ()).unwrap(), false);
 }
 
 #[test]

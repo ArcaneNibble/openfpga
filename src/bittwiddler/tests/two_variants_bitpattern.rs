@@ -27,31 +27,31 @@ enum MyEnum {
 #[test]
 fn two_variants_var1_bitpattern_encode() {
     let x = MyEnum::Choice1;
-    assert_eq!(BitPattern::<Var1>::encode(&x), [false, false]);
+    assert_eq!(BitPattern::<Var1>::encode(&x, ()), [false, false]);
 
     let x = MyEnum::ChoiceTwo;
-    assert_eq!(BitPattern::<Var1>::encode(&x), [false, true]);
+    assert_eq!(BitPattern::<Var1>::encode(&x, ()), [false, true]);
 
     let x = MyEnum::Choice3;
-    assert_eq!(BitPattern::<Var1>::encode(&x), [true, false]);
+    assert_eq!(BitPattern::<Var1>::encode(&x, ()), [true, false]);
 
     let x = MyEnum::ChoiceFour;
-    assert_eq!(BitPattern::<Var1>::encode(&x), [true, true]);
+    assert_eq!(BitPattern::<Var1>::encode(&x, ()), [true, true]);
 }
 
 #[test]
 fn two_variants_var1_bitpattern_decode() {
     let x = [false, false];
-    assert_eq!(<MyEnum as BitPattern<Var1>>::decode(&x).unwrap(), MyEnum::Choice1);
+    assert_eq!(<MyEnum as BitPattern<Var1>>::decode(&x, ()).unwrap(), MyEnum::Choice1);
 
     let x = [false, true];
-    assert_eq!(<MyEnum as BitPattern<Var1>>::decode(&x).unwrap(), MyEnum::ChoiceTwo);
+    assert_eq!(<MyEnum as BitPattern<Var1>>::decode(&x, ()).unwrap(), MyEnum::ChoiceTwo);
 
     let x = [true, false];
-    assert_eq!(<MyEnum as BitPattern<Var1>>::decode(&x).unwrap(), MyEnum::Choice3);
+    assert_eq!(<MyEnum as BitPattern<Var1>>::decode(&x, ()).unwrap(), MyEnum::Choice3);
 
     let x = [true, true];
-    assert_eq!(<MyEnum as BitPattern<Var1>>::decode(&x).unwrap(), MyEnum::ChoiceFour);
+    assert_eq!(<MyEnum as BitPattern<Var1>>::decode(&x, ()).unwrap(), MyEnum::ChoiceFour);
 }
 
 #[test]
@@ -69,31 +69,31 @@ fn two_variants_var1_bitpattern_docs() {
 #[test]
 fn two_variants_var2_bitpattern_encode() {
     let x = MyEnum::Choice1;
-    assert_eq!(BitPattern::<Var2>::encode(&x), [true, true]);
+    assert_eq!(BitPattern::<Var2>::encode(&x, ()), [true, true]);
 
     let x = MyEnum::ChoiceTwo;
-    assert_eq!(BitPattern::<Var2>::encode(&x), [false, true]);
+    assert_eq!(BitPattern::<Var2>::encode(&x, ()), [false, true]);
 
     let x = MyEnum::Choice3;
-    assert_eq!(BitPattern::<Var2>::encode(&x), [true, false]);
+    assert_eq!(BitPattern::<Var2>::encode(&x, ()), [true, false]);
 
     let x = MyEnum::ChoiceFour;
-    assert_eq!(BitPattern::<Var2>::encode(&x), [false, false]);
+    assert_eq!(BitPattern::<Var2>::encode(&x, ()), [false, false]);
 }
 
 #[test]
 fn two_variants_var2_bitpattern_decode() {
     let x = [true, true];
-    assert_eq!(<MyEnum as BitPattern<Var2>>::decode(&x).unwrap(), MyEnum::Choice1);
+    assert_eq!(<MyEnum as BitPattern<Var2>>::decode(&x, ()).unwrap(), MyEnum::Choice1);
 
     let x = [false, true];
-    assert_eq!(<MyEnum as BitPattern<Var2>>::decode(&x).unwrap(), MyEnum::ChoiceTwo);
+    assert_eq!(<MyEnum as BitPattern<Var2>>::decode(&x, ()).unwrap(), MyEnum::ChoiceTwo);
 
     let x = [true, false];
-    assert_eq!(<MyEnum as BitPattern<Var2>>::decode(&x).unwrap(), MyEnum::Choice3);
+    assert_eq!(<MyEnum as BitPattern<Var2>>::decode(&x, ()).unwrap(), MyEnum::Choice3);
 
     let x = [false, false];
-    assert_eq!(<MyEnum as BitPattern<Var2>>::decode(&x).unwrap(), MyEnum::ChoiceFour);
+    assert_eq!(<MyEnum as BitPattern<Var2>>::decode(&x, ()).unwrap(), MyEnum::ChoiceFour);
 }
 
 #[test]

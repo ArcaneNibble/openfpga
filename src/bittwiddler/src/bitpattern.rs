@@ -24,15 +24,18 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
 pub trait BitPattern<T> where Self: Sized {
-    type BitsArrType: AsRef<[bool]>;
+    type BitsArrType;
     const BITS_COUNT: usize;
 
     type ErrType;
 
+    type EncodeExtraType;
+    type DecodeExtraType;
+
     const VARIANT_COUNT: usize;
 
-    fn encode(&self) -> Self::BitsArrType;
-    fn decode(bits: &Self::BitsArrType) -> Result<Self, Self::ErrType>;
+    fn encode(&self, extra_data: Self::EncodeExtraType) -> Self::BitsArrType;
+    fn decode(bits: &[bool], extra_data: Self::DecodeExtraType) -> Result<Self, Self::ErrType>;
     fn _pos_to_name(pos: usize) -> &'static str;
     fn _name_to_pos(name: &'static str) -> usize;
 
@@ -107,15 +110,18 @@ impl BitPattern<()> for bool {
 
     type ErrType = ();
 
+    type EncodeExtraType = ();
+    type DecodeExtraType = ();
+
     const VARIANT_COUNT: usize = 2;
 
     #[inline]
-    fn encode(&self) -> Self::BitsArrType {
+    fn encode(&self, _extra_data: Self::EncodeExtraType) -> Self::BitsArrType {
         [*self]
     }
 
     #[inline]
-    fn decode(bits: &Self::BitsArrType) -> Result<Self, Self::ErrType> {
+    fn decode(bits: &[bool], _extra_data: Self::DecodeExtraType) -> Result<Self, Self::ErrType> {
         Ok(bits[0])
     }
 

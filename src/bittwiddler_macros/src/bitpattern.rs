@@ -338,14 +338,21 @@ pub fn bitpattern(args: TokenStream, input: TokenStream) -> TokenStream {
     );
     let decode_var_id = var_data.iter().map(|x| x.0.clone());
 
-    let default_expr = default_expr.iter();
-    let default_expr = if errtype.is_none() {
-        quote!{
-            #(,_ => Ok(#default_expr))*
+    let default_expr = if let Some(default_expr) = default_expr {
+        // There is a default expression (either an Ok or an Err)
+        if errtype.is_none() {
+            quote!{
+                ,_ => Ok(#default_expr)
+            }
+        } else {
+            quote!{
+                ,_ => Err(#default_expr)
+            }
         }
     } else {
+        // There isn't a default; panic
         quote!{
-            #(,_ => Err(#default_expr))*
+            ,_ => unreachable!()
         }
     };
 
@@ -370,17 +377,20 @@ pub fn bitpattern(args: TokenStream, input: TokenStream) -> TokenStream {
 
             type ErrType = #errtype;
 
+            type EncodeExtraType = ();
+            type DecodeExtraType = ();
+
             const VARIANT_COUNT: usize = #num_variants;
 
             #[inline]
-            fn encode(&self) -> Self::BitsArrType {
+            fn encode(&self, _extra_data: Self::EncodeExtraType) -> Self::BitsArrType {
                 match self {
                     #(Self::#encode_var_id => [#(#encode_values),*]),*
                 }
             }
 
             #[inline]
-            fn decode(bits: &Self::BitsArrType) -> Result<Self, Self::ErrType> {
+            fn decode(bits: &[bool], _extra_data: Self::DecodeExtraType) -> Result<Self, Self::ErrType> {
                 match bits {
                     #([#(#decode_values),*] => Ok(Self::#decode_var_id)),*
                     #default_expr

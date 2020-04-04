@@ -17,28 +17,28 @@ enum MyEnum {
 #[test]
 fn error_bitpattern_encode() {
     let x = MyEnum::Choice1;
-    assert_eq!(x.encode(), [false, false]);
+    assert_eq!(x.encode(()), [false, false]);
 
     let x = MyEnum::ChoiceTwo;
-    assert_eq!(x.encode(), [false, true]);
+    assert_eq!(x.encode(()), [false, true]);
 
     let x = MyEnum::Choice3;
-    assert_eq!(x.encode(), [true, false]);
+    assert_eq!(x.encode(()), [true, false]);
 }
 
 #[test]
 fn error_bitpattern_decode() {
     let x = [false, false];
-    assert_eq!(MyEnum::decode(&x).unwrap(), MyEnum::Choice1);
+    assert_eq!(MyEnum::decode(&x, ()).unwrap(), MyEnum::Choice1);
 
     let x = [false, true];
-    assert_eq!(MyEnum::decode(&x).unwrap(), MyEnum::ChoiceTwo);
+    assert_eq!(MyEnum::decode(&x, ()).unwrap(), MyEnum::ChoiceTwo);
 
     let x = [true, false];
-    assert_eq!(MyEnum::decode(&x).unwrap(), MyEnum::Choice3);
+    assert_eq!(MyEnum::decode(&x, ()).unwrap(), MyEnum::Choice3);
 
     let x = [true, true];
-    assert_eq!(MyEnum::decode(&x).unwrap_err(), 12345);
+    assert_eq!(MyEnum::decode(&x, ()).unwrap_err(), 12345);
 }
 
 #[test]

@@ -707,7 +707,7 @@ impl XC2BitstreamBits {
 
             fuse_array.set(clken_x, clken_y, !clock_div.enabled);
 
-            let divratio = clock_div.div_ratio.encode();
+            let divratio = clock_div.div_ratio.encode(());
             fuse_array.set(clkdiv0_x, clkdiv0_y, divratio[0]);
             fuse_array.set(clkdiv1_x, clkdiv1_y, divratio[1]);
             fuse_array.set(clkdiv2_x, clkdiv2_y, divratio[2]);
@@ -963,7 +963,7 @@ impl XC2BitstreamBits {
 
             linebreaks.add(clock_fuse_block);
             jed.f[clock_fuse_block] = !clock_div.enabled;
-            let clk_div_bits = clock_div.div_ratio.encode();
+            let clk_div_bits = clock_div.div_ratio.encode(());
             jed.f[clock_fuse_block+1] = clk_div_bits[0];
             jed.f[clock_fuse_block+2] = clk_div_bits[1];
             jed.f[clock_fuse_block+3] = clk_div_bits[2];
