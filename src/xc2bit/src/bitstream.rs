@@ -692,7 +692,7 @@ impl XC2BitstreamBits {
         match self {
             &XC2BitstreamBits::XC2C32 {ref inpin, ..} |
             &XC2BitstreamBits::XC2C32A {ref inpin, ..} => {
-                inpin.encode_crbit(fuse_array);
+                <XC2ExtraIBuf as BitFragment<iob::Crbit>>::encode(inpin, fuse_array, [0, 0], [false, false], ());
             },
             _ => {}
         }
@@ -1003,7 +1003,8 @@ impl XC2BitstreamBits {
                 jed.f[12271] = !ivoltage;
 
                 linebreaks.add(12272);
-                inpin.encode_jed(&mut jed.f);
+
+                <XC2ExtraIBuf as BitFragment<iob::Jed>>::encode(&inpin, &mut jed.f, [0], [false], ());
             }
             &XC2BitstreamBits::XC2C64 {ref ivoltage, ref ovoltage, ..} |
             &XC2BitstreamBits::XC2C64A {legacy_ivoltage: ref ivoltage, legacy_ovoltage: ref ovoltage, ..} => {
@@ -1169,7 +1170,7 @@ fn read_32_bitstream_logical(fuses: &[bool]) -> Result<XC2BitstreamBits, XC2BitE
     
     read_bitstream_logical_common_small(fuses, XC2Device::XC2C32, &mut fb, &mut iobs)?;
 
-    let inpin = XC2ExtraIBuf::decode_jed(fuses);
+    let inpin = <XC2ExtraIBuf as BitFragment<iob::Jed>>::decode(fuses, [0], [false], ()).unwrap();
 
     let global_nets = XC2GlobalNets::from_jed(XC2Device::XC2C32, fuses);
 
@@ -1190,7 +1191,7 @@ fn read_32a_bitstream_logical(fuses: &[bool]) -> Result<XC2BitstreamBits, XC2Bit
     
     read_bitstream_logical_common_small(fuses, XC2Device::XC2C32A, &mut fb, &mut iobs)?;
 
-    let inpin = XC2ExtraIBuf::decode_jed(fuses);
+    let inpin = <XC2ExtraIBuf as BitFragment<iob::Jed>>::decode(fuses, [0], [false], ()).unwrap();
 
     let global_nets = XC2GlobalNets::from_jed(XC2Device::XC2C32A, fuses);
 
@@ -1439,7 +1440,7 @@ fn read_32_bitstream_physical(fuse_array: &FuseArray) -> Result<XC2BitstreamBits
     
     read_bitstream_physical_common_small(fuse_array, XC2Device::XC2C32, &mut fb, &mut iobs)?;
 
-    let inpin = XC2ExtraIBuf::decode_crbit(fuse_array);
+    let inpin = <XC2ExtraIBuf as BitFragment<iob::Crbit>>::decode(fuse_array, [0, 0], [false, false], ()).unwrap();
 
     let global_nets = XC2GlobalNets::from_crbit(XC2Device::XC2C32, fuse_array);
 
@@ -1460,7 +1461,7 @@ fn read_32a_bitstream_physical(fuse_array: &FuseArray) -> Result<XC2BitstreamBit
     
     read_bitstream_physical_common_small(fuse_array, XC2Device::XC2C32A, &mut fb, &mut iobs)?;
 
-    let inpin = XC2ExtraIBuf::decode_crbit(fuse_array);
+    let inpin = <XC2ExtraIBuf as BitFragment<iob::Crbit>>::decode(fuse_array, [0, 0], [false, false], ()).unwrap();
 
     let global_nets = XC2GlobalNets::from_crbit(XC2Device::XC2C32A, fuse_array);
 

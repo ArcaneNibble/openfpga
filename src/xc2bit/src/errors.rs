@@ -51,6 +51,13 @@ impl From<JedParserError> for XC2BitError {
     }
 }
 
+impl From<()> for XC2BitError {
+    fn from(_: ()) -> Self {
+        // FIXME
+        unreachable!();
+    }
+}
+
 impl error::Error for XC2BitError {
     fn source(&self) -> Option<&(dyn error::Error + 'static)> {
         match self {

@@ -101,46 +101,96 @@ impl fmt::Display for XC2IOBOBufMode {
     }
 }
 
+pub enum Jed {}
+pub enum Crbit {}
+pub enum Crbit32 {}
+pub enum Crbit64 {}
+pub enum Crbit256 {}
+pub enum CrbitLarge {}
+
 /// Represents an I/O pin on "small" (32 and 64 macrocell) devices.
+#[bitfragment(variant = Jed, dimensions = 1, errtype = XC2BitError)]
+#[bitfragment(variant = Crbit32, dimensions = 2, errtype = XC2BitError)]
+#[bitfragment(variant = Crbit64, dimensions = 2, errtype = XC2BitError)]
 #[derive(Copy, Clone, Eq, PartialEq, Hash, Debug, Serialize, Deserialize)]
-#[derive(BitTwiddler)]
-// FIXME: Probably should not be pub
-#[bittwiddler = "jed_internal pub err=XC2BitError"]
-#[bittwiddler = "crbit32 mirror0 err=XC2BitError"]
-#[bittwiddler = "crbit64 mirror0 err=XC2BitError"]
-// #[bittwiddler = "crbit_internal"]
 pub struct XC2MCSmallIOB {
     /// Mux selection for the ZIA input for this pin
-    #[bittwiddler_field = "jed_internal arr 11 12"]
-    #[bittwiddler_field = "crbit32 arr 2|1 3|1"]
-    #[bittwiddler_field = "crbit64 arr 5|1 6|1"]
+    #[pat_pict(frag_variant = Jed, ".   .   . .     .   . .     . .     . .     0 1     . .     .   .   . .     .   . . . .     .   .   .")]
+
+    #[pat_pict(frag_variant = Crbit32, ".  .  .  .  .  .  .  .  .
+                                        .  .  0  1  .  .  .  .  .
+                                        .  .  .  .  .  .  .  .  .")]
+
+    #[pat_pict(frag_variant = Crbit64, ".  .  .  .  .  .  .  .  .
+                                        .  .  .  .  .  0  1  .  .
+                                        .  .  .  .  .  .  .  .  .")]
     pub zia_mode: XC2IOBZIAMode,
+
+
     /// Whether the Schmitt trigger is being used on this pin's input
-    #[bittwiddler_field = "jed_internal 16"]
-    #[bittwiddler_field = "crbit32 7|1"]
-    #[bittwiddler_field = "crbit64 1|1"]
+    #[pat_pict(frag_variant = Jed, ".   .   . .     .   . .     . .     . .     . .     . .     .   0   . .     .   . . . .     .   .   .")]
+
+    #[pat_pict(frag_variant = Crbit32, ".  .  .  .  .  .  .  .  .
+                                        .  .  .  .  .  .  .  0  .
+                                        .  .  .  .  .  .  .  .  .")]
+
+    #[pat_pict(frag_variant = Crbit64, ".  .  .  .  .  .  .  .  .
+                                        .  0  .  .  .  .  .  .  .
+                                        .  .  .  .  .  .  .  .  .")]
     pub schmitt_trigger: bool,
+
+
     /// Selects the source used to drive this pin's output (if the output is enabled).
     /// `false` selects the XOR gate in the macrocell (combinatorial output), and `true` selects the register output
     /// (registered output).
-    #[bittwiddler_field = "jed_internal !19"]
-    #[bittwiddler_field = "crbit32 !1|2"]
-    #[bittwiddler_field = "crbit64 !0|1"]
+    #[pat_pict(frag_variant = Jed, ".   .   . .     .   . .     . .     . .     . .     . .     .   .   . .     !0  . . . .     .   .   .")]
+
+    #[pat_pict(frag_variant = Crbit32, ".  .  .  .  .  .  .  .  .
+                                        .  .  .  .  .  .  .  .  .
+                                        .  !0 .  .  .  .  .  .  .")]
+
+    #[pat_pict(frag_variant = Crbit64, ".  .  .  .  .  .  .  .  .
+                                        !0 .  .  .  .  .  .  .  .
+                                        .  .  .  .  .  .  .  .  .")]
     pub obuf_uses_ff: bool,
+
+
     /// Selects the output mode for this pin
-    #[bittwiddler_field = "jed_internal err arr 20 21 22 23"]
-    #[bittwiddler_field = "crbit32 err arr 2|2 3|2 4|2 5|2"]
-    #[bittwiddler_field = "crbit64 err arr 3|2 4|2 5|2 6|2"]
+    #[pat_pict(frag_variant = Jed, ".   .   . .     .   . .     . .     . .     . .     . .     .   .   . .     .   0 1 2 3     .   .   .")]
+
+    #[pat_pict(frag_variant = Crbit32, ".  .  .  .  .  .  .  .  .
+                                        .  .  .  .  .  .  .  .  .
+                                        .  .  0  1  2  3  .  .  .")]
+
+    #[pat_pict(frag_variant = Crbit64, ".  .  .  .  .  .  .  .  .
+                                        .  .  .  .  .  .  .  .  .
+                                        .  .  .  0  1  2  3  .  .")]
     pub obuf_mode: XC2IOBOBufMode,
+
+
     /// Selects if the global termination (bus hold or pull-up) is enabled on this pin
-    #[bittwiddler_field = "jed_internal 24"]
-    #[bittwiddler_field = "crbit32 6|2"]
-    #[bittwiddler_field = "crbit64 2|2"]
+    #[pat_pict(frag_variant = Jed, ".   .   . .     .   . .     . .     . .     . .     . .     .   .   . .     .   . . . .     0   .   .")]
+
+    #[pat_pict(frag_variant = Crbit32, ".  .  .  .  .  .  .  .  .
+                                        .  .  .  .  .  .  .  .  .
+                                        .  .  .  .  .  .  0  .  .")]
+
+    #[pat_pict(frag_variant = Crbit64, ".  .  .  .  .  .  .  .  .
+                                        .  .  .  .  .  .  .  .  .
+                                        .  .  0  .  .  .  .  .  .")]
     pub termination_enabled: bool,
+
+
     /// Selects if fast slew rate is used on this pin
-    #[bittwiddler_field = "jed_internal !25"]
-    #[bittwiddler_field = "crbit32 !7|2"]
-    #[bittwiddler_field = "crbit64 !1|2"]
+    #[pat_pict(frag_variant = Jed, ".   .   . .     .   . .     . .     . .     . .     . .     .   .   . .     .   . . . .     .   !0  .")]
+
+    #[pat_pict(frag_variant = Crbit32, ".  .  .  .  .  .  .  .  .
+                                        .  .  .  .  .  .  .  .  .
+                                        .  .  .  .  .  .  .  !0 .")]
+
+    #[pat_pict(frag_variant = Crbit64, ".  .  .  .  .  .  .  .  .
+                                        .  .  .  .  .  .  .  .  .
+                                        .  !0 .  .  .  .  .  .  .")]
     pub slew_is_fast: bool,
 }
 
@@ -186,13 +236,13 @@ impl XC2MCSmallIOB {
                 // The "32" variant
                 // each macrocell is 3 rows high
                 let y = y + (mc as usize) * 3;
-                self.encode_crbit32(fuse_array, (x, y), mirror);
+                <Self as BitFragment::<Crbit32>>::encode(&self, fuse_array, [x as isize, y as isize], [mirror, false], ());
             },
             XC2Device::XC2C64 | XC2Device::XC2C64A => {
                 // The "64" variant
                 // each macrocell is 3 rows high
                 let y = y + (mc as usize) * 3;
-                self.encode_crbit64(fuse_array, (x, y), mirror);
+                <Self as BitFragment::<Crbit64>>::encode(&self, fuse_array, [x as isize, y as isize], [mirror, false], ());
             },
             _ => unreachable!(),
         }
@@ -209,13 +259,13 @@ impl XC2MCSmallIOB {
                 // The "32" variant
                 // each macrocell is 3 rows high
                 let y = y + (mc as usize) * 3;
-                Self::decode_crbit32(fuse_array, (x, y), mirror)
+                <Self as BitFragment::<Crbit32>>::decode(fuse_array, [x as isize, y as isize], [mirror, false], ())
             },
             XC2Device::XC2C64 | XC2Device::XC2C64A => {
                 // The "64" variant
                 // each macrocell is 3 rows high
                 let y = y + (mc as usize) * 3;
-                Self::decode_crbit64(fuse_array, (x, y), mirror)
+                <Self as BitFragment::<Crbit64>>::decode(fuse_array, [x as isize, y as isize], [mirror, false], ())
             },
             _ => unreachable!(),
         }
@@ -223,7 +273,7 @@ impl XC2MCSmallIOB {
 
     /// Internal function that reads only the IO-related bits from the macrocell configuration
     pub fn from_jed(fuses: &[bool], fuse_idx: usize) -> Result<Self, XC2BitError> {
-        Self::decode_jed_internal(fuses, fuse_idx)
+        <Self as BitFragment::<Jed>>::decode(fuses, [fuse_idx as isize], [false], ())
     }
 
     /// Helper that prints the IOB and macrocell configuration on the "small" parts
@@ -231,8 +281,8 @@ impl XC2MCSmallIOB {
         let zia_row_width = zia_get_row_width(device);
         let mc_fuse_base = fuse_base + zia_row_width * INPUTS_PER_ANDTERM +
             ANDTERMS_PER_FB * INPUTS_PER_ANDTERM * 2 + ANDTERMS_PER_FB * MCS_PER_FB + i * 27;
-     
-        self.encode_jed_internal(&mut jed.f, mc_fuse_base);
+
+        <Self as BitFragment::<Jed>>::encode(&self, &mut jed.f, [mc_fuse_base as isize], [false], ());
     }
 }
 
@@ -266,49 +316,94 @@ impl fmt::Display for XC2IOBIbufMode {
 }
 
 /// Represents an I/O pin on "large" (128 and greater macrocell) devices.
+#[bitfragment(variant = Jed, dimensions = 1, errtype = XC2BitError)]
+#[bitfragment(variant = Crbit256, dimensions = 2, errtype = XC2BitError)]
+#[bitfragment(variant = CrbitLarge, dimensions = 2, errtype = XC2BitError)]
 #[derive(Copy, Clone, Eq, PartialEq, Hash, Debug, Serialize, Deserialize)]
-#[derive(BitTwiddler)]
-// FIXME: Probably should not be pub
-#[bittwiddler = "jed_internal pub err=XC2BitError"]
-#[bittwiddler = "crbit256 mirror0 err=XC2BitError"]
-#[bittwiddler = "crbit_not256 mirror0 err=XC2BitError"]
 pub struct XC2MCLargeIOB {
     /// Mux selection for the ZIA input for this pin
-    #[bittwiddler_field = "jed_internal arr 11 12"]
-    #[bittwiddler_field = "crbit256 arr 7|1 8|1"]
-    #[bittwiddler_field = "crbit_not256 arr 0|0 1|0"]
+    #[pat_pict(frag_variant = Jed, ".   . .     .   .   .   . .     . .     .   0 1     . . . .     . .     .   .   . .     . .     .   .   . .")]
+
+    #[pat_pict(frag_variant = Crbit256, ".  .  .  .  .  .  .  .  .  .
+                                         .  .  .  .  .  .  .  0  1  .
+                                         .  .  .  .  .  .  .  .  .  .")]
+
+    #[pat_pict(frag_variant = CrbitLarge, "0  1  .  .  .  .  .  .  .  .  .  .  .  .  .
+                                           .  .  .  .  .  .  .  .  .  .  .  .  .  .  .")]
     pub zia_mode: XC2IOBZIAMode,
+
+
     /// Selects the input mode for this pin
-    #[bittwiddler_field = "jed_internal arr 8 9"]
-    #[bittwiddler_field = "crbit256 arr 0|0 1|0"]
-    #[bittwiddler_field = "crbit_not256 arr 5|0 6|0"]
+    #[pat_pict(frag_variant = Jed, ".   . .     .   .   .   . .     0 1     .   . .     . . . .     . .     .   .   . .     . .     .   .   . .")]
+
+    #[pat_pict(frag_variant = Crbit256, "0  1  .  .  .  .  .  .  .  .
+                                         .  .  .  .  .  .  .  .  .  .
+                                         .  .  .  .  .  .  .  .  .  .")]
+
+    #[pat_pict(frag_variant = CrbitLarge, ".  .  .  .  .  0  1  .  .  .  .  .  .  .  .
+                                           .  .  .  .  .  .  .  .  .  .  .  .  .  .  .")]
     pub ibuf_mode: XC2IOBIbufMode,
+
+
     /// Selects the source used to drive this pin's output (if the output is enabled).
     /// `false` selects the XOR gate in the macrocell (combinatorial output), and `true` selects the register output
     /// (registered output).
-    #[bittwiddler_field = "jed_internal !20"]
-    #[bittwiddler_field = "crbit256 !8|2"]
-    #[bittwiddler_field = "crbit_not256 !8|1"]
+    #[pat_pict(frag_variant = Jed, ".   . .     .   .   .   . .     . .     .   . .     . . . .     . .     .   !0  . .     . .     .   .   . .")]
+
+    #[pat_pict(frag_variant = Crbit256, ".  .  .  .  .  .  .  .  .  .
+                                         .  .  .  .  .  .  .  .  .  .
+                                         .  .  .  .  .  .  .  .  !0 .")]
+
+    #[pat_pict(frag_variant = CrbitLarge, ".  .  .  .  .  .  .  .  .  .  .  .  .  .  .
+                                           .  .  .  .  .  .  .  .  !0 .  .  .  .  .  .")]
     pub obuf_uses_ff: bool,
+
+
     /// Selects the output mode for this pin
-    #[bittwiddler_field = "jed_internal err arr 13 14 15 16"]
-    #[bittwiddler_field = "crbit256 err arr 3|1 4|1 5|1 6|1"]
-    #[bittwiddler_field = "crbit_not256 err arr 2|1 3|1 4|1 5|1"]
+    #[pat_pict(frag_variant = Jed, ".   . .     .   .   .   . .     . .     .   . .     0 1 2 3     . .     .   .   . .     . .     .   .   . .")]
+
+    #[pat_pict(frag_variant = Crbit256, ".  .  .  .  .  .  .  .  .  .
+                                         .  .  .  0  1  2  3  .  .  .
+                                         .  .  .  .  .  .  .  .  .  .")]
+
+    #[pat_pict(frag_variant = CrbitLarge, ".  .  .  .  .  .  .  .  .  .  .  .  .  .  .
+                                           .  .  0  1  2  3  .  .  .  .  .  .  .  .  .")]
     pub obuf_mode: XC2IOBOBufMode,
+
+
     /// Selects if the global termination (bus hold or pull-up) is enabled on this pin
-    #[bittwiddler_field = "jed_internal 26"]
-    #[bittwiddler_field = "crbit256 2|2"]
-    #[bittwiddler_field = "crbit_not256 7|0"]
+    #[pat_pict(frag_variant = Jed, ".   . .     .   .   .   . .     . .     .   . .     . . . .     . .     .   .   . .     . .     .   0   . .")]
+
+    #[pat_pict(frag_variant = Crbit256, ".  .  .  .  .  .  .  .  .  .
+                                         .  .  .  .  .  .  .  .  .  .
+                                         .  .  0  .  .  .  .  .  .  .")]
+
+    #[pat_pict(frag_variant = CrbitLarge, ".  .  .  .  .  .  .  0  .  .  .  .  .  .  .
+                                           .  .  .  .  .  .  .  .  .  .  .  .  .  .  .")]
     pub termination_enabled: bool,
+
+
     /// Selects if fast slew rate is used on this pin
-    #[bittwiddler_field = "jed_internal !25"]
-    #[bittwiddler_field = "crbit256 !3|2"]
-    #[bittwiddler_field = "crbit_not256 !6|1"]
+    #[pat_pict(frag_variant = Jed, ".   . .     .   .   .   . .     . .     .   . .     . . . .     . .     .   .   . .     . .     !0  .   . .")]
+
+    #[pat_pict(frag_variant = Crbit256, ".  .  .  .  .  .  .  .  .  .
+                                         .  .  .  .  .  .  .  .  .  .
+                                         .  .  .  !0 .  .  .  .  .  .")]
+
+    #[pat_pict(frag_variant = CrbitLarge, ".  .  .  .  .  .  .  .  .  .  .  .  .  .  .
+                                           .  .  .  .  .  .  !0 .  .  .  .  .  .  .  .")]
     pub slew_is_fast: bool,
+
+
     /// Whether this pin is making use of the DataGate feature
-    #[bittwiddler_field = "jed_internal 5"]
-    #[bittwiddler_field = "crbit256 4|0"]
-    #[bittwiddler_field = "crbit_not256 4|0"]
+    #[pat_pict(frag_variant = Jed, ".   . .     .   .   0   . .     . .     .   . .     . . . .     . .     .   .   . .     . .     .   .   . .")]
+
+    #[pat_pict(frag_variant = Crbit256, ".  .  .  .  0  .  .  .  .  .
+                                         .  .  .  .  .  .  .  .  .  .
+                                         .  .  .  .  .  .  .  .  .  .")]
+
+    #[pat_pict(frag_variant = CrbitLarge, ".  .  .  .  0  .  .  .  .  .  .  .  .  .  .
+                                           .  .  .  .  .  .  .  .  .  .  .  .  .  .  .")]
     pub uses_data_gate: bool,
 }
 
@@ -356,13 +451,13 @@ impl XC2MCLargeIOB {
                 // The "256" variant
                 // each macrocell is 3 rows high
                 let y = y + (mc as usize) * 3;
-                self.encode_crbit256(fuse_array, (x, y), mirror);
+                <Self as BitFragment::<Crbit256>>::encode(&self, fuse_array, [x as isize, y as isize], [mirror, false], ());
             },
             XC2Device::XC2C128 | XC2Device::XC2C384 | XC2Device::XC2C512 => {
                 // The "common large macrocell" variant
                 // we need this funny lookup table, but otherwise macrocells are 2x15
                 let y = y + MC_TO_ROW_MAP_LARGE[mc as usize];
-                self.encode_crbit_not256(fuse_array, (x, y), mirror);
+                <Self as BitFragment::<CrbitLarge>>::encode(&self, fuse_array, [x as isize, y as isize], [mirror, false], ());
             },
             _ => unreachable!(),
         }
@@ -379,13 +474,13 @@ impl XC2MCLargeIOB {
                 // The "256" variant
                 // each macrocell is 3 rows high
                 let y = y + (mc as usize) * 3;
-                Self::decode_crbit256(fuse_array, (x, y), mirror)
+                <Self as BitFragment::<Crbit256>>::decode(fuse_array, [x as isize, y as isize], [mirror, false], ())
             },
             XC2Device::XC2C128 | XC2Device::XC2C384 | XC2Device::XC2C512 => {
                 // The "common large macrocell" variant
                 // we need this funny lookup table, but otherwise macrocells are 2x15
                 let y = y + MC_TO_ROW_MAP_LARGE[mc as usize];
-                Self::decode_crbit_not256(fuse_array, (x, y), mirror)
+                <Self as BitFragment::<CrbitLarge>>::decode(fuse_array, [x as isize, y as isize], [mirror, false], ())
             },
             _ => unreachable!(),
         }
@@ -393,26 +488,27 @@ impl XC2MCLargeIOB {
 
     /// Internal function that reads only the IO-related bits from the macrocell configuration
     pub fn from_jed(fuses: &[bool], fuse_idx: usize) -> Result<Self, XC2BitError> {
-        Self::decode_jed_internal(fuses, fuse_idx)
+        <Self as BitFragment::<Jed>>::decode(fuses, [fuse_idx as isize], [false], ())
     }
 
     /// Helper that prints the IOB configuration on the "large" parts
     pub fn to_jed(&self, jed: &mut JEDECFile, fuse_base: usize) {
-        self.encode_jed_internal(&mut jed.f, fuse_base);
+        <Self as BitFragment::<Jed>>::encode(&self, &mut jed.f, [fuse_base as isize], [false], ());
     }
 }
 
 /// Represents the one additional special input-only pin on 32-macrocell devices.
+#[bitfragment(variant = Jed, dimensions = 1)]
+#[bitfragment(variant = Crbit, dimensions = 2)]
 #[derive(Copy, Clone, Eq, PartialEq, Hash, Debug, Serialize, Deserialize)]
-#[derive(BitTwiddler)]
-#[bittwiddler = "jed pub abs"]
-#[bittwiddler = "crbit pub abs"]
 pub struct XC2ExtraIBuf {
-    #[bittwiddler_field = "jed 12272"]
-    #[bittwiddler_field = "crbit 131|24"]
+    #[pat_bits(frag_variant = Jed, "0" = 12272)]
+    #[pat_bits(frag_variant = Crbit, "0" = (131, 24))]
     pub schmitt_trigger: bool,
-    #[bittwiddler_field = "jed 12273"]
-    #[bittwiddler_field = "crbit 132|24"]
+
+
+    #[pat_bits(frag_variant = Jed, "0" = 12273)]
+    #[pat_bits(frag_variant = Crbit, "0" = (132, 24))]
     pub termination_enabled: bool,
 }
 
