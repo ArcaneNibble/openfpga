@@ -418,7 +418,7 @@ fn parse_attrs(attrs: &mut Vec<Attribute>, encode_variant: &Option<Type>, idx_di
             // Loop through parsed list
             let mut maybe_frag_var = None;
             let mut maybe_pat_var = None;
-            let mut maybe_patbits = PatBitsInfo::new();
+            let mut maybe_patbits = HashMap::new();
             for attr_arg in attr_args {
                 match attr_arg {
                     PatBitsSetting::FragVariant(x) => {
@@ -442,17 +442,7 @@ fn parse_attrs(attrs: &mut Vec<Attribute>, encode_variant: &Option<Type>, idx_di
                             errors_occurred = true;
                         }
 
-                        let (bit_info_error, bit_info) = parse_pat_bits_expr(&x.expr)?;
-                        if bit_info_error {
-                            errors_occurred = true;
-                        }
-                        if let PatBitInfo{pos: PatBitPos::Loc(locs), ..} = &bit_info {
-                            if locs.len() != idx_dims {
-                                emit_error!(x.expr, "Position doesn't match dimension (expected {})", idx_dims);
-                                errors_occurred = true;
-                            }
-                        }
-                        maybe_patbits.insert(bit_id, bit_info);
+                        maybe_patbits.insert(bit_id, x.expr.clone());
                     },
                     PatBitsSetting::StrExpr(x) => {
                         let bit_id = x.litstr.value();
@@ -461,17 +451,7 @@ fn parse_attrs(attrs: &mut Vec<Attribute>, encode_variant: &Option<Type>, idx_di
                             errors_occurred = true;
                         }
 
-                        let (bit_info_error, bit_info) = parse_pat_bits_expr(&x.expr)?;
-                        if bit_info_error {
-                            errors_occurred = true;
-                        }
-                        if let PatBitInfo{pos: PatBitPos::Loc(locs), ..} = &bit_info {
-                            if locs.len() != idx_dims {
-                                emit_error!(x.expr, "Position doesn't match dimension (expected {})", idx_dims);
-                                errors_occurred = true;
-                            }
-                        }
-                        maybe_patbits.insert(bit_id, bit_info);
+                        maybe_patbits.insert(bit_id, x.expr.clone());
                     },
                 }
             }
@@ -496,7 +476,23 @@ fn parse_attrs(attrs: &mut Vec<Attribute>, encode_variant: &Option<Type>, idx_di
                     }
                 }
 
-                patbits = Some(maybe_patbits);
+                let mut patbits_ = PatBitsInfo::new();
+
+                for (bit_id, expr) in maybe_patbits {
+                    let (bit_info_error, bit_info) = parse_pat_bits_expr(&expr)?;
+                    if bit_info_error {
+                        errors_occurred = true;
+                    }
+                    if let PatBitInfo{pos: PatBitPos::Loc(locs), ..} = &bit_info {
+                        if locs.len() != idx_dims {
+                            emit_error!(expr, "Position doesn't match dimension (expected {})", idx_dims);
+                            errors_occurred = true;
+                        }
+                    }
+
+                    patbits_.insert(bit_id, bit_info);
+                }
+                patbits = Some(patbits_);
                 subvar = maybe_pat_var;
                 to_remove.push(i);
             }
