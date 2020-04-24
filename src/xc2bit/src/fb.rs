@@ -53,8 +53,11 @@ pub struct XC2BitstreamFB {
     #[offset(variant = JedXC2C32, [zia_get_row_width(XC2Device::XC2C32) * INPUTS_PER_ANDTERM ])]
     #[arr_off(variant = JedXC2C32, |i| [i * INPUTS_PER_ANDTERM * 2])]
     #[frag(outer_frag_variant = JedXC2C32, inner_frag_variant = pla::Jed)]
+
+    #[offset(variant = JedXC2C64, [zia_get_row_width(XC2Device::XC2C64) * INPUTS_PER_ANDTERM ])]
     #[arr_off(variant = JedXC2C64, |i| [i * INPUTS_PER_ANDTERM * 2])]
     #[frag(outer_frag_variant = JedXC2C64, inner_frag_variant = pla::Jed)]
+
     #[arr_off(variant = JedXC2C128, |i| [i * INPUTS_PER_ANDTERM * 2])]
     #[frag(outer_frag_variant = JedXC2C128, inner_frag_variant = pla::Jed)]
 
@@ -65,8 +68,11 @@ pub struct XC2BitstreamFB {
     #[offset(variant = JedXC2C32, [zia_get_row_width(XC2Device::XC2C32) * INPUTS_PER_ANDTERM + INPUTS_PER_ANDTERM * 2 * ANDTERMS_PER_FB])]
     #[arr_off(variant = JedXC2C32, |i| [i])]
     #[frag(outer_frag_variant = JedXC2C32, inner_frag_variant = pla::Jed)]
-    #[arr_off(variant = JedXC2C64, |i| [i * MCS_PER_FB])]
+
+    #[offset(variant = JedXC2C64, [zia_get_row_width(XC2Device::XC2C64) * INPUTS_PER_ANDTERM + INPUTS_PER_ANDTERM * 2 * ANDTERMS_PER_FB])]
+    #[arr_off(variant = JedXC2C64, |i| [i])]
     #[frag(outer_frag_variant = JedXC2C64, inner_frag_variant = pla::Jed)]
+
     #[arr_off(variant = JedXC2C128, |i| [i * MCS_PER_FB])]
     #[frag(outer_frag_variant = JedXC2C128, inner_frag_variant = pla::Jed)]
 
@@ -78,10 +84,12 @@ pub struct XC2BitstreamFB {
     #[frag(outer_frag_variant = JedXC2C32, inner_frag_variant = zia::JedXC2C32)]
     #[encode_sub_extra_data(variant = JedXC2C32, arr_elem_i)]
     #[decode_sub_extra_data(variant = JedXC2C32, arr_elem_i)]
+
     #[arr_off(variant = JedXC2C64, |i| [i * zia_get_row_width(XC2Device::XC2C64)])]
     #[frag(outer_frag_variant = JedXC2C64, inner_frag_variant = zia::JedXC2C64)]
     #[encode_sub_extra_data(variant = JedXC2C64, arr_elem_i)]
     #[decode_sub_extra_data(variant = JedXC2C64, arr_elem_i)]
+
     #[arr_off(variant = JedXC2C128, |i| [i * zia_get_row_width(XC2Device::XC2C128)])]
     #[frag(outer_frag_variant = JedXC2C128, inner_frag_variant = zia::JedXC2C128)]
     #[encode_sub_extra_data(variant = JedXC2C128, arr_elem_i)]
@@ -94,8 +102,11 @@ pub struct XC2BitstreamFB {
     #[offset(variant = JedXC2C32, [zia_get_row_width(XC2Device::XC2C32) * INPUTS_PER_ANDTERM + INPUTS_PER_ANDTERM * 2 * ANDTERMS_PER_FB + ANDTERMS_PER_FB * MCS_PER_FB])]
     #[arr_off(variant = JedXC2C32, |i| [i * 27])]
     #[frag(outer_frag_variant = JedXC2C32, inner_frag_variant = mc::JedSmall)]
+
+    #[offset(variant = JedXC2C64, [zia_get_row_width(XC2Device::XC2C64) * INPUTS_PER_ANDTERM + INPUTS_PER_ANDTERM * 2 * ANDTERMS_PER_FB + ANDTERMS_PER_FB * MCS_PER_FB])]
     #[arr_off(variant = JedXC2C64, |i| [i * 27])]
     #[frag(outer_frag_variant = JedXC2C64, inner_frag_variant = mc::JedSmall)]
+
     #[arr_off(variant = JedXC2C128, |i| [large_get_macrocell_offset(XC2Device::XC2C128, i)])]
     #[frag(outer_frag_variant = JedXC2C128, inner_frag_variant = mc::JedLarge)]
     #[encode_sub_extra_data(variant = JedXC2C128, false)]
@@ -587,6 +598,51 @@ impl XC2BitstreamFB {
     pub fn to_jed(&self, device: XC2Device, fuse_base: usize, jed: &mut JEDECFile, linebreaks: &mut LinebreakSet) {
         if device == XC2Device::XC2C32 || device == XC2Device::XC2C32A {
             <Self as BitFragment<JedXC2C32>>::encode(&self, &mut jed.f, [fuse_base as isize], [false], ());
+
+            // ZIA
+            let zia_row_width = zia_get_row_width(device);
+
+            if fuse_base != 0 {
+                linebreaks.add(fuse_base);
+            }
+            for i in 0..INPUTS_PER_ANDTERM {
+                let zia_fuse_base = fuse_base + i * zia_row_width;
+                if zia_fuse_base != 0 {
+                    linebreaks.add(zia_fuse_base);
+                }
+            }
+
+            // AND terms
+            linebreaks.add(fuse_base + zia_row_width * INPUTS_PER_ANDTERM);
+            for i in 0..ANDTERMS_PER_FB {
+                let and_fuse_base = fuse_base + zia_row_width * INPUTS_PER_ANDTERM + i * INPUTS_PER_ANDTERM * 2;
+                linebreaks.add(and_fuse_base);
+            }
+
+            // OR terms
+            linebreaks.add(fuse_base + zia_row_width * INPUTS_PER_ANDTERM + ANDTERMS_PER_FB * INPUTS_PER_ANDTERM * 2);
+            for i in 0..ANDTERMS_PER_FB {
+                let or_fuse_base = fuse_base + zia_row_width * INPUTS_PER_ANDTERM +
+                    ANDTERMS_PER_FB * INPUTS_PER_ANDTERM * 2 + i * MCS_PER_FB;
+                linebreaks.add(or_fuse_base);
+            }
+
+            // macrocell line breaks
+            for i in 0..MCS_PER_FB {
+                let mc_fuse_base = fuse_base + zia_row_width * INPUTS_PER_ANDTERM +
+                    ANDTERMS_PER_FB * INPUTS_PER_ANDTERM * 2 + ANDTERMS_PER_FB * MCS_PER_FB + i * 27;
+
+                linebreaks.add(mc_fuse_base);
+                if i == 0 {
+                    linebreaks.add(mc_fuse_base);
+                }
+            }
+
+            return;
+        }
+        // todo this duplication will be removed
+        if device == XC2Device::XC2C64 || device == XC2Device::XC2C64A {
+            <Self as BitFragment<JedXC2C64>>::encode(&self, &mut jed.f, [fuse_base as isize], [false], ());
 
             // ZIA
             let zia_row_width = zia_get_row_width(device);

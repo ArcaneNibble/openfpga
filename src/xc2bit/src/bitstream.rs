@@ -921,10 +921,6 @@ impl XC2BitstreamBits {
             let fuse_base = fb_fuse_idx(self.device_type(), fb_i as u32);
             let fb = self.get_fb();
             if self.device_type().is_small_iob() {
-                if self.device_type() != XC2Device::XC2C32 && self.device_type() != XC2Device::XC2C32A {
-                XC2Macrocell::to_jed_small(jed, linebreaks, self.device_type(), &fb[fb_i], fuse_base);
-                }   // temp hax
-
                 for i in 0..MCS_PER_FB {
                     let iob = fb_mc_num_to_iob_num(self.device_type(), fb_i as u32, i as u32).unwrap() as usize;
                     self.get_small_iob(iob).unwrap().to_jed(jed, self.device_type(), fuse_base, i);
