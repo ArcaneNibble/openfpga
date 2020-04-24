@@ -927,8 +927,8 @@ impl XC2BitstreamBits {
                 }
             }
             if self.device_type().is_large_iob() {
-                if self.device_type() != XC2Device::XC2C128 {
-                XC2Macrocell::to_jed_large(jed, linebreaks, self.device_type(), &fb[fb_i], fb_i, fuse_base);
+                if self.device_type() != XC2Device::XC2C128 && self.device_type() != XC2Device::XC2C256 {
+                // XC2Macrocell::to_jed_large(jed, linebreaks, self.device_type(), &fb[fb_i], fb_i, fuse_base);
                 } // todo remove
 
                 let zia_row_width = zia_get_row_width(self.device_type());
