@@ -674,303 +674,28 @@ impl XC2BitstreamFB {
     /// `device` must be the device type this FB was extracted from and is needed to encode the ZIA.
     /// `fuse_base` must be the starting fuse number of this function block.
     pub fn to_jed(&self, device: XC2Device, fuse_base: usize, jed: &mut JEDECFile, linebreaks: &mut LinebreakSet, fb_i: usize) {
-        if device == XC2Device::XC2C32 || device == XC2Device::XC2C32A {
-            <Self as BitFragment<JedXC2C32>>::encode(&self, &mut jed.f, [fuse_base as isize], [false], ());
-
-            // ZIA
-            let zia_row_width = zia_get_row_width(device);
-
-            if fuse_base != 0 {
-                linebreaks.add(fuse_base);
-            }
-            for i in 0..INPUTS_PER_ANDTERM {
-                let zia_fuse_base = fuse_base + i * zia_row_width;
-                if zia_fuse_base != 0 {
-                    linebreaks.add(zia_fuse_base);
-                }
-            }
-
-            // AND terms
-            linebreaks.add(fuse_base + zia_row_width * INPUTS_PER_ANDTERM);
-            for i in 0..ANDTERMS_PER_FB {
-                let and_fuse_base = fuse_base + zia_row_width * INPUTS_PER_ANDTERM + i * INPUTS_PER_ANDTERM * 2;
-                linebreaks.add(and_fuse_base);
-            }
-
-            // OR terms
-            linebreaks.add(fuse_base + zia_row_width * INPUTS_PER_ANDTERM + ANDTERMS_PER_FB * INPUTS_PER_ANDTERM * 2);
-            for i in 0..ANDTERMS_PER_FB {
-                let or_fuse_base = fuse_base + zia_row_width * INPUTS_PER_ANDTERM +
-                    ANDTERMS_PER_FB * INPUTS_PER_ANDTERM * 2 + i * MCS_PER_FB;
-                linebreaks.add(or_fuse_base);
-            }
-
-            // macrocell line breaks
-            for i in 0..MCS_PER_FB {
-                let mc_fuse_base = fuse_base + zia_row_width * INPUTS_PER_ANDTERM +
-                    ANDTERMS_PER_FB * INPUTS_PER_ANDTERM * 2 + ANDTERMS_PER_FB * MCS_PER_FB + i * 27;
-
-                linebreaks.add(mc_fuse_base);
-                if i == 0 {
-                    linebreaks.add(mc_fuse_base);
-                }
-            }
-
-            return;
+        match device {
+            XC2Device::XC2C32 | XC2Device::XC2C32A => {
+                <Self as BitFragment<JedXC2C32>>::encode(&self, &mut jed.f, [fuse_base as isize], [false], ());
+            },
+            XC2Device::XC2C64 | XC2Device::XC2C64A => {
+                <Self as BitFragment<JedXC2C64>>::encode(&self, &mut jed.f, [fuse_base as isize], [false], ());
+            },
+            XC2Device::XC2C128 => {
+                <Self as BitFragment<JedXC2C128>>::encode(&self, &mut jed.f, [fuse_base as isize], [false], fb_i);
+            },
+            XC2Device::XC2C256 => {
+                <Self as BitFragment<JedXC2C256>>::encode(&self, &mut jed.f, [fuse_base as isize], [false], fb_i);
+            },
+            XC2Device::XC2C384 => {
+                <Self as BitFragment<JedXC2C384>>::encode(&self, &mut jed.f, [fuse_base as isize], [false], fb_i);
+            },
+            XC2Device::XC2C512 => {
+                <Self as BitFragment<JedXC2C512>>::encode(&self, &mut jed.f, [fuse_base as isize], [false], fb_i);
+            },
         }
-        // todo this duplication will be removed
-        if device == XC2Device::XC2C64 || device == XC2Device::XC2C64A {
-            <Self as BitFragment<JedXC2C64>>::encode(&self, &mut jed.f, [fuse_base as isize], [false], ());
 
-            // ZIA
-            let zia_row_width = zia_get_row_width(device);
-
-            if fuse_base != 0 {
-                linebreaks.add(fuse_base);
-            }
-            for i in 0..INPUTS_PER_ANDTERM {
-                let zia_fuse_base = fuse_base + i * zia_row_width;
-                if zia_fuse_base != 0 {
-                    linebreaks.add(zia_fuse_base);
-                }
-            }
-
-            // AND terms
-            linebreaks.add(fuse_base + zia_row_width * INPUTS_PER_ANDTERM);
-            for i in 0..ANDTERMS_PER_FB {
-                let and_fuse_base = fuse_base + zia_row_width * INPUTS_PER_ANDTERM + i * INPUTS_PER_ANDTERM * 2;
-                linebreaks.add(and_fuse_base);
-            }
-
-            // OR terms
-            linebreaks.add(fuse_base + zia_row_width * INPUTS_PER_ANDTERM + ANDTERMS_PER_FB * INPUTS_PER_ANDTERM * 2);
-            for i in 0..ANDTERMS_PER_FB {
-                let or_fuse_base = fuse_base + zia_row_width * INPUTS_PER_ANDTERM +
-                    ANDTERMS_PER_FB * INPUTS_PER_ANDTERM * 2 + i * MCS_PER_FB;
-                linebreaks.add(or_fuse_base);
-            }
-
-            // macrocell line breaks
-            for i in 0..MCS_PER_FB {
-                let mc_fuse_base = fuse_base + zia_row_width * INPUTS_PER_ANDTERM +
-                    ANDTERMS_PER_FB * INPUTS_PER_ANDTERM * 2 + ANDTERMS_PER_FB * MCS_PER_FB + i * 27;
-
-                linebreaks.add(mc_fuse_base);
-                if i == 0 {
-                    linebreaks.add(mc_fuse_base);
-                }
-            }
-
-            return;
-        }
-        // todo this duplication will be removed
-        if device == XC2Device::XC2C128 {
-            <Self as BitFragment<JedXC2C128>>::encode(&self, &mut jed.f, [fuse_base as isize], [false], fb_i);
-
-            // ZIA
-            let zia_row_width = zia_get_row_width(device);
-
-            if fuse_base != 0 {
-                linebreaks.add(fuse_base);
-            }
-            for i in 0..INPUTS_PER_ANDTERM {
-                let zia_fuse_base = fuse_base + i * zia_row_width;
-                if zia_fuse_base != 0 {
-                    linebreaks.add(zia_fuse_base);
-                }
-            }
-
-            // AND terms
-            linebreaks.add(fuse_base + zia_row_width * INPUTS_PER_ANDTERM);
-            for i in 0..ANDTERMS_PER_FB {
-                let and_fuse_base = fuse_base + zia_row_width * INPUTS_PER_ANDTERM + i * INPUTS_PER_ANDTERM * 2;
-                linebreaks.add(and_fuse_base);
-            }
-
-            // OR terms
-            linebreaks.add(fuse_base + zia_row_width * INPUTS_PER_ANDTERM + ANDTERMS_PER_FB * INPUTS_PER_ANDTERM * 2);
-            for i in 0..ANDTERMS_PER_FB {
-                let or_fuse_base = fuse_base + zia_row_width * INPUTS_PER_ANDTERM +
-                    ANDTERMS_PER_FB * INPUTS_PER_ANDTERM * 2 + i * MCS_PER_FB;
-                linebreaks.add(or_fuse_base);
-            }
-
-            // macrocell line breaks
-            let mut current_fuse_offset = fuse_base + zia_row_width * INPUTS_PER_ANDTERM +
-                ANDTERMS_PER_FB * INPUTS_PER_ANDTERM * 2 + ANDTERMS_PER_FB * MCS_PER_FB;
-
-            linebreaks.add(current_fuse_offset);
-
-            for i in 0..MCS_PER_FB {
-                linebreaks.add(current_fuse_offset);
-
-                let iob = fb_mc_num_to_iob_num(device, fb_i as u32, i as u32);
-
-                if iob.is_some() {
-                    current_fuse_offset += 29;
-                } else {
-                    current_fuse_offset += 16;
-                }
-            }
-
-            return;
-        }
-        // todo this duplication will be removed
-        if device == XC2Device::XC2C256 {
-            <Self as BitFragment<JedXC2C256>>::encode(&self, &mut jed.f, [fuse_base as isize], [false], fb_i);
-
-            // ZIA
-            let zia_row_width = zia_get_row_width(device);
-
-            if fuse_base != 0 {
-                linebreaks.add(fuse_base);
-            }
-            for i in 0..INPUTS_PER_ANDTERM {
-                let zia_fuse_base = fuse_base + i * zia_row_width;
-                if zia_fuse_base != 0 {
-                    linebreaks.add(zia_fuse_base);
-                }
-            }
-
-            // AND terms
-            linebreaks.add(fuse_base + zia_row_width * INPUTS_PER_ANDTERM);
-            for i in 0..ANDTERMS_PER_FB {
-                let and_fuse_base = fuse_base + zia_row_width * INPUTS_PER_ANDTERM + i * INPUTS_PER_ANDTERM * 2;
-                linebreaks.add(and_fuse_base);
-            }
-
-            // OR terms
-            linebreaks.add(fuse_base + zia_row_width * INPUTS_PER_ANDTERM + ANDTERMS_PER_FB * INPUTS_PER_ANDTERM * 2);
-            for i in 0..ANDTERMS_PER_FB {
-                let or_fuse_base = fuse_base + zia_row_width * INPUTS_PER_ANDTERM +
-                    ANDTERMS_PER_FB * INPUTS_PER_ANDTERM * 2 + i * MCS_PER_FB;
-                linebreaks.add(or_fuse_base);
-            }
-
-            // macrocell line breaks
-            let mut current_fuse_offset = fuse_base + zia_row_width * INPUTS_PER_ANDTERM +
-                ANDTERMS_PER_FB * INPUTS_PER_ANDTERM * 2 + ANDTERMS_PER_FB * MCS_PER_FB;
-
-            linebreaks.add(current_fuse_offset);
-
-            for i in 0..MCS_PER_FB {
-                linebreaks.add(current_fuse_offset);
-
-                let iob = fb_mc_num_to_iob_num(device, fb_i as u32, i as u32);
-
-                if iob.is_some() {
-                    current_fuse_offset += 29;
-                } else {
-                    current_fuse_offset += 16;
-                }
-            }
-
-            return;
-        }
-        // todo this duplication will be removed
-        if device == XC2Device::XC2C384 {
-            <Self as BitFragment<JedXC2C384>>::encode(&self, &mut jed.f, [fuse_base as isize], [false], fb_i);
-
-            // ZIA
-            let zia_row_width = zia_get_row_width(device);
-
-            if fuse_base != 0 {
-                linebreaks.add(fuse_base);
-            }
-            for i in 0..INPUTS_PER_ANDTERM {
-                let zia_fuse_base = fuse_base + i * zia_row_width;
-                if zia_fuse_base != 0 {
-                    linebreaks.add(zia_fuse_base);
-                }
-            }
-
-            // AND terms
-            linebreaks.add(fuse_base + zia_row_width * INPUTS_PER_ANDTERM);
-            for i in 0..ANDTERMS_PER_FB {
-                let and_fuse_base = fuse_base + zia_row_width * INPUTS_PER_ANDTERM + i * INPUTS_PER_ANDTERM * 2;
-                linebreaks.add(and_fuse_base);
-            }
-
-            // OR terms
-            linebreaks.add(fuse_base + zia_row_width * INPUTS_PER_ANDTERM + ANDTERMS_PER_FB * INPUTS_PER_ANDTERM * 2);
-            for i in 0..ANDTERMS_PER_FB {
-                let or_fuse_base = fuse_base + zia_row_width * INPUTS_PER_ANDTERM +
-                    ANDTERMS_PER_FB * INPUTS_PER_ANDTERM * 2 + i * MCS_PER_FB;
-                linebreaks.add(or_fuse_base);
-            }
-
-            // macrocell line breaks
-            let mut current_fuse_offset = fuse_base + zia_row_width * INPUTS_PER_ANDTERM +
-                ANDTERMS_PER_FB * INPUTS_PER_ANDTERM * 2 + ANDTERMS_PER_FB * MCS_PER_FB;
-
-            linebreaks.add(current_fuse_offset);
-
-            for i in 0..MCS_PER_FB {
-                linebreaks.add(current_fuse_offset);
-
-                let iob = fb_mc_num_to_iob_num(device, fb_i as u32, i as u32);
-
-                if iob.is_some() {
-                    current_fuse_offset += 29;
-                } else {
-                    current_fuse_offset += 16;
-                }
-            }
-
-            return;
-        }
-        // todo this duplication will be removed
-        if device == XC2Device::XC2C512 {
-            <Self as BitFragment<JedXC2C512>>::encode(&self, &mut jed.f, [fuse_base as isize], [false], fb_i);
-
-            // ZIA
-            let zia_row_width = zia_get_row_width(device);
-
-            if fuse_base != 0 {
-                linebreaks.add(fuse_base);
-            }
-            for i in 0..INPUTS_PER_ANDTERM {
-                let zia_fuse_base = fuse_base + i * zia_row_width;
-                if zia_fuse_base != 0 {
-                    linebreaks.add(zia_fuse_base);
-                }
-            }
-
-            // AND terms
-            linebreaks.add(fuse_base + zia_row_width * INPUTS_PER_ANDTERM);
-            for i in 0..ANDTERMS_PER_FB {
-                let and_fuse_base = fuse_base + zia_row_width * INPUTS_PER_ANDTERM + i * INPUTS_PER_ANDTERM * 2;
-                linebreaks.add(and_fuse_base);
-            }
-
-            // OR terms
-            linebreaks.add(fuse_base + zia_row_width * INPUTS_PER_ANDTERM + ANDTERMS_PER_FB * INPUTS_PER_ANDTERM * 2);
-            for i in 0..ANDTERMS_PER_FB {
-                let or_fuse_base = fuse_base + zia_row_width * INPUTS_PER_ANDTERM +
-                    ANDTERMS_PER_FB * INPUTS_PER_ANDTERM * 2 + i * MCS_PER_FB;
-                linebreaks.add(or_fuse_base);
-            }
-
-            // macrocell line breaks
-            let mut current_fuse_offset = fuse_base + zia_row_width * INPUTS_PER_ANDTERM +
-                ANDTERMS_PER_FB * INPUTS_PER_ANDTERM * 2 + ANDTERMS_PER_FB * MCS_PER_FB;
-
-            linebreaks.add(current_fuse_offset);
-
-            for i in 0..MCS_PER_FB {
-                linebreaks.add(current_fuse_offset);
-
-                let iob = fb_mc_num_to_iob_num(device, fb_i as u32, i as u32);
-
-                if iob.is_some() {
-                    current_fuse_offset += 29;
-                } else {
-                    current_fuse_offset += 16;
-                }
-            }
-
-            return;
-        }
+        // Linebreaks
 
         // ZIA
         let zia_row_width = zia_get_row_width(device);
@@ -979,65 +704,9 @@ impl XC2BitstreamFB {
             linebreaks.add(fuse_base);
         }
         for i in 0..INPUTS_PER_ANDTERM {
-            let mut zia_fuse_base = fuse_base + i * zia_row_width;
+            let zia_fuse_base = fuse_base + i * zia_row_width;
             if zia_fuse_base != 0 {
                 linebreaks.add(zia_fuse_base);
-            }
-            match device {
-                XC2Device::XC2C32 | XC2Device::XC2C32A => {
-                    let zia_choice_bits = XC2ZIAInput::encode_32_zia_choice(i as u32, *self.get_zia(i))
-                        // FIXME: Fold this into the error system??
-                        .expect("invalid ZIA input");
-                    for j in 0..zia_choice_bits.len() {
-                        jed.f[zia_fuse_base] = zia_choice_bits[j];
-                        zia_fuse_base += 1;
-                    }
-                },
-                XC2Device::XC2C64 | XC2Device::XC2C64A => {
-                    let zia_choice_bits = XC2ZIAInput::encode_64_zia_choice(i as u32, *self.get_zia(i))
-                        // FIXME: Fold this into the error system??
-                        .expect("invalid ZIA input");
-                    for j in 0..zia_choice_bits.len() {
-                        jed.f[zia_fuse_base] = zia_choice_bits[j];
-                        zia_fuse_base += 1;
-                    }
-                },
-                XC2Device::XC2C128 => {
-                    let zia_choice_bits = XC2ZIAInput::encode_128_zia_choice(i as u32, *self.get_zia(i))
-                        // FIXME: Fold this into the error system??
-                        .expect("invalid ZIA input");
-                    for j in 0..zia_choice_bits.len() {
-                        jed.f[zia_fuse_base] = zia_choice_bits[j];
-                        zia_fuse_base += 1;
-                    }
-                },
-                XC2Device::XC2C256 => {
-                    let zia_choice_bits = XC2ZIAInput::encode_256_zia_choice(i as u32, *self.get_zia(i))
-                        // FIXME: Fold this into the error system??
-                        .expect("invalid ZIA input");
-                    for j in 0..zia_choice_bits.len() {
-                        jed.f[zia_fuse_base] = zia_choice_bits[j];
-                        zia_fuse_base += 1;
-                    }
-                },
-                XC2Device::XC2C384 => {
-                    let zia_choice_bits = XC2ZIAInput::encode_384_zia_choice(i as u32, *self.get_zia(i))
-                        // FIXME: Fold this into the error system??
-                        .expect("invalid ZIA input");
-                    for j in 0..zia_choice_bits.len() {
-                        jed.f[zia_fuse_base] = zia_choice_bits[j];
-                        zia_fuse_base += 1;
-                    }
-                },
-                XC2Device::XC2C512 => {
-                    let zia_choice_bits = XC2ZIAInput::encode_512_zia_choice(i as u32, *self.get_zia(i))
-                        // FIXME: Fold this into the error system??
-                        .expect("invalid ZIA input");
-                    for j in 0..zia_choice_bits.len() {
-                        jed.f[zia_fuse_base] = zia_choice_bits[j];
-                        zia_fuse_base += 1;
-                    }
-                },
             }
         }
 
@@ -1046,10 +715,6 @@ impl XC2BitstreamFB {
         for i in 0..ANDTERMS_PER_FB {
             let and_fuse_base = fuse_base + zia_row_width * INPUTS_PER_ANDTERM + i * INPUTS_PER_ANDTERM * 2;
             linebreaks.add(and_fuse_base);
-            for j in 0..INPUTS_PER_ANDTERM {
-                jed.f[and_fuse_base + j * 2 + 0] = !self.get_andterm(i).get(j);
-                jed.f[and_fuse_base + j * 2 + 1] = !self.get_andterm(i).get_b(j);
-            }
         }
 
         // OR terms
@@ -1058,9 +723,41 @@ impl XC2BitstreamFB {
             let or_fuse_base = fuse_base + zia_row_width * INPUTS_PER_ANDTERM +
                 ANDTERMS_PER_FB * INPUTS_PER_ANDTERM * 2 + i * MCS_PER_FB;
             linebreaks.add(or_fuse_base);
-            for j in 0..MCS_PER_FB {
-                jed.f[or_fuse_base + j] = !self.or_terms[j].get(i);
-            }
+        }
+
+        // macrocell line breaks
+        match device {
+            XC2Device::XC2C32 | XC2Device::XC2C32A |
+            XC2Device::XC2C64 | XC2Device::XC2C64A => {
+                for i in 0..MCS_PER_FB {
+                    let mc_fuse_base = fuse_base + zia_row_width * INPUTS_PER_ANDTERM +
+                        ANDTERMS_PER_FB * INPUTS_PER_ANDTERM * 2 + ANDTERMS_PER_FB * MCS_PER_FB + i * 27;
+
+                    linebreaks.add(mc_fuse_base);
+                    if i == 0 {
+                        linebreaks.add(mc_fuse_base);
+                    }
+                }
+            },
+            XC2Device::XC2C128 | XC2Device::XC2C256 |
+            XC2Device::XC2C384 | XC2Device::XC2C512 => {
+                let mut current_fuse_offset = fuse_base + zia_row_width * INPUTS_PER_ANDTERM +
+                    ANDTERMS_PER_FB * INPUTS_PER_ANDTERM * 2 + ANDTERMS_PER_FB * MCS_PER_FB;
+
+                linebreaks.add(current_fuse_offset);
+
+                for i in 0..MCS_PER_FB {
+                    linebreaks.add(current_fuse_offset);
+
+                    let iob = fb_mc_num_to_iob_num(device, fb_i as u32, i as u32);
+
+                    if iob.is_some() {
+                        current_fuse_offset += 29;
+                    } else {
+                        current_fuse_offset += 16;
+                    }
+                }
+            },
         }
     }
 

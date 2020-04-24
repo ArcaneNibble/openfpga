@@ -916,10 +916,9 @@ impl XC2BitstreamBits {
             self.get_fb()[fb_i].to_jed(self.device_type(), fuse_base, jed, linebreaks, fb_i);
         }
 
-        // Macrocells
+        // IOB
         for fb_i in 0..self.device_type().num_fbs() {
             let fuse_base = fb_fuse_idx(self.device_type(), fb_i as u32);
-            let fb = self.get_fb();
             if self.device_type().is_small_iob() {
                 for i in 0..MCS_PER_FB {
                     let iob = fb_mc_num_to_iob_num(self.device_type(), fb_i as u32, i as u32).unwrap() as usize;
@@ -927,10 +926,6 @@ impl XC2BitstreamBits {
                 }
             }
             if self.device_type().is_large_iob() {
-                if self.device_type() != XC2Device::XC2C128 && self.device_type() != XC2Device::XC2C256 {
-                // XC2Macrocell::to_jed_large(jed, linebreaks, self.device_type(), &fb[fb_i], fb_i, fuse_base);
-                } // todo remove
-
                 let zia_row_width = zia_get_row_width(self.device_type());
                 let mut current_fuse_offset = fuse_base + zia_row_width * INPUTS_PER_ANDTERM +
                     ANDTERMS_PER_FB * INPUTS_PER_ANDTERM * 2 + ANDTERMS_PER_FB * MCS_PER_FB;
