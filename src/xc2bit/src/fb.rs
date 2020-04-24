@@ -50,6 +50,7 @@ fn large_get_macrocell_offset(device: XC2Device, mc_i: usize) -> usize {
 /// Represents a collection of all the parts that make up one function block
 pub struct XC2BitstreamFB {
     /// The AND terms of the PLA part of the function block
+    #[offset(variant = JedXC2C32, [zia_get_row_width(XC2Device::XC2C32) * INPUTS_PER_ANDTERM ])]
     #[arr_off(variant = JedXC2C32, |i| [i * INPUTS_PER_ANDTERM * 2])]
     #[frag(outer_frag_variant = JedXC2C32, inner_frag_variant = pla::Jed)]
     #[arr_off(variant = JedXC2C64, |i| [i * INPUTS_PER_ANDTERM * 2])]
@@ -61,7 +62,8 @@ pub struct XC2BitstreamFB {
 
 
     /// The OR terms of the PLA part of the function block
-    #[arr_off(variant = JedXC2C32, |i| [i * MCS_PER_FB])]
+    #[offset(variant = JedXC2C32, [zia_get_row_width(XC2Device::XC2C32) * INPUTS_PER_ANDTERM + INPUTS_PER_ANDTERM * 2 * ANDTERMS_PER_FB])]
+    #[arr_off(variant = JedXC2C32, |i| [i])]
     #[frag(outer_frag_variant = JedXC2C32, inner_frag_variant = pla::Jed)]
     #[arr_off(variant = JedXC2C64, |i| [i * MCS_PER_FB])]
     #[frag(outer_frag_variant = JedXC2C64, inner_frag_variant = pla::Jed)]
@@ -89,6 +91,7 @@ pub struct XC2BitstreamFB {
 
 
     /// The macrocells of the function block
+    #[offset(variant = JedXC2C32, [zia_get_row_width(XC2Device::XC2C32) * INPUTS_PER_ANDTERM + INPUTS_PER_ANDTERM * 2 * ANDTERMS_PER_FB + ANDTERMS_PER_FB * MCS_PER_FB])]
     #[arr_off(variant = JedXC2C32, |i| [i * 27])]
     #[frag(outer_frag_variant = JedXC2C32, inner_frag_variant = mc::JedSmall)]
     #[arr_off(variant = JedXC2C64, |i| [i * 27])]
@@ -584,6 +587,46 @@ impl XC2BitstreamFB {
     pub fn to_jed(&self, device: XC2Device, fuse_base: usize, jed: &mut JEDECFile, linebreaks: &mut LinebreakSet) {
         if device == XC2Device::XC2C32 || device == XC2Device::XC2C32A {
             <Self as BitFragment<JedXC2C32>>::encode(&self, &mut jed.f, [fuse_base as isize], [false], ());
+
+            // ZIA
+            let zia_row_width = zia_get_row_width(device);
+
+            if fuse_base != 0 {
+                linebreaks.add(fuse_base);
+            }
+            for i in 0..INPUTS_PER_ANDTERM {
+                let zia_fuse_base = fuse_base + i * zia_row_width;
+                if zia_fuse_base != 0 {
+                    linebreaks.add(zia_fuse_base);
+                }
+            }
+
+            // AND terms
+            linebreaks.add(fuse_base + zia_row_width * INPUTS_PER_ANDTERM);
+            for i in 0..ANDTERMS_PER_FB {
+                let and_fuse_base = fuse_base + zia_row_width * INPUTS_PER_ANDTERM + i * INPUTS_PER_ANDTERM * 2;
+                linebreaks.add(and_fuse_base);
+            }
+
+            // OR terms
+            linebreaks.add(fuse_base + zia_row_width * INPUTS_PER_ANDTERM + ANDTERMS_PER_FB * INPUTS_PER_ANDTERM * 2);
+            for i in 0..ANDTERMS_PER_FB {
+                let or_fuse_base = fuse_base + zia_row_width * INPUTS_PER_ANDTERM +
+                    ANDTERMS_PER_FB * INPUTS_PER_ANDTERM * 2 + i * MCS_PER_FB;
+                linebreaks.add(or_fuse_base);
+            }
+
+            // macrocell line breaks
+            for i in 0..MCS_PER_FB {
+                let mc_fuse_base = fuse_base + zia_row_width * INPUTS_PER_ANDTERM +
+                    ANDTERMS_PER_FB * INPUTS_PER_ANDTERM * 2 + ANDTERMS_PER_FB * MCS_PER_FB + i * 27;
+
+                linebreaks.add(mc_fuse_base);
+                if i == 0 {
+                    linebreaks.add(mc_fuse_base);
+                }
+            }
+
             return;
         }
 
