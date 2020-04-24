@@ -1280,7 +1280,6 @@ pub fn bitfragment(args: TokenStream, input: TokenStream) -> TokenStream {
 
         let decode_pattern = || {
             let bitsinfo = field_info.patbits.as_ref().unwrap();
-            let num_bits = bitsinfo.len();
 
             let mut decode_each_bit = Vec::new();
             for (bitname, bitinfo) in bitsinfo {
@@ -1321,7 +1320,7 @@ pub fn bitfragment(args: TokenStream, input: TokenStream) -> TokenStream {
 
             quote!{
                 {
-                    let mut decode_arr = [false; #num_bits];
+                    let mut decode_arr = [false; <#field_type as ::bittwiddler::BitPattern<#subvar>>::BITS_COUNT];
                     #(#decode_each_bit)*
                     #sub_extra_data
                     <#field_type as ::bittwiddler::BitPattern<#subvar>>::decode(&decode_arr, sub_extra_data)?

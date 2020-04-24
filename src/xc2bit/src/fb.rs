@@ -35,16 +35,69 @@ use crate::fusemap_physical::{zia_block_loc, and_block_loc, or_block_loc};
 use crate::util::{LinebreakSet};
 use crate::zia::{zia_get_row_width};
 
-/// Represents a collection of all the parts that make up one function block
+pub enum JedXC2C32 {}
+pub enum JedXC2C64 {}
+pub enum JedXC2C128 {}
+
+fn large_get_macrocell_offset(device: XC2Device, mc_i: usize) -> usize {
+    0
+}
+
+#[bitfragment(variant = JedXC2C32, dimensions = 1, errtype = XC2BitError)]
+#[bitfragment(variant = JedXC2C64, dimensions = 1, errtype = XC2BitError)]
+#[bitfragment(variant = JedXC2C128, dimensions = 1, errtype = XC2BitError)]
 #[derive(Copy, Clone, Eq, PartialEq, Hash, Debug, Serialize, Deserialize)]
+/// Represents a collection of all the parts that make up one function block
 pub struct XC2BitstreamFB {
     /// The AND terms of the PLA part of the function block
+    #[arr_off(variant = JedXC2C32, |i| [i * INPUTS_PER_ANDTERM * 2])]
+    #[frag(outer_frag_variant = JedXC2C32, inner_frag_variant = pla::Jed)]
+    #[arr_off(variant = JedXC2C64, |i| [i * INPUTS_PER_ANDTERM * 2])]
+    #[frag(outer_frag_variant = JedXC2C64, inner_frag_variant = pla::Jed)]
+    #[arr_off(variant = JedXC2C128, |i| [i * INPUTS_PER_ANDTERM * 2])]
+    #[frag(outer_frag_variant = JedXC2C128, inner_frag_variant = pla::Jed)]
+
     and_terms: [[XC2PLAAndTerm; ANDTERMS_PER_FB / 2]; 2],
+
+
     /// The OR terms of the PLA part of the function block
+    #[arr_off(variant = JedXC2C32, |i| [i * MCS_PER_FB])]
+    #[frag(outer_frag_variant = JedXC2C32, inner_frag_variant = pla::Jed)]
+    #[arr_off(variant = JedXC2C64, |i| [i * MCS_PER_FB])]
+    #[frag(outer_frag_variant = JedXC2C64, inner_frag_variant = pla::Jed)]
+    #[arr_off(variant = JedXC2C128, |i| [i * MCS_PER_FB])]
+    #[frag(outer_frag_variant = JedXC2C128, inner_frag_variant = pla::Jed)]
+
     pub or_terms: [XC2PLAOrTerm; MCS_PER_FB],
+
+
     /// The inputs to the function block from the ZIA
+    #[arr_off(variant = JedXC2C32, |i| [i * zia_get_row_width(XC2Device::XC2C32)])]
+    #[frag(outer_frag_variant = JedXC2C32, inner_frag_variant = zia::JedXC2C32)]
+    #[encode_sub_extra_data(variant = JedXC2C32, arr_elem_i)]
+    #[decode_sub_extra_data(variant = JedXC2C32, arr_elem_i)]
+    #[arr_off(variant = JedXC2C64, |i| [i * zia_get_row_width(XC2Device::XC2C64)])]
+    #[frag(outer_frag_variant = JedXC2C64, inner_frag_variant = zia::JedXC2C64)]
+    #[encode_sub_extra_data(variant = JedXC2C64, arr_elem_i)]
+    #[decode_sub_extra_data(variant = JedXC2C64, arr_elem_i)]
+    #[arr_off(variant = JedXC2C128, |i| [i * zia_get_row_width(XC2Device::XC2C128)])]
+    #[frag(outer_frag_variant = JedXC2C128, inner_frag_variant = zia::JedXC2C128)]
+    #[encode_sub_extra_data(variant = JedXC2C128, arr_elem_i)]
+    #[decode_sub_extra_data(variant = JedXC2C128, arr_elem_i)]
+
     zia_bits: [[XC2ZIAInput; INPUTS_PER_ANDTERM / 2]; 2],
+
+
     /// The macrocells of the function block
+    #[arr_off(variant = JedXC2C32, |i| [i * 27])]
+    #[frag(outer_frag_variant = JedXC2C32, inner_frag_variant = mc::JedSmall)]
+    #[arr_off(variant = JedXC2C64, |i| [i * 27])]
+    #[frag(outer_frag_variant = JedXC2C64, inner_frag_variant = mc::JedSmall)]
+    #[arr_off(variant = JedXC2C128, |i| [large_get_macrocell_offset(XC2Device::XC2C128, i)])]
+    #[frag(outer_frag_variant = JedXC2C128, inner_frag_variant = mc::JedLarge)]
+    #[encode_sub_extra_data(variant = JedXC2C128, false)]
+    #[decode_sub_extra_data(variant = JedXC2C128, false)]
+
     pub mcs: [XC2Macrocell; MCS_PER_FB],
 }
 
@@ -529,6 +582,11 @@ impl XC2BitstreamFB {
     /// `device` must be the device type this FB was extracted from and is needed to encode the ZIA.
     /// `fuse_base` must be the starting fuse number of this function block.
     pub fn to_jed(&self, device: XC2Device, fuse_base: usize, jed: &mut JEDECFile, linebreaks: &mut LinebreakSet) {
+        if device == XC2Device::XC2C32 || device == XC2Device::XC2C32A {
+            <Self as BitFragment<JedXC2C32>>::encode(&self, &mut jed.f, [fuse_base as isize], [false], ());
+            return;
+        }
+
         // ZIA
         let zia_row_width = zia_get_row_width(device);
 

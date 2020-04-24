@@ -9233,22 +9233,8 @@ impl BitPattern<XC2C32> for XC2ZIAInput {
         })
     }
 
-    fn _pos_to_name(pos: usize) -> &'static str {
-        ["0", "1", "2", "3", "4", "5", "6", "7"][pos]
-    }
-    fn _name_to_pos(name: &'static str) -> usize {
-        match name {
-            "0" => 0,
-            "1" => 1,
-            "2" => 2,
-            "3" => 3,
-            "4" => 4,
-            "5" => 5,
-            "6" => 6,
-            "7" => 7,
-            _ => unreachable!()
-        }
-    }
+    fn _pos_to_name(_pos: usize) -> &'static str {unreachable!()}
+    fn _name_to_pos(_name: &'static str) -> usize {unreachable!()}
 
     fn variantname(_var: usize) -> &'static str {""}
     fn variantdesc(_var: usize) -> &'static str {""}
@@ -9325,31 +9311,8 @@ impl BitPattern<XC2C64> for XC2ZIAInput {
         })
     }
 
-    fn _pos_to_name(pos: usize) -> &'static str {
-        ["0", "1", "2", "3", "4", "5", "6", "7",
-         "8", "9", "10", "11", "12", "13", "14", "15"][pos]
-    }
-    fn _name_to_pos(name: &'static str) -> usize {
-        match name {
-            "0" => 0,
-            "1" => 1,
-            "2" => 2,
-            "3" => 3,
-            "4" => 4,
-            "5" => 5,
-            "6" => 6,
-            "7" => 7,
-            "8" => 8,
-            "9" => 9,
-            "10" => 10,
-            "11" => 11,
-            "12" => 12,
-            "13" => 13,
-            "14" => 14,
-            "15" => 15,
-            _ => unreachable!()
-        }
-    }
+    fn _pos_to_name(_pos: usize) -> &'static str {unreachable!()}
+    fn _name_to_pos(_name: &'static str) -> usize {unreachable!()}
 
     fn variantname(_var: usize) -> &'static str {""}
     fn variantdesc(_var: usize) -> &'static str {""}
@@ -9446,45 +9409,8 @@ impl BitPattern<XC2C128> for XC2ZIAInput {
         })
     }
 
-    fn _pos_to_name(pos: usize) -> &'static str {
-        ["0", "1", "2", "3", "4", "5", "6", "7",
-         "8", "9", "10", "11", "12", "13", "14", "15",
-         "16", "17", "18", "19", "20", "21", "22", "23",
-         "24", "25", "26", "27"][pos]
-    }
-    fn _name_to_pos(name: &'static str) -> usize {
-        match name {
-            "0" => 0,
-            "1" => 1,
-            "2" => 2,
-            "3" => 3,
-            "4" => 4,
-            "5" => 5,
-            "6" => 6,
-            "7" => 7,
-            "8" => 8,
-            "9" => 9,
-            "10" => 10,
-            "11" => 11,
-            "12" => 12,
-            "13" => 13,
-            "14" => 14,
-            "15" => 15,
-            "16" => 16,
-            "17" => 17,
-            "18" => 18,
-            "19" => 19,
-            "20" => 20,
-            "21" => 21,
-            "22" => 22,
-            "23" => 23,
-            "24" => 24,
-            "25" => 25,
-            "26" => 26,
-            "27" => 27,
-            _ => unreachable!()
-        }
-    }
+    fn _pos_to_name(_pos: usize) -> &'static str {unreachable!()}
+    fn _name_to_pos(_name: &'static str) -> usize {unreachable!()}
 
     fn variantname(_var: usize) -> &'static str {""}
     fn variantdesc(_var: usize) -> &'static str {""}
@@ -9617,67 +9543,8 @@ impl BitPattern<XC2C256> for XC2ZIAInput {
         })
     }
 
-    fn _pos_to_name(pos: usize) -> &'static str {
-        ["0", "1", "2", "3", "4", "5", "6", "7",
-         "8", "9", "10", "11", "12", "13", "14", "15",
-         "16", "17", "18", "19", "20", "21", "22", "23",
-         "24", "25", "26", "27", "28", "29", "30", "31",
-         "32", "33", "34", "35", "36", "37", "38", "39",
-         "40", "41", "42", "43", "44", "45", "46", "47"][pos]
-    }
-    fn _name_to_pos(name: &'static str) -> usize {
-        match name {
-            "0" => 0,
-            "1" => 1,
-            "2" => 2,
-            "3" => 3,
-            "4" => 4,
-            "5" => 5,
-            "6" => 6,
-            "7" => 7,
-            "8" => 8,
-            "9" => 9,
-            "10" => 10,
-            "11" => 11,
-            "12" => 12,
-            "13" => 13,
-            "14" => 14,
-            "15" => 15,
-            "16" => 16,
-            "17" => 17,
-            "18" => 18,
-            "19" => 19,
-            "20" => 20,
-            "21" => 21,
-            "22" => 22,
-            "23" => 23,
-            "24" => 24,
-            "25" => 25,
-            "26" => 26,
-            "27" => 27,
-            "28" => 28,
-            "29" => 29,
-            "30" => 30,
-            "31" => 31,
-            "32" => 32,
-            "33" => 33,
-            "34" => 34,
-            "35" => 35,
-            "36" => 36,
-            "37" => 37,
-            "38" => 38,
-            "39" => 39,
-            "40" => 40,
-            "41" => 41,
-            "42" => 42,
-            "43" => 43,
-            "44" => 44,
-            "45" => 45,
-            "46" => 46,
-            "47" => 47,
-            _ => unreachable!()
-        }
-    }
+    fn _pos_to_name(_pos: usize) -> &'static str {unreachable!()}
+    fn _name_to_pos(_name: &'static str) -> usize {unreachable!()}
 
     fn variantname(_var: usize) -> &'static str {""}
     fn variantdesc(_var: usize) -> &'static str {""}
@@ -9854,97 +9721,8 @@ impl BitPattern<XC2C384> for XC2ZIAInput {
         })
     }
 
-    fn _pos_to_name(pos: usize) -> &'static str {
-        ["0", "1", "2", "3", "4", "5", "6", "7",
-         "8", "9", "10", "11", "12", "13", "14", "15",
-         "16", "17", "18", "19", "20", "21", "22", "23",
-         "24", "25", "26", "27", "28", "29", "30", "31",
-         "32", "33", "34", "35", "36", "37", "38", "39",
-         "40", "41", "42", "43", "44", "45", "46", "47",
-         "48", "49", "50", "51", "52", "53", "54", "55",
-         "56", "57", "58", "59", "60", "61", "62", "63",
-         "64", "65", "66", "67", "68", "69", "70", "71",
-         "72", "73"][pos]
-    }
-    fn _name_to_pos(name: &'static str) -> usize {
-        match name {
-            "0" => 0,
-            "1" => 1,
-            "2" => 2,
-            "3" => 3,
-            "4" => 4,
-            "5" => 5,
-            "6" => 6,
-            "7" => 7,
-            "8" => 8,
-            "9" => 9,
-            "10" => 10,
-            "11" => 11,
-            "12" => 12,
-            "13" => 13,
-            "14" => 14,
-            "15" => 15,
-            "16" => 16,
-            "17" => 17,
-            "18" => 18,
-            "19" => 19,
-            "20" => 20,
-            "21" => 21,
-            "22" => 22,
-            "23" => 23,
-            "24" => 24,
-            "25" => 25,
-            "26" => 26,
-            "27" => 27,
-            "28" => 28,
-            "29" => 29,
-            "30" => 30,
-            "31" => 31,
-            "32" => 32,
-            "33" => 33,
-            "34" => 34,
-            "35" => 35,
-            "36" => 36,
-            "37" => 37,
-            "38" => 38,
-            "39" => 39,
-            "40" => 40,
-            "41" => 41,
-            "42" => 42,
-            "43" => 43,
-            "44" => 44,
-            "45" => 45,
-            "46" => 46,
-            "47" => 47,
-            "48" => 48,
-            "49" => 49,
-            "50" => 50,
-            "51" => 51,
-            "52" => 52,
-            "53" => 53,
-            "54" => 54,
-            "55" => 55,
-            "56" => 56,
-            "57" => 57,
-            "58" => 58,
-            "59" => 59,
-            "60" => 60,
-            "61" => 61,
-            "62" => 62,
-            "63" => 63,
-            "64" => 64,
-            "65" => 65,
-            "66" => 66,
-            "67" => 67,
-            "68" => 68,
-            "69" => 69,
-            "70" => 70,
-            "71" => 71,
-            "72" => 72,
-            "73" => 73,
-            _ => unreachable!()
-        }
-    }
+    fn _pos_to_name(_pos: usize) -> &'static str {unreachable!()}
+    fn _name_to_pos(_name: &'static str) -> usize {unreachable!()}
 
     fn variantname(_var: usize) -> &'static str {""}
     fn variantdesc(_var: usize) -> &'static str {""}
@@ -10153,112 +9931,8 @@ impl BitPattern<XC2C512> for XC2ZIAInput {
         })
     }
 
-    fn _pos_to_name(pos: usize) -> &'static str {
-        ["0", "1", "2", "3", "4", "5", "6", "7",
-         "8", "9", "10", "11", "12", "13", "14", "15",
-         "16", "17", "18", "19", "20", "21", "22", "23",
-         "24", "25", "26", "27", "28", "29", "30", "31",
-         "32", "33", "34", "35", "36", "37", "38", "39",
-         "40", "41", "42", "43", "44", "45", "46", "47",
-         "48", "49", "50", "51", "52", "53", "54", "55",
-         "56", "57", "58", "59", "60", "61", "62", "63",
-         "64", "65", "66", "67", "68", "69", "70", "71",
-         "72", "73", "74", "75", "76", "77", "78", "79",
-         "80", "81", "82", "83", "84", "85", "86", "87"][pos]
-    }
-    fn _name_to_pos(name: &'static str) -> usize {
-        match name {
-            "0" => 0,
-            "1" => 1,
-            "2" => 2,
-            "3" => 3,
-            "4" => 4,
-            "5" => 5,
-            "6" => 6,
-            "7" => 7,
-            "8" => 8,
-            "9" => 9,
-            "10" => 10,
-            "11" => 11,
-            "12" => 12,
-            "13" => 13,
-            "14" => 14,
-            "15" => 15,
-            "16" => 16,
-            "17" => 17,
-            "18" => 18,
-            "19" => 19,
-            "20" => 20,
-            "21" => 21,
-            "22" => 22,
-            "23" => 23,
-            "24" => 24,
-            "25" => 25,
-            "26" => 26,
-            "27" => 27,
-            "28" => 28,
-            "29" => 29,
-            "30" => 30,
-            "31" => 31,
-            "32" => 32,
-            "33" => 33,
-            "34" => 34,
-            "35" => 35,
-            "36" => 36,
-            "37" => 37,
-            "38" => 38,
-            "39" => 39,
-            "40" => 40,
-            "41" => 41,
-            "42" => 42,
-            "43" => 43,
-            "44" => 44,
-            "45" => 45,
-            "46" => 46,
-            "47" => 47,
-            "48" => 48,
-            "49" => 49,
-            "50" => 50,
-            "51" => 51,
-            "52" => 52,
-            "53" => 53,
-            "54" => 54,
-            "55" => 55,
-            "56" => 56,
-            "57" => 57,
-            "58" => 58,
-            "59" => 59,
-            "60" => 60,
-            "61" => 61,
-            "62" => 62,
-            "63" => 63,
-            "64" => 64,
-            "65" => 65,
-            "66" => 66,
-            "67" => 67,
-            "68" => 68,
-            "69" => 69,
-            "70" => 70,
-            "71" => 71,
-            "72" => 72,
-            "73" => 73,
-            "74" => 74,
-            "75" => 75,
-            "76" => 76,
-            "77" => 77,
-            "78" => 78,
-            "79" => 79,
-            "80" => 80,
-            "81" => 81,
-            "82" => 82,
-            "83" => 83,
-            "84" => 84,
-            "85" => 85,
-            "86" => 86,
-            "87" => 87,
-            _ => unreachable!()
-        }
-    }
+    fn _pos_to_name(_pos: usize) -> &'static str {unreachable!()}
+    fn _name_to_pos(_name: &'static str) -> usize {unreachable!()}
 
     fn variantname(_var: usize) -> &'static str {""}
     fn variantdesc(_var: usize) -> &'static str {""}
@@ -10338,3 +10012,84 @@ pub fn zia_get_row_width(device: XC2Device) -> usize {
         XC2Device::XC2C512 => 88,
     }
 }
+
+macro_rules! zia_bitfrag {
+    ($jedvariant:ident, $patvariant:ident, $spacing:literal) => {
+        impl BitFragment<$jedvariant> for XC2ZIAInput {
+            const IDX_DIMS: usize = 1;
+            type IndexingType = usize;
+            type OffsettingType = [isize; 1];
+            type MirroringType = [bool; 1];
+
+            type ErrType = XC2BitError;
+
+            type EncodeExtraType = usize;
+            type DecodeExtraType = usize;
+
+            const FIELD_COUNT: usize = 1;
+
+            fn encode<F>(&self, fuses: &mut F,
+                offset: Self::OffsettingType, mirror: Self::MirroringType,
+                row: usize)
+                where F: ::core::ops::IndexMut<Self::IndexingType, Output=bool> + ?Sized {
+
+                let x = BitPattern::<$patvariant>::encode(self, row);
+
+                for i in 0..x.len() {
+                    fuses[((offset[0] as isize) +
+                        (if mirror[0] {-1} else {1}) * ($spacing * i as isize)) as usize] = x[i];
+                }
+            }
+            fn decode<F>(fuses: &F,
+                offset: Self::OffsettingType, mirror: Self::MirroringType,
+                row: usize) -> Result<Self, Self::ErrType>
+                where F: ::core::ops::Index<Self::IndexingType, Output=bool> + ?Sized {
+
+                let mut x = [false; <Self as BitPattern<$patvariant>>::BITS_COUNT];
+
+                for i in 0..x.len() {
+                    x[i] = fuses[((offset[0] as isize) +
+                        (if mirror[0] {-1} else {1}) * ($spacing * i as isize)) as usize];
+                }
+
+                <Self as BitPattern<$patvariant>>::decode(&x, row)
+            }
+
+            fn fieldname(_: usize) -> &'static str {"zia"}
+            fn fielddesc(_: usize) -> &'static str {"ZIA row entry"}
+            fn fieldtype(_: usize) -> BitFragmentFieldType {BitFragmentFieldType::Pattern}
+            fn field_offset(_: usize, _: usize) -> Self::OffsettingType {[0]}
+            fn field_mirror(_: usize, _: usize) -> Self::MirroringType {[false]}
+            fn field_bits(_: usize) -> usize {0}
+            fn field_bit_base_pos(_: usize, _bit_i: usize) -> Self::OffsettingType {[0]}
+        }
+    };
+}
+
+pub enum JedXC2C32 {}
+pub enum JedXC2C64 {}
+pub enum JedXC2C128 {}
+pub enum JedXC2C256 {}
+pub enum JedXC2C384 {}
+pub enum JedXC2C512 {}
+
+zia_bitfrag!(JedXC2C32, XC2C32, 1);
+zia_bitfrag!(JedXC2C64, XC2C64, 1);
+zia_bitfrag!(JedXC2C128, XC2C128, 1);
+zia_bitfrag!(JedXC2C256, XC2C256, 1);
+zia_bitfrag!(JedXC2C384, XC2C384, 1);
+zia_bitfrag!(JedXC2C512, XC2C512, 1);
+
+pub enum CrbitXC2C32 {}
+pub enum CrbitXC2C64 {}
+pub enum CrbitXC2C128 {}
+pub enum CrbitXC2C256 {}
+pub enum CrbitXC2C384 {}
+pub enum CrbitXC2C512 {}
+
+zia_bitfrag!(CrbitXC2C32, XC2C32, 2);
+zia_bitfrag!(CrbitXC2C64, XC2C64, 2);
+zia_bitfrag!(CrbitXC2C128, XC2C128, 2);
+zia_bitfrag!(CrbitXC2C256, XC2C256, 2);
+zia_bitfrag!(CrbitXC2C384, XC2C384, 2);
+zia_bitfrag!(CrbitXC2C512, XC2C512, 2);

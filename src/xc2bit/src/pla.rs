@@ -51,25 +51,82 @@ impl Default for XC2PLAAndTerm {
     }
 }
 
-impl XC2PLAAndTerm {
-    /// Internal function that reads one single AND term from a block of fuses using logical fuse indexing
-    pub fn from_jed(fuses: &[bool], block_idx: usize, term_idx: usize) -> XC2PLAAndTerm {
+pub enum Jed {}
+
+impl BitFragment<Jed> for XC2PLAAndTerm {
+    const IDX_DIMS: usize = 1;
+    type IndexingType = usize;
+    type OffsettingType = [isize; 1];
+    type MirroringType = [bool; 1];
+
+    type ErrType = ();
+
+    type EncodeExtraType = ();
+    type DecodeExtraType = ();
+
+    const FIELD_COUNT: usize = 2;
+
+    fn encode<F>(&self, fuses: &mut F,
+        offset: Self::OffsettingType, mirror: Self::MirroringType, _: ())
+        where F: ::core::ops::IndexMut<Self::IndexingType, Output=bool> + ?Sized {
+
+        for i in 0..INPUTS_PER_ANDTERM {
+            fuses[((offset[0] as isize) +
+                (0 + 2 * i as isize) * (if mirror[0] {-1} else {1})) as usize] =
+
+                ((self.input[i / 8]) & (1 << (i % 8))) == 0;
+
+            fuses[((offset[0] as isize) +
+                (1 + 2 * i as isize) * (if mirror[0] {-1} else {1})) as usize] =
+
+                ((self.input_b[i / 8]) & (1 << (i % 8))) == 0;
+        }
+    }
+    fn decode<F>(fuses: &F,
+        offset: Self::OffsettingType, mirror: Self::MirroringType, _: ()) -> Result<Self, ()>
+        where F: ::core::ops::Index<Self::IndexingType, Output=bool> + ?Sized {
+
         let mut input = [0u8; INPUTS_PER_ANDTERM / 8];
         let mut input_b = [0u8; INPUTS_PER_ANDTERM / 8];
 
         for i in 0..INPUTS_PER_ANDTERM {
-            if !fuses[block_idx + term_idx * INPUTS_PER_ANDTERM * 2 + i * 2 + 0] {
+            if !fuses[((offset[0] as isize) +
+                (0 + 2 * i as isize) * (if mirror[0] {-1} else {1})) as usize] {
+
                 input[i / 8] |= 1 << (i % 8);
             }
-            if !fuses[block_idx + term_idx * INPUTS_PER_ANDTERM * 2 + i * 2 + 1] {
+            if !fuses[((offset[0] as isize) +
+                (1 + 2 * i as isize) * (if mirror[0] {-1} else {1})) as usize] {
+
                 input_b[i / 8] |= 1 << (i % 8);
             }
         }
 
-        XC2PLAAndTerm {
+        Ok(XC2PLAAndTerm {
             input,
             input_b,
-        }
+        })
+    }
+
+    fn fieldname(field_i: usize) -> &'static str {
+        ["input", "input_b"][field_i]
+    }
+    fn fielddesc(field_i: usize) -> &'static str {
+        ["true inputs", "complement inputs"][field_i]
+    }
+    fn fieldtype(_: usize) -> BitFragmentFieldType {
+        BitFragmentFieldType::PatternArray(INPUTS_PER_ANDTERM)
+    }
+    fn field_offset(_: usize, _: usize) -> Self::OffsettingType {[0]}
+    fn field_mirror(_: usize, _: usize) -> Self::MirroringType {[false]}
+    fn field_bits(_: usize) -> usize {0}
+    fn field_bit_base_pos(_: usize, _bit_i: usize) -> Self::OffsettingType {[0]}
+}
+
+impl XC2PLAAndTerm {
+    /// Internal function that reads one single AND term from a block of fuses using logical fuse indexing
+    pub fn from_jed(fuses: &[bool], block_idx: usize, term_idx: usize) -> XC2PLAAndTerm {
+        <Self as BitFragment<Jed>>::decode(fuses, [(block_idx + term_idx * INPUTS_PER_ANDTERM * 2) as isize], [false], ()).unwrap()
     }
 
     /// Returns `true` if the `i`th input is used in this AND term
@@ -120,20 +177,64 @@ impl Default for XC2PLAOrTerm {
     }
 }
 
-impl XC2PLAOrTerm {
-    /// Internal function that reads one single OR term from a block of fuses using logical fuse indexing
-    pub fn from_jed(fuses: &[bool], block_idx: usize, term_idx: usize) -> XC2PLAOrTerm {
+impl BitFragment<Jed> for XC2PLAOrTerm {
+    const IDX_DIMS: usize = 1;
+    type IndexingType = usize;
+    type OffsettingType = [isize; 1];
+    type MirroringType = [bool; 1];
+
+    type ErrType = ();
+
+    type EncodeExtraType = ();
+    type DecodeExtraType = ();
+
+    const FIELD_COUNT: usize = 2;
+
+    fn encode<F>(&self, fuses: &mut F,
+        offset: Self::OffsettingType, mirror: Self::MirroringType, _: ())
+        where F: ::core::ops::IndexMut<Self::IndexingType, Output=bool> + ?Sized {
+
+        for i in 0..ANDTERMS_PER_FB {
+            fuses[((offset[0] as isize) +
+                ((MCS_PER_FB * i) as isize) * (if mirror[0] {-1} else {1})) as usize] =
+
+                ((self.input[i / 8]) & (1 << (i % 8))) == 0;
+        }
+    }
+    fn decode<F>(fuses: &F,
+        offset: Self::OffsettingType, mirror: Self::MirroringType, _: ()) -> Result<Self, ()>
+        where F: ::core::ops::Index<Self::IndexingType, Output=bool> + ?Sized {
+
         let mut input = [0u8; ANDTERMS_PER_FB / 8];
 
         for i in 0..ANDTERMS_PER_FB {
-            if !fuses[block_idx + term_idx +i * MCS_PER_FB] {
+            if !fuses[((offset[0] as isize) +
+                ((MCS_PER_FB * i) as isize) * (if mirror[0] {-1} else {1})) as usize] {
+
                 input[i / 8] |= 1 << (i % 8);
             }
         }
 
-        XC2PLAOrTerm {
+        Ok(XC2PLAOrTerm {
             input,
-        }
+        })
+    }
+
+    fn fieldname(_: usize) -> &'static str {"input"}
+    fn fielddesc(_: usize) -> &'static str {"inputs"}
+    fn fieldtype(_: usize) -> BitFragmentFieldType {
+        BitFragmentFieldType::PatternArray(ANDTERMS_PER_FB)
+    }
+    fn field_offset(_: usize, _: usize) -> Self::OffsettingType {[0]}
+    fn field_mirror(_: usize, _: usize) -> Self::MirroringType {[false]}
+    fn field_bits(_: usize) -> usize {0}
+    fn field_bit_base_pos(_: usize, _bit_i: usize) -> Self::OffsettingType {[0]}
+}
+
+impl XC2PLAOrTerm {
+    /// Internal function that reads one single OR term from a block of fuses using logical fuse indexing
+    pub fn from_jed(fuses: &[bool], block_idx: usize, term_idx: usize) -> XC2PLAOrTerm {
+        <Self as BitFragment<Jed>>::decode(fuses, [(block_idx + term_idx) as isize], [false], ()).unwrap()
     }
 
     /// Returns `true` if the `i`th AND term is used in this OR term

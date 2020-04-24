@@ -917,6 +917,7 @@ impl XC2BitstreamBits {
         }
 
         // Macrocells
+        if self.device_type() != XC2Device::XC2C32 && self.device_type() != XC2Device::XC2C32A {
         for fb_i in 0..self.device_type().num_fbs() {
             let fuse_base = fb_fuse_idx(self.device_type(), fb_i as u32);
             let fb = self.get_fb();
@@ -948,6 +949,7 @@ impl XC2BitstreamBits {
                     }
                 }
             }
+        }
         }
 
         // GCK

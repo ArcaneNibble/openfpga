@@ -130,6 +130,7 @@ pub enum XC2MCXorMode {
 
 pub enum JedSmall {}
 pub enum JedLarge {}
+pub enum JedLargeUnburied {}
 pub enum JedLargeBuried {}
 pub enum Crbit32 {}
 pub enum Crbit64 {}
@@ -138,7 +139,7 @@ pub enum CrbitLarge {}
 
 /// Represents a macrocell.
 #[bitfragment(variant = JedSmall, dimensions = 1)]
-#[bitfragment(variant = JedLarge, dimensions = 1)]
+#[bitfragment(variant = JedLargeUnburied, dimensions = 1)]
 #[bitfragment(variant = JedLargeBuried, dimensions = 1)]
 #[bitfragment(variant = Crbit32, dimensions = 2)]
 #[bitfragment(variant = Crbit64, dimensions = 2)]
@@ -149,7 +150,7 @@ pub struct XC2Macrocell {
     /// Clock source for the register
     #[pat_pict(frag_variant = JedSmall, "0  .   1 2     .   . .     . .     . .     . .     . .     .   .   . .     .   . . . .     .   .   .")]
 
-    #[pat_pict(frag_variant = JedLarge, "0  1 2     .   .   .   . .     . .     .   . .     . . . .     . .     .   .   . .     . .     .   .   . .")]
+    #[pat_pict(frag_variant = JedLargeUnburied, "0  1 2     .   .   .   . .     . .     .   . .     . . . .     . .     .   .   . .     . .     .   .   . .")]
 
     #[pat_pict(frag_variant = JedLargeBuried, "0    1 2     .   .   . .     . .     .   . .     . .     . .")]
 
@@ -177,7 +178,7 @@ pub struct XC2Macrocell {
     /// `true` = falling edge triggered flip-flop, transparent-when-low latch
     #[pat_pict(frag_variant = JedSmall, ".  0   . .     .   . .     . .     . .     . .     . .     .   .   . .     .   . . . .     .   .   .")]
 
-    #[pat_pict(frag_variant = JedLarge, ".   . .    .   0   .   . .     . .     .   . .     . . . .     . .     .   .   . .     . .     .   .   . .")]
+    #[pat_pict(frag_variant = JedLargeUnburied, ".   . .    .   0   .   . .     . .     .   . .     . . . .     . .     .   .   . .     . .     .   .   . .")]
 
     #[pat_pict(frag_variant = JedLargeBuried, ".    . .     .   0   . .     . .     .   . .     . .     . .")]
 
@@ -203,7 +204,7 @@ pub struct XC2Macrocell {
     /// It is currently unknown what happens when this is used on a transparent latch
     #[pat_pict(frag_variant = JedSmall, ".  .   . .     0   . .     . .     . .     . .     . .     .   .   . .     .   . . . .     .   .   .")]
 
-    #[pat_pict(frag_variant = JedLarge, ".   . .     0  .   .   . .     . .     .   . .     . . . .     . .     .   .   . .     . .     .   .   . .")]
+    #[pat_pict(frag_variant = JedLargeUnburied, ".   . .     0  .   .   . .     . .     .   . .     . . . .     . .     .   .   . .     . .     .   .   . .")]
 
     #[pat_pict(frag_variant = JedLargeBuried, ".    . .     0   .   . .     . .     .   . .     . .     . .")]
 
@@ -227,7 +228,7 @@ pub struct XC2Macrocell {
     /// Reset source for the register
     #[pat_pict(frag_variant = JedSmall, ".  .   . .     .   0 1     . .     . .     . .     . .     .   .   . .     .   . . . .     .   .   .")]
 
-    #[pat_pict(frag_variant = JedLarge, ".   . .    .   .   .   . .     . .     .   . .     . . . .     . .     .   .   . .     0 1     .   .   . .")]
+    #[pat_pict(frag_variant = JedLargeUnburied, ".   . .    .   .   .   . .     . .     .   . .     . . . .     . .     .   .   . .     0 1     .   .   . .")]
 
     #[pat_pict(frag_variant = JedLargeBuried, ".    . .     .   .   . .     . .     .   . .     0 1     . .")]
 
@@ -251,7 +252,7 @@ pub struct XC2Macrocell {
     /// Set source for the register
     #[pat_pict(frag_variant = JedSmall, ".  .   . .     .   . .     0 1     . .     . .     . .     .   .   . .     .   . . . .     .   .   .")]
 
-    #[pat_pict(frag_variant = JedLarge, ".   . .    .   .   .   . .     . .     .   . .     . . . .    0 1     .   .   . .     . .     .   .   . .")]
+    #[pat_pict(frag_variant = JedLargeUnburied, ".   . .    .   .   .   . .     . .     .   . .     . . . .    0 1     .   .   . .     . .     .   .   . .")]
 
     #[pat_pict(frag_variant = JedLargeBuried, ".    . .     .   .   . .     0 1     .   . .     . .     . .")]
 
@@ -277,7 +278,7 @@ pub struct XC2Macrocell {
     /// `false` = init to 0, `true` = init to 1
     #[pat_pict(frag_variant = JedSmall, ".  .   . .     .   . .     . .     . .     . .     . .     .   .   . .     .   . . . .     .   .   !0")]
 
-    #[pat_pict(frag_variant = JedLarge, ".  . .     .   .   .   . .     . .     .   . .     . . . .     . .     !0  .   . .     . .     .   .   . .")]
+    #[pat_pict(frag_variant = JedLargeUnburied, ".  . .     .   .   .   . .     . .     .   . .     . . . .     . .     !0  .   . .     . .     .   .   . .")]
 
     #[pat_pict(frag_variant = JedLargeBuried, ".    . .     .   .   . .     . .     !0  . .     . .     . .")]
 
@@ -301,7 +302,7 @@ pub struct XC2Macrocell {
     /// Register mode
     #[pat_pict(frag_variant = JedSmall, ".  .   . .     .   . .     . .     0 1     . .     . .     .   .   . .     .   . . . .     .   .   .")]
 
-    #[pat_pict(frag_variant = JedLarge, ".  . .     .   .   .   . .     . .     .   . .     . . . .     . .     .   .   0 1     . .     .   .   . .")]
+    #[pat_pict(frag_variant = JedLargeUnburied, ".  . .     .   .   .   . .     . .     .   . .     . . . .     . .     .   .   0 1     . .     .   .   . .")]
 
     #[pat_pict(frag_variant = JedLargeBuried, ".    . .     .   .   . .     . .     .   0 1     . .     . .")]
 
@@ -325,7 +326,7 @@ pub struct XC2Macrocell {
     /// ZIA input mode for feedback from this macrocell
     #[pat_pict(frag_variant = JedSmall, ".  .   . .     .   . .     . .     . .     . .     0 1     .   .   . .     .   . . . .     .   .   .")]
 
-    #[pat_pict(frag_variant = JedLarge, ".  . .     .   .   .   0 1     . .     .   . .     . . . .     . .     .   .   . .     . .     .   .   . .")]
+    #[pat_pict(frag_variant = JedLargeUnburied, ".  . .     .   .   .   0 1     . .     .   . .     . . . .     . .     .   .   . .     . .     .   .   . .")]
 
     #[pat_pict(frag_variant = JedLargeBuried, ".    . .     .   .   0 1     . .     .   . .     . .     . .")]
 
@@ -352,7 +353,7 @@ pub struct XC2Macrocell {
     /// (`true` is illegal for buried macrocells in the larger devices)
     #[pat_pict(frag_variant = JedSmall, ".  .   . .     .   . .     . .     . .     . .     . .     !0  .   . .     .   . . . .     .   .   .")]
 
-    #[pat_pict(frag_variant = JedLarge, ".  . .     .   .   .   . .     . .     !0  . .     . . . .     . .     .   .   . .     . .     .   .   . .")]
+    #[pat_pict(frag_variant = JedLargeUnburied, ".  . .     .   .   .   . .     . .     !0  . .     . . . .     . .     .   .   . .     . .     .   .   . .")]
 
     #[pat_pict(frag_variant = JedLargeBuried, "\n0=false")]
 
@@ -376,7 +377,7 @@ pub struct XC2Macrocell {
     /// Controls the "other" (not from the OR term) input to the XOR gate
     #[pat_pict(frag_variant = JedSmall, ".  .   . .     .   . .     . .     . .     . .     . .     .   .   0 1     .   . . . .     .   .   .")]
 
-    #[pat_pict(frag_variant = JedLarge, ".  . .     .   .   .   . .     . .     .   . .     . . . .     . .     .   .   . .     . .     .   .   0 1")]
+    #[pat_pict(frag_variant = JedLargeUnburied, ".  . .     .   .   .   . .     . .     .   . .     . . . .     . .     .   .   . .     . .     .   .   0 1")]
 
     #[pat_pict(frag_variant = JedLargeBuried, ".    . .     .   .   . .     . .     .   . .     . .     0 1")]
 
@@ -395,6 +396,66 @@ pub struct XC2Macrocell {
     #[pat_pict(frag_variant = CrbitLarge, ".  .  .  .  .  .  .  .  .  .  .  .  .  .  .
                                            0  1  .  .  .  .  .  .  .  .  .  .  .  .  .")]
     pub xor_mode: XC2MCXorMode,
+}
+
+impl BitFragment<JedLarge> for XC2Macrocell {
+    const IDX_DIMS: usize = 1;
+
+    type IndexingType = usize;
+    type OffsettingType = [isize; 1];
+    type MirroringType = [bool; 1];
+
+    type ErrType = ();
+
+    type EncodeExtraType = bool;
+    type DecodeExtraType = bool;
+
+    const FIELD_COUNT: usize = 1;
+
+    fn encode<F>(&self, fuses: &mut F,
+        offset: Self::OffsettingType, mirror: Self::MirroringType,
+        extra_data: Self::EncodeExtraType)
+        where F: ::core::ops::IndexMut<Self::IndexingType, Output=bool> + ?Sized {
+
+        unimplemented!();
+    }
+
+    fn decode<F>(fuses: &F,
+        offset: Self::OffsettingType, mirror: Self::MirroringType,
+        extra_data: Self::DecodeExtraType) -> Result<Self, Self::ErrType>
+        where F: ::core::ops::Index<Self::IndexingType, Output=bool> + ?Sized {
+
+        unimplemented!();
+    }
+
+    #[inline]
+    fn fieldname(i: usize) -> &'static str {
+        unimplemented!();
+    }
+    #[inline]
+    fn fielddesc(i: usize) -> &'static str {
+        unimplemented!();
+    }
+    #[inline]
+    fn fieldtype(i: usize) -> BitFragmentFieldType {
+        unimplemented!();
+    }
+    #[inline]
+    fn field_offset(_field_i: usize, _arr_i: usize) -> Self::OffsettingType {
+        unimplemented!();
+    }
+    #[inline]
+    fn field_mirror(_field_i: usize, _arr_i: usize) -> Self::MirroringType {
+        unimplemented!();
+    }
+    #[inline]
+    fn field_bits(_field_i: usize) -> usize {
+        unimplemented!();
+    }
+    #[inline]
+    fn field_bit_base_pos(_field_i: usize, _bit_i: usize) -> Self::OffsettingType {
+        unimplemented!();
+    }
 }
 
 impl Default for XC2Macrocell {
@@ -536,7 +597,7 @@ impl XC2Macrocell {
 
     ///  Internal function that reads only the macrocell-related bits from the macrcocell configuration
     pub fn from_jed_large(fuses: &[bool], fuse_idx: usize) -> Self {
-        <Self as BitFragment::<JedLarge>>::decode(fuses, [fuse_idx as isize], [false], ()).unwrap()
+        <Self as BitFragment::<JedLargeUnburied>>::decode(fuses, [fuse_idx as isize], [false], ()).unwrap()
     }
 
     ///  Internal function that reads only the macrocell-related bits from the macrcocell configuration
@@ -580,7 +641,7 @@ impl XC2Macrocell {
             let iob = fb_mc_num_to_iob_num(device, fb_i as u32, i as u32);
 
             if iob.is_some() {
-                BitFragment::<JedLarge>::encode(&fb.mcs[i], &mut jed.f, [current_fuse_offset as isize], [false], ());
+                BitFragment::<JedLargeUnburied>::encode(&fb.mcs[i], &mut jed.f, [current_fuse_offset as isize], [false], ());
                 current_fuse_offset += 29;
             } else {
                 BitFragment::<JedLargeBuried>::encode(&fb.mcs[i], &mut jed.f, [current_fuse_offset as isize], [false], ());
