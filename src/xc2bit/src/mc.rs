@@ -27,12 +27,8 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 use core::fmt;
 
-use jedec::*;
-
 use crate::*;
 use crate::fusemap_physical::{mc_block_loc};
-use crate::util::{LinebreakSet};
-use crate::zia::{zia_get_row_width};
 
 /// Clock source for the register in a macrocell
 #[bitpattern]
@@ -598,66 +594,6 @@ impl XC2Macrocell {
                 // we need this funny lookup table, but otherwise macrocells are 2x15
                 let y = y + MC_TO_ROW_MAP_LARGE[mc as usize];
                 <Self as BitFragment::<CrbitLarge>>::decode(fuse_array, [x as isize, y as isize], [mirror, false], ()).unwrap()
-            }
-        }
-    }
-
-    ///  Internal function that reads only the macrocell-related bits from the macrcocell configuration
-    pub fn from_jed_small(fuses: &[bool], block_idx: usize, mc_idx: usize) -> Self {
-        <Self as BitFragment::<JedSmall>>::decode(fuses, [(block_idx + mc_idx * 27) as isize], [false], ()).unwrap()
-    }
-
-    ///  Internal function that reads only the macrocell-related bits from the macrcocell configuration
-    pub fn from_jed_large(fuses: &[bool], fuse_idx: usize) -> Self {
-        <Self as BitFragment::<JedLargeUnburied>>::decode(fuses, [fuse_idx as isize], [false], ()).unwrap()
-    }
-
-    ///  Internal function that reads only the macrocell-related bits from the macrcocell configuration
-    pub fn from_jed_large_buried(fuses: &[bool], fuse_idx: usize) -> Self {
-        <Self as BitFragment::<JedLargeBuried>>::decode(fuses, [fuse_idx as isize], [false], ()).unwrap()
-    }
-
-    /// Helper that prints the macrocell configuration on the "small" parts
-    pub fn to_jed_small(jed: &mut JEDECFile, linebreaks: &mut LinebreakSet,
-        device: XC2Device, fb: &XC2BitstreamFB, fuse_base: usize) {
-
-        let zia_row_width = zia_get_row_width(device);
-
-        for i in 0..MCS_PER_FB {
-            let mc_fuse_base = fuse_base + zia_row_width * INPUTS_PER_ANDTERM +
-                ANDTERMS_PER_FB * INPUTS_PER_ANDTERM * 2 + ANDTERMS_PER_FB * MCS_PER_FB + i * 27;
-
-            linebreaks.add(mc_fuse_base);
-            if i == 0 {
-                linebreaks.add(mc_fuse_base);
-            }
-
-            BitFragment::<JedSmall>::encode(&fb.mcs[i], &mut jed.f, [mc_fuse_base as isize], [false], ());
-        }
-    }
-
-    /// Helper that prints the macrocell configuration on the "large" parts
-    pub fn to_jed_large(jed: &mut JEDECFile, linebreaks: &mut LinebreakSet,
-        device: XC2Device, fb: &XC2BitstreamFB, fb_i: usize, fuse_base: usize) {
-
-        let zia_row_width = zia_get_row_width(device);
-
-        let mut current_fuse_offset = fuse_base + zia_row_width * INPUTS_PER_ANDTERM +
-            ANDTERMS_PER_FB * INPUTS_PER_ANDTERM * 2 + ANDTERMS_PER_FB * MCS_PER_FB;
-
-        linebreaks.add(current_fuse_offset);
-
-        for i in 0..MCS_PER_FB {
-            linebreaks.add(current_fuse_offset);
-
-            let iob = fb_mc_num_to_iob_num(device, fb_i as u32, i as u32);
-
-            if iob.is_some() {
-                BitFragment::<JedLargeUnburied>::encode(&fb.mcs[i], &mut jed.f, [current_fuse_offset as isize], [false], ());
-                current_fuse_offset += 29;
-            } else {
-                BitFragment::<JedLargeBuried>::encode(&fb.mcs[i], &mut jed.f, [current_fuse_offset as isize], [false], ());
-                current_fuse_offset += 16;
             }
         }
     }

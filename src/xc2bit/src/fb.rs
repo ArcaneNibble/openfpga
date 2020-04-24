@@ -765,64 +765,26 @@ impl XC2BitstreamFB {
     pub fn from_jed(device: XC2Device, fuses: &[bool], fb: u32, fuse_base: usize)
         -> Result<XC2BitstreamFB, XC2BitError> {
 
-        let zia_row_width = zia_get_row_width(device);
-        let size_of_zia = zia_row_width * INPUTS_PER_ANDTERM;
-        let size_of_and = INPUTS_PER_ANDTERM * 2 * ANDTERMS_PER_FB;
-        let size_of_or = ANDTERMS_PER_FB * MCS_PER_FB;
-
-        let device_is_large =  match device {
-            XC2Device::XC2C32 | XC2Device::XC2C32A | XC2Device::XC2C64 | XC2Device::XC2C64A => false,
-            _ => true,
-        };
-
-        let zia_row_decode_function = match device {
-            XC2Device::XC2C32 | XC2Device::XC2C32A => XC2ZIAInput::decode_32_zia_choice,
-            XC2Device::XC2C64 | XC2Device::XC2C64A => XC2ZIAInput::decode_64_zia_choice,
-            XC2Device::XC2C128 => XC2ZIAInput::decode_128_zia_choice,
-            XC2Device::XC2C256 => XC2ZIAInput::decode_256_zia_choice,
-            XC2Device::XC2C384 => XC2ZIAInput::decode_384_zia_choice,
-            XC2Device::XC2C512 => XC2ZIAInput::decode_512_zia_choice,
-        };
-
-        let mut ret = XC2BitstreamFB::default();
-
-        let and_block_idx = fuse_base + size_of_zia;
-        for i in 0..ANDTERMS_PER_FB {
-            *ret.get_mut_andterm(i) = XC2PLAAndTerm::from_jed(fuses, and_block_idx, i);
+        match device {
+            XC2Device::XC2C32 | XC2Device::XC2C32A => {
+                <Self as BitFragment<JedXC2C32>>::decode(fuses, [fuse_base as isize], [false], ())
+            },
+            XC2Device::XC2C64 | XC2Device::XC2C64A => {
+                <Self as BitFragment<JedXC2C64>>::decode(fuses, [fuse_base as isize], [false], ())
+            },
+            XC2Device::XC2C128 => {
+                <Self as BitFragment<JedXC2C128>>::decode(fuses, [fuse_base as isize], [false], fb as usize)
+            },
+            XC2Device::XC2C256 => {
+                <Self as BitFragment<JedXC2C256>>::decode(fuses, [fuse_base as isize], [false], fb as usize)
+            },
+            XC2Device::XC2C384 => {
+                <Self as BitFragment<JedXC2C384>>::decode(fuses, [fuse_base as isize], [false], fb as usize)
+            },
+            XC2Device::XC2C512 => {
+                <Self as BitFragment<JedXC2C512>>::decode(fuses, [fuse_base as isize], [false], fb as usize)
+            },
         }
-
-        let or_block_idx = fuse_base + size_of_zia + size_of_and;
-        for i in 0..MCS_PER_FB {
-            ret.or_terms[i] = XC2PLAOrTerm::from_jed(fuses, or_block_idx, i);
-        }
-
-        let zia_block_idx = fuse_base;
-        for i in 0..INPUTS_PER_ANDTERM {
-            let zia_row_fuses = &fuses[zia_block_idx + i * zia_row_width..zia_block_idx + (i + 1) * zia_row_width];
-            let result = zia_row_decode_function(i, zia_row_fuses)?;
-            *ret.get_mut_zia(i) = result;
-        }
-
-        let mc_block_idx = fuse_base + size_of_zia + size_of_and + size_of_or;
-        let mut cur_mc_idx = mc_block_idx;
-        for i in 0..MCS_PER_FB {
-            if fb_mc_num_to_iob_num(device, fb, i as u32).is_none() {
-                // Buried (must be large)
-                ret.mcs[i] = XC2Macrocell::from_jed_large_buried(fuses, cur_mc_idx);
-                cur_mc_idx += 16;
-            } else {
-                // Not buried
-                if device_is_large {
-                    ret.mcs[i] = XC2Macrocell::from_jed_large(fuses, cur_mc_idx);
-                    cur_mc_idx += 29;
-                } else {
-                    ret.mcs[i] = XC2Macrocell::from_jed_small(fuses, mc_block_idx, i);
-                    cur_mc_idx += 27;
-                }
-            }
-        }
-
-        Ok(ret)
     }
 }
 
