@@ -417,7 +417,13 @@ impl BitFragment<JedLarge> for XC2Macrocell {
         extra_data: Self::EncodeExtraType)
         where F: ::core::ops::IndexMut<Self::IndexingType, Output=bool> + ?Sized {
 
-        unimplemented!();
+        if extra_data {
+            // Buried
+            <Self as BitFragment<JedLargeBuried>>::encode(self, fuses, offset, mirror, ())
+        } else {
+            // Not buried
+            <Self as BitFragment<JedLargeUnburied>>::encode(self, fuses, offset, mirror, ())
+        }
     }
 
     fn decode<F>(fuses: &F,
@@ -425,19 +431,25 @@ impl BitFragment<JedLarge> for XC2Macrocell {
         extra_data: Self::DecodeExtraType) -> Result<Self, Self::ErrType>
         where F: ::core::ops::Index<Self::IndexingType, Output=bool> + ?Sized {
 
-        unimplemented!();
+        if extra_data {
+            // Buried
+            <Self as BitFragment<JedLargeBuried>>::decode(fuses, offset, mirror, ())
+        } else {
+            // Not buried
+            <Self as BitFragment<JedLargeUnburied>>::decode(fuses, offset, mirror, ())
+        }
     }
 
     #[inline]
-    fn fieldname(i: usize) -> &'static str {
+    fn fieldname(_i: usize) -> &'static str {
         unimplemented!();
     }
     #[inline]
-    fn fielddesc(i: usize) -> &'static str {
+    fn fielddesc(_i: usize) -> &'static str {
         unimplemented!();
     }
     #[inline]
-    fn fieldtype(i: usize) -> BitFragmentFieldType {
+    fn fieldtype(_i: usize) -> BitFragmentFieldType {
         unimplemented!();
     }
     #[inline]

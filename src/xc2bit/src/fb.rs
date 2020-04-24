@@ -39,13 +39,25 @@ pub enum JedXC2C32 {}
 pub enum JedXC2C64 {}
 pub enum JedXC2C128 {}
 
-fn large_get_macrocell_offset(device: XC2Device, mc_i: usize) -> usize {
-    0
+fn large_get_macrocell_offset(device: XC2Device, fb_i: usize, mc_i: usize) -> usize {
+    let mut current_fuse_offset = 0;
+
+    for i in 0..mc_i {
+        let iob = fb_mc_num_to_iob_num(device, fb_i as u32, i as u32);
+
+        if iob.is_some() {
+            current_fuse_offset += 29;
+        } else {
+            current_fuse_offset += 16;
+        }
+    }
+
+    current_fuse_offset
 }
 
 #[bitfragment(variant = JedXC2C32, dimensions = 1, errtype = XC2BitError)]
 #[bitfragment(variant = JedXC2C64, dimensions = 1, errtype = XC2BitError)]
-#[bitfragment(variant = JedXC2C128, dimensions = 1, errtype = XC2BitError)]
+#[bitfragment(variant = JedXC2C128, dimensions = 1, errtype = XC2BitError, encode_extra_type = usize, decode_extra_type = usize)]
 #[derive(Copy, Clone, Eq, PartialEq, Hash, Debug, Serialize, Deserialize)]
 /// Represents a collection of all the parts that make up one function block
 pub struct XC2BitstreamFB {
@@ -58,6 +70,7 @@ pub struct XC2BitstreamFB {
     #[arr_off(variant = JedXC2C64, |i| [i * INPUTS_PER_ANDTERM * 2])]
     #[frag(outer_frag_variant = JedXC2C64, inner_frag_variant = pla::Jed)]
 
+    #[offset(variant = JedXC2C128, [zia_get_row_width(XC2Device::XC2C128) * INPUTS_PER_ANDTERM ])]
     #[arr_off(variant = JedXC2C128, |i| [i * INPUTS_PER_ANDTERM * 2])]
     #[frag(outer_frag_variant = JedXC2C128, inner_frag_variant = pla::Jed)]
 
@@ -73,7 +86,8 @@ pub struct XC2BitstreamFB {
     #[arr_off(variant = JedXC2C64, |i| [i])]
     #[frag(outer_frag_variant = JedXC2C64, inner_frag_variant = pla::Jed)]
 
-    #[arr_off(variant = JedXC2C128, |i| [i * MCS_PER_FB])]
+    #[offset(variant = JedXC2C128, [zia_get_row_width(XC2Device::XC2C128) * INPUTS_PER_ANDTERM + INPUTS_PER_ANDTERM * 2 * ANDTERMS_PER_FB])]
+    #[arr_off(variant = JedXC2C128, |i| [i])]
     #[frag(outer_frag_variant = JedXC2C128, inner_frag_variant = pla::Jed)]
 
     pub or_terms: [XC2PLAOrTerm; MCS_PER_FB],
@@ -107,10 +121,11 @@ pub struct XC2BitstreamFB {
     #[arr_off(variant = JedXC2C64, |i| [i * 27])]
     #[frag(outer_frag_variant = JedXC2C64, inner_frag_variant = mc::JedSmall)]
 
-    #[arr_off(variant = JedXC2C128, |i| [large_get_macrocell_offset(XC2Device::XC2C128, i)])]
+    #[offset(variant = JedXC2C128, [zia_get_row_width(XC2Device::XC2C128) * INPUTS_PER_ANDTERM + INPUTS_PER_ANDTERM * 2 * ANDTERMS_PER_FB + ANDTERMS_PER_FB * MCS_PER_FB])]
+    #[arr_off(variant = JedXC2C128, |i| [large_get_macrocell_offset(XC2Device::XC2C128, extra_data, i)])]
     #[frag(outer_frag_variant = JedXC2C128, inner_frag_variant = mc::JedLarge)]
-    #[encode_sub_extra_data(variant = JedXC2C128, false)]
-    #[decode_sub_extra_data(variant = JedXC2C128, false)]
+    #[encode_sub_extra_data(variant = JedXC2C128, fb_mc_num_to_iob_num(XC2Device::XC2C128, extra_data as u32, arr_elem_i as u32).is_none())]
+    #[decode_sub_extra_data(variant = JedXC2C128, fb_mc_num_to_iob_num(XC2Device::XC2C128, extra_data as u32, arr_elem_i as u32).is_none())]
 
     pub mcs: [XC2Macrocell; MCS_PER_FB],
 }
@@ -595,7 +610,7 @@ impl XC2BitstreamFB {
     /// Write the .JED representation of the settings for this FB to the given `jed` object.
     /// `device` must be the device type this FB was extracted from and is needed to encode the ZIA.
     /// `fuse_base` must be the starting fuse number of this function block.
-    pub fn to_jed(&self, device: XC2Device, fuse_base: usize, jed: &mut JEDECFile, linebreaks: &mut LinebreakSet) {
+    pub fn to_jed(&self, device: XC2Device, fuse_base: usize, jed: &mut JEDECFile, linebreaks: &mut LinebreakSet, fb_i: usize) {
         if device == XC2Device::XC2C32 || device == XC2Device::XC2C32A {
             <Self as BitFragment<JedXC2C32>>::encode(&self, &mut jed.f, [fuse_base as isize], [false], ());
 
@@ -680,6 +695,58 @@ impl XC2BitstreamFB {
                 linebreaks.add(mc_fuse_base);
                 if i == 0 {
                     linebreaks.add(mc_fuse_base);
+                }
+            }
+
+            return;
+        }
+        // todo this duplication will be removed
+        if device == XC2Device::XC2C128 {
+            <Self as BitFragment<JedXC2C128>>::encode(&self, &mut jed.f, [fuse_base as isize], [false], fb_i);
+
+            // ZIA
+            let zia_row_width = zia_get_row_width(device);
+
+            if fuse_base != 0 {
+                linebreaks.add(fuse_base);
+            }
+            for i in 0..INPUTS_PER_ANDTERM {
+                let zia_fuse_base = fuse_base + i * zia_row_width;
+                if zia_fuse_base != 0 {
+                    linebreaks.add(zia_fuse_base);
+                }
+            }
+
+            // AND terms
+            linebreaks.add(fuse_base + zia_row_width * INPUTS_PER_ANDTERM);
+            for i in 0..ANDTERMS_PER_FB {
+                let and_fuse_base = fuse_base + zia_row_width * INPUTS_PER_ANDTERM + i * INPUTS_PER_ANDTERM * 2;
+                linebreaks.add(and_fuse_base);
+            }
+
+            // OR terms
+            linebreaks.add(fuse_base + zia_row_width * INPUTS_PER_ANDTERM + ANDTERMS_PER_FB * INPUTS_PER_ANDTERM * 2);
+            for i in 0..ANDTERMS_PER_FB {
+                let or_fuse_base = fuse_base + zia_row_width * INPUTS_PER_ANDTERM +
+                    ANDTERMS_PER_FB * INPUTS_PER_ANDTERM * 2 + i * MCS_PER_FB;
+                linebreaks.add(or_fuse_base);
+            }
+
+            // macrocell line breaks
+            let mut current_fuse_offset = fuse_base + zia_row_width * INPUTS_PER_ANDTERM +
+                ANDTERMS_PER_FB * INPUTS_PER_ANDTERM * 2 + ANDTERMS_PER_FB * MCS_PER_FB;
+
+            linebreaks.add(current_fuse_offset);
+
+            for i in 0..MCS_PER_FB {
+                linebreaks.add(current_fuse_offset);
+
+                let iob = fb_mc_num_to_iob_num(device, fb_i as u32, i as u32);
+
+                if iob.is_some() {
+                    current_fuse_offset += 29;
+                } else {
+                    current_fuse_offset += 16;
                 }
             }
 
