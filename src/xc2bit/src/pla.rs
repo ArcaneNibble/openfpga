@@ -52,6 +52,8 @@ impl Default for XC2PLAAndTerm {
 }
 
 pub enum Jed {}
+pub enum CrbitCentralOrBlock {}
+pub enum CrbitSideOrBlock {}
 
 impl BitFragment<Jed> for XC2PLAAndTerm {
     const IDX_DIMS: usize = 1;
@@ -74,38 +76,28 @@ impl BitFragment<Jed> for XC2PLAAndTerm {
             fuses[((offset[0] as isize) +
                 (0 + 2 * i as isize) * (if mirror[0] {-1} else {1})) as usize] =
 
-                ((self.input[i / 8]) & (1 << (i % 8))) == 0;
+                !self.get(i);
 
             fuses[((offset[0] as isize) +
                 (1 + 2 * i as isize) * (if mirror[0] {-1} else {1})) as usize] =
 
-                ((self.input_b[i / 8]) & (1 << (i % 8))) == 0;
+                !self.get_b(i);
         }
     }
     fn decode<F>(fuses: &F,
         offset: Self::OffsettingType, mirror: Self::MirroringType, _: ()) -> Result<Self, ()>
         where F: ::core::ops::Index<Self::IndexingType, Output=bool> + ?Sized {
 
-        let mut input = [0u8; INPUTS_PER_ANDTERM / 8];
-        let mut input_b = [0u8; INPUTS_PER_ANDTERM / 8];
+        let mut ret = Self::default();
 
         for i in 0..INPUTS_PER_ANDTERM {
-            if !fuses[((offset[0] as isize) +
-                (0 + 2 * i as isize) * (if mirror[0] {-1} else {1})) as usize] {
-
-                input[i / 8] |= 1 << (i % 8);
-            }
-            if !fuses[((offset[0] as isize) +
-                (1 + 2 * i as isize) * (if mirror[0] {-1} else {1})) as usize] {
-
-                input_b[i / 8] |= 1 << (i % 8);
-            }
+            ret.set(i, !fuses[((offset[0] as isize) +
+                (0 + 2 * i as isize) * (if mirror[0] {-1} else {1})) as usize]);
+            ret.set_b(i, !fuses[((offset[0] as isize) +
+                (1 + 2 * i as isize) * (if mirror[0] {-1} else {1})) as usize]);
         }
 
-        Ok(XC2PLAAndTerm {
-            input,
-            input_b,
-        })
+        Ok(ret)
     }
 
     fn fieldname(field_i: usize) -> &'static str {
@@ -123,12 +115,151 @@ impl BitFragment<Jed> for XC2PLAAndTerm {
     fn field_bit_base_pos(_: usize, _bit_i: usize) -> Self::OffsettingType {[0]}
 }
 
-impl XC2PLAAndTerm {
-    /// Internal function that reads one single AND term from a block of fuses using logical fuse indexing
-    pub fn from_jed(fuses: &[bool], block_idx: usize, term_idx: usize) -> XC2PLAAndTerm {
-        <Self as BitFragment<Jed>>::decode(fuses, [(block_idx + term_idx * INPUTS_PER_ANDTERM * 2) as isize], [false], ()).unwrap()
+// this one has a gap in the middle
+impl BitFragment<CrbitCentralOrBlock> for XC2PLAAndTerm {
+    const IDX_DIMS: usize = 2;
+    type IndexingType = [usize; 2];
+    type OffsettingType = [isize; 2];
+    type MirroringType = [bool; 2];
+
+    type ErrType = ();
+
+    type EncodeExtraType = ();
+    type DecodeExtraType = ();
+
+    const FIELD_COUNT: usize = 2;
+
+    fn encode<F>(&self, fuses: &mut F,
+        offset: Self::OffsettingType, mirror: Self::MirroringType, _: ())
+        where F: ::core::ops::IndexMut<Self::IndexingType, Output=bool> + ?Sized {
+
+        for input_idx in 0..INPUTS_PER_ANDTERM {
+            let mut out_y_off = input_idx as isize;
+            if input_idx >= 20 {
+                // There is an OR array in the middle, 8 rows high
+                out_y_off += 8;
+            }
+
+            let out_x = offset[0] + if !mirror[0] {1} else {-1};
+            let out_x_b = offset[0];
+
+            let out_y = offset[1] + out_y_off * (if !mirror[1] {1} else {-1});
+
+            // true input
+            fuses[[out_x as usize, out_y as usize]] = !self.get(input_idx);
+            // complement input
+            fuses[[out_x_b as usize, out_y as usize]] = !self.get_b(input_idx);
+        }
+    }
+    fn decode<F>(fuses: &F,
+        offset: Self::OffsettingType, mirror: Self::MirroringType, _: ()) -> Result<Self, ()>
+        where F: ::core::ops::Index<Self::IndexingType, Output=bool> + ?Sized {
+
+        let mut ret = Self::default();
+
+        for input_idx in 0..INPUTS_PER_ANDTERM {
+            let mut out_y_off = input_idx as isize;
+            if input_idx >= 20 {
+                // There is an OR array in the middle, 8 rows high
+                out_y_off += 8;
+            }
+
+            let out_x = offset[0] + if !mirror[0] {1} else {-1};
+            let out_x_b = offset[0];
+
+            let out_y = offset[1] + out_y_off * (if !mirror[1] {1} else {-1});
+
+            ret.set(input_idx, !fuses[[out_x as usize, out_y as usize]]);
+            ret.set_b(input_idx, !fuses[[out_x_b as usize, out_y as usize]]);
+        }
+
+        Ok(ret)
     }
 
+    fn fieldname(field_i: usize) -> &'static str {
+        ["input", "input_b"][field_i]
+    }
+    fn fielddesc(field_i: usize) -> &'static str {
+        ["true inputs", "complement inputs"][field_i]
+    }
+    fn fieldtype(_: usize) -> BitFragmentFieldType {
+        BitFragmentFieldType::PatternArray(INPUTS_PER_ANDTERM)
+    }
+    fn field_offset(_: usize, _: usize) -> Self::OffsettingType {[0, 0]}
+    fn field_mirror(_: usize, _: usize) -> Self::MirroringType {[false, false]}
+    fn field_bits(_: usize) -> usize {0}
+    fn field_bit_base_pos(_: usize, _bit_i: usize) -> Self::OffsettingType {[0, 0]}
+}
+
+// this one does not have a gap in the middle
+impl BitFragment<CrbitSideOrBlock> for XC2PLAAndTerm {
+    const IDX_DIMS: usize = 2;
+    type IndexingType = [usize; 2];
+    type OffsettingType = [isize; 2];
+    type MirroringType = [bool; 2];
+
+    type ErrType = ();
+
+    type EncodeExtraType = ();
+    type DecodeExtraType = ();
+
+    const FIELD_COUNT: usize = 2;
+
+    fn encode<F>(&self, fuses: &mut F,
+        offset: Self::OffsettingType, mirror: Self::MirroringType, _: ())
+        where F: ::core::ops::IndexMut<Self::IndexingType, Output=bool> + ?Sized {
+
+        for input_idx in 0..INPUTS_PER_ANDTERM {
+            let out_y_off = input_idx as isize;
+
+            let out_x = offset[0] + if !mirror[0] {1} else {-1};
+            let out_x_b = offset[0];
+
+            let out_y = offset[1] + out_y_off * (if !mirror[1] {1} else {-1});
+
+            // true input
+            fuses[[out_x as usize, out_y as usize]] = !self.get(input_idx);
+            // complement input
+            fuses[[out_x_b as usize, out_y as usize]] = !self.get_b(input_idx);
+        }
+    }
+    fn decode<F>(fuses: &F,
+        offset: Self::OffsettingType, mirror: Self::MirroringType, _: ()) -> Result<Self, ()>
+        where F: ::core::ops::Index<Self::IndexingType, Output=bool> + ?Sized {
+
+        let mut ret = Self::default();
+
+        for input_idx in 0..INPUTS_PER_ANDTERM {
+            let out_y_off = input_idx as isize;
+
+            let out_x = offset[0] + if !mirror[0] {1} else {-1};
+            let out_x_b = offset[0];
+
+            let out_y = offset[1] + out_y_off * (if !mirror[1] {1} else {-1});
+
+            ret.set(input_idx, !fuses[[out_x as usize, out_y as usize]]);
+            ret.set_b(input_idx, !fuses[[out_x_b as usize, out_y as usize]]);
+        }
+
+        Ok(ret)
+    }
+
+    fn fieldname(field_i: usize) -> &'static str {
+        ["input", "input_b"][field_i]
+    }
+    fn fielddesc(field_i: usize) -> &'static str {
+        ["true inputs", "complement inputs"][field_i]
+    }
+    fn fieldtype(_: usize) -> BitFragmentFieldType {
+        BitFragmentFieldType::PatternArray(INPUTS_PER_ANDTERM)
+    }
+    fn field_offset(_: usize, _: usize) -> Self::OffsettingType {[0, 0]}
+    fn field_mirror(_: usize, _: usize) -> Self::MirroringType {[false, false]}
+    fn field_bits(_: usize) -> usize {0}
+    fn field_bit_base_pos(_: usize, _bit_i: usize) -> Self::OffsettingType {[0, 0]}
+}
+
+impl XC2PLAAndTerm {
     /// Returns `true` if the `i`th input is used in this AND term
     pub fn get(&self, i: usize) -> bool {
         self.input[i / 8] & (1 << (i % 8)) != 0

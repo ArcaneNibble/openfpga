@@ -418,48 +418,28 @@ impl XC2BitstreamFB {
             // "Type 1" blocks (OR array is in the middle)
             XC2Device::XC2C32 | XC2Device::XC2C32A | XC2Device::XC2C64 | XC2Device::XC2C64A | XC2Device::XC2C256 => {
                 for term_idx in 0..ANDTERMS_PER_FB {
-                    for input_idx in 0..INPUTS_PER_ANDTERM {
-                        let mut out_y = y + input_idx;
-                        if input_idx >= 20 {
-                            // There is an OR array in the middle, 8 rows high
-                            out_y += 8;
-                        }
+                    let out_x = (x as isize) + ((term_idx as isize * 2) * if !mirror {1} else {-1});
 
-                        if !mirror {
-                            // true input
-                            fuse_array.set(x + term_idx * 2 + 1, out_y, !self.get_andterm(term_idx).get(input_idx));
-                            // complement input
-                            fuse_array.set(x + term_idx * 2 + 0, out_y, !self.get_andterm(term_idx).get_b(input_idx));
-                        } else {
-                            // true input
-                            fuse_array.set(x - term_idx * 2 - 1, out_y, !self.get_andterm(term_idx).get(input_idx));
-                            // complement input
-                            fuse_array.set(x - term_idx * 2 - 0, out_y, !self.get_andterm(term_idx).get_b(input_idx));
-                        }
-                    }
+                    <XC2PLAAndTerm as BitFragment<pla::CrbitCentralOrBlock>>::encode(
+                        self.get_andterm(term_idx),
+                        fuse_array,
+                        [out_x, y as isize],
+                        [mirror, false],
+                        ());
                 }
             },
             // "Type 2" blocks (OR array is on the sides)
             XC2Device::XC2C128 | XC2Device::XC2C384 | XC2Device::XC2C512 => {
                 for term_idx in 0..ANDTERMS_PER_FB {
-                    for input_idx in 0..INPUTS_PER_ANDTERM {
-                        let phys_term_idx = AND_BLOCK_TYPE2_P2L_MAP[term_idx];
-                        if !mirror {
-                            // true input
-                            fuse_array.set(x + term_idx * 2 + 1, y + input_idx,
-                                !self.get_andterm(phys_term_idx).get(input_idx));
-                            // complement input
-                            fuse_array.set(x + term_idx * 2 + 0, y + input_idx,
-                                !self.get_andterm(phys_term_idx).get_b(input_idx));
-                        } else {
-                            // true input
-                            fuse_array.set(x - term_idx * 2 - 1, y + input_idx,
-                                !self.get_andterm(phys_term_idx).get(input_idx));
-                            // complement input
-                            fuse_array.set(x - term_idx * 2 - 0, y + input_idx,
-                                !self.get_andterm(phys_term_idx).get_b(input_idx));
-                        }
-                    }
+                    let phys_term_idx = AND_BLOCK_TYPE2_P2L_MAP[term_idx];
+                    let out_x = (x as isize) + ((term_idx as isize * 2) * if !mirror {1} else {-1});
+
+                    <XC2PLAAndTerm as BitFragment<pla::CrbitSideOrBlock>>::encode(
+                        self.get_andterm(phys_term_idx),
+                        fuse_array,
+                        [out_x, y as isize],
+                        [mirror, false],
+                        ());
                 }
             },
         }
@@ -563,52 +543,30 @@ impl XC2BitstreamFB {
             // "Type 1" blocks (OR array is in the middle)
             XC2Device::XC2C32 | XC2Device::XC2C32A | XC2Device::XC2C64 | XC2Device::XC2C64A | XC2Device::XC2C256 => {
                 for term_idx in 0..ANDTERMS_PER_FB {
-                    for input_idx in 0..INPUTS_PER_ANDTERM {
-                        let mut out_y = y + input_idx;
-                        if input_idx >= 20 {
-                            // There is an OR array in the middle, 8 rows high
-                            out_y += 8;
-                        }
+                    let out_x = (x as isize) + ((term_idx as isize * 2) * if !mirror {1} else {-1});
 
-                        if !mirror {
-                            // true input
-                            ret.get_mut_andterm(term_idx)
-                                .set(input_idx, !fuse_array.get(x + term_idx * 2 + 1, out_y));
-                            // complement input
-                            ret.get_mut_andterm(term_idx)
-                                .set_b(input_idx, !fuse_array.get(x + term_idx * 2 + 0, out_y));
-                        } else {
-                            // true input
-                            ret.get_mut_andterm(term_idx)
-                                .set(input_idx, !fuse_array.get(x - term_idx * 2 - 1, out_y));
-                            // complement input
-                            ret.get_mut_andterm(term_idx)
-                                .set_b(input_idx, !fuse_array.get(x - term_idx * 2 - 0, out_y));
-                        }
-                    }
+                    let andterm = <XC2PLAAndTerm as BitFragment<pla::CrbitCentralOrBlock>>::decode(
+                        fuse_array,
+                        [out_x, y as isize],
+                        [mirror, false],
+                        ()).unwrap();
+
+                    *ret.get_mut_andterm(term_idx) = andterm;
                 }
             },
             // "Type 2" blocks (OR array is on the sides)
             XC2Device::XC2C128 | XC2Device::XC2C384 | XC2Device::XC2C512 => {
                 for term_idx in 0..ANDTERMS_PER_FB {
-                    for input_idx in 0..INPUTS_PER_ANDTERM {
-                        let phys_term_idx = AND_BLOCK_TYPE2_P2L_MAP[term_idx];
-                        if !mirror {
-                            // true input
-                            ret.get_mut_andterm(phys_term_idx).set(input_idx,
-                                !fuse_array.get(x + term_idx * 2 + 1, y + input_idx));
-                            // complement input
-                            ret.get_mut_andterm(phys_term_idx).set_b(input_idx,
-                                !fuse_array.get(x + term_idx * 2 + 0, y + input_idx));
-                        } else {
-                            // true input
-                            ret.get_mut_andterm(phys_term_idx).set(input_idx,
-                                !fuse_array.get(x - term_idx * 2 - 1, y + input_idx));
-                            // complement input
-                            ret.get_mut_andterm(phys_term_idx).set_b(input_idx,
-                                !fuse_array.get(x - term_idx * 2 - 0, y + input_idx));
-                        }
-                    }
+                    let phys_term_idx = AND_BLOCK_TYPE2_P2L_MAP[term_idx];
+                    let out_x = (x as isize) + ((term_idx as isize * 2) * if !mirror {1} else {-1});
+
+                    let andterm = <XC2PLAAndTerm as BitFragment<pla::CrbitSideOrBlock>>::decode(
+                        fuse_array,
+                        [out_x, y as isize],
+                        [mirror, false],
+                        ()).unwrap();
+
+                    *ret.get_mut_andterm(phys_term_idx) = andterm;
                 }
             },
         }
