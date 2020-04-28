@@ -536,37 +536,6 @@ impl fmt::Display for XC2Macrocell {
 }
 
 impl XC2Macrocell {
-    /// Write the crbit representation of this macrocell to the given `fuse_array`.
-    pub fn to_crbit(&self, device: XC2Device, fb: u32, mc: u32, fuse_array: &mut FuseArray) {
-        let (x, y, mirror) = mc_block_loc(device, fb);
-        match device {
-            XC2Device::XC2C32 | XC2Device::XC2C32A => {
-                // The "32" variant
-                // each macrocell is 3 rows high
-                let y = y + (mc as usize) * 3;
-                BitFragment::<Crbit32>::encode(self, fuse_array, [x as isize, y as isize], [mirror, false], ());
-            },
-            XC2Device::XC2C64 | XC2Device::XC2C64A => {
-                // The "64" variant
-                // each macrocell is 3 rows high
-                let y = y + (mc as usize) * 3;
-                BitFragment::<Crbit64>::encode(self, fuse_array, [x as isize, y as isize], [mirror, false], ());
-            },
-            XC2Device::XC2C256 => {
-                // The "256" variant
-                // each macrocell is 3 rows high
-                let y = y + (mc as usize) * 3;
-                BitFragment::<Crbit256>::encode(self, fuse_array, [x as isize, y as isize], [mirror, false], ());
-            },
-            XC2Device::XC2C128 | XC2Device::XC2C384 | XC2Device::XC2C512 => {
-                // The "common large macrocell" variant
-                // we need this funny lookup table, but otherwise macrocells are 2x15
-                let y = y + MC_TO_ROW_MAP_LARGE[mc as usize];
-                BitFragment::<CrbitLarge>::encode(self, fuse_array, [x as isize, y as isize], [mirror, false], ());
-            }
-        }
-    }
-
     /// Reads the crbit representation of this macrocell from the given `fuse_array`.
     pub fn from_crbit(device: XC2Device, fb: u32, mc: u32, fuse_array: &FuseArray) -> Self {
         let (x, y, mirror) = mc_block_loc(device, fb);

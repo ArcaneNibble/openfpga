@@ -579,23 +579,6 @@ impl Default for XC2BitstreamFB {
     }
 }
 
-/// Internal helper that writes a ZIA row to the fuse array
-fn zia_row_crbit_write_helper(x: usize, y: usize, zia_row: usize, zia_bits: &[bool], has_gap: bool,
-    fuse_array: &mut FuseArray) {
-
-    for zia_bit in 0..zia_bits.len() {
-        let mut out_y = y + zia_row;
-        if has_gap && zia_row >= 20 {
-            // There is an OR array in the middle, 8 rows high
-            out_y += 8;
-        }
-
-        let out_x = x + zia_bit * 2;
-
-        fuse_array.set(out_x, out_y, zia_bits[zia_bits.len() - 1 - zia_bit]);
-    }
-}
-
 /// Internal helper that reads a ZIA row from the fuse array
 fn zia_row_crbit_read_helper(x: usize, y: usize, zia_row: usize, zia_bits: &mut [bool], has_gap: bool,
     fuse_array: &FuseArray) {
@@ -714,208 +697,52 @@ impl XC2BitstreamFB {
     pub fn to_crbit(&self, device: XC2Device, fb: u32, fuse_array: &mut FuseArray) {
         match device {
             XC2Device::XC2C32 | XC2Device::XC2C32A => {
-
+                <Self as BitFragment<CrbitXC2C32>>::encode(
+                    &self,
+                    fuse_array,
+                    [0, 0],
+                    [false, false],
+                    fb as usize);
             },
             XC2Device::XC2C64 | XC2Device::XC2C64A => {
-
+                <Self as BitFragment<CrbitXC2C64>>::encode(
+                    &self,
+                    fuse_array,
+                    [0, 0],
+                    [false, false],
+                    fb as usize);
             },
             XC2Device::XC2C128 => {
-
+                <Self as BitFragment<CrbitXC2C128>>::encode(
+                    &self,
+                    fuse_array,
+                    [0, 0],
+                    [false, false],
+                    fb as usize);
             },
             XC2Device::XC2C256 => {
-
+                <Self as BitFragment<CrbitXC2C256>>::encode(
+                    &self,
+                    fuse_array,
+                    [0, 0],
+                    [false, false],
+                    fb as usize);
             },
             XC2Device::XC2C384 => {
-
+                <Self as BitFragment<CrbitXC2C384>>::encode(
+                    &self,
+                    fuse_array,
+                    [0, 0],
+                    [false, false],
+                    fb as usize);
             },
             XC2Device::XC2C512 => {
-
-            },
-        }
-        if device == XC2Device::XC2C32 || device == XC2Device::XC2C32A {
-            <Self as BitFragment<CrbitXC2C32>>::encode(
-                &self,
-                fuse_array,
-                [0, 0],
-                [false, false],
-                fb as usize);
-
-            return;
-        }
-        if device == XC2Device::XC2C64 || device == XC2Device::XC2C64A {
-            <Self as BitFragment<CrbitXC2C64>>::encode(
-                &self,
-                fuse_array,
-                [0, 0],
-                [false, false],
-                fb as usize);
-
-            return;
-        }
-        if device == XC2Device::XC2C128 {
-            <Self as BitFragment<CrbitXC2C128>>::encode(
-                &self,
-                fuse_array,
-                [0, 0],
-                [false, false],
-                fb as usize);
-
-            return;
-        }
-        if device == XC2Device::XC2C256 {
-            <Self as BitFragment<CrbitXC2C256>>::encode(
-                &self,
-                fuse_array,
-                [0, 0],
-                [false, false],
-                fb as usize);
-
-            return;
-        }
-        if device == XC2Device::XC2C384 {
-            <Self as BitFragment<CrbitXC2C384>>::encode(
-                &self,
-                fuse_array,
-                [0, 0],
-                [false, false],
-                fb as usize);
-
-            return;
-        }
-        if device == XC2Device::XC2C512 {
-            <Self as BitFragment<CrbitXC2C512>>::encode(
-                &self,
-                fuse_array,
-                [0, 0],
-                [false, false],
-                fb as usize);
-
-            return;
-        }
-
-        // FFs
-        for i in 0..MCS_PER_FB {
-            self.mcs[i].to_crbit(device, fb, i as u32, fuse_array);
-        }
-
-        // ZIA
-        let (x, y) = zia_block_loc(device, fb);
-        for zia_row in 0..INPUTS_PER_ANDTERM {
-            match device {
-                XC2Device::XC2C32 | XC2Device::XC2C32A => {
-                    let zia_choice_bits = XC2ZIAInput::encode_32_zia_choice(zia_row as u32, *self.get_zia(zia_row))
-                        // FIXME: Fold this into the error system??
-                        .expect("invalid ZIA input");
-
-                    zia_row_crbit_write_helper(x, y, zia_row, &zia_choice_bits, true, fuse_array);
-                },
-                XC2Device::XC2C64 | XC2Device::XC2C64A => {
-                    let zia_choice_bits = XC2ZIAInput::encode_64_zia_choice(zia_row as u32, *self.get_zia(zia_row))
-                        // FIXME: Fold this into the error system??
-                        .expect("invalid ZIA input");
-
-                    zia_row_crbit_write_helper(x, y, zia_row, &zia_choice_bits, true, fuse_array);
-                },
-                XC2Device::XC2C128 => {
-                    let zia_choice_bits = XC2ZIAInput::encode_128_zia_choice(zia_row as u32, *self.get_zia(zia_row))
-                        // FIXME: Fold this into the error system??
-                        .expect("invalid ZIA input");
-
-                    zia_row_crbit_write_helper(x, y, zia_row, &zia_choice_bits, false, fuse_array);
-                },
-                XC2Device::XC2C256 => {
-                    let zia_choice_bits = XC2ZIAInput::encode_256_zia_choice(zia_row as u32, *self.get_zia(zia_row))
-                        // FIXME: Fold this into the error system??
-                        .expect("invalid ZIA input");
-
-                    zia_row_crbit_write_helper(x, y, zia_row, &zia_choice_bits, true, fuse_array);
-                },
-                XC2Device::XC2C384 => {
-                    let zia_choice_bits = XC2ZIAInput::encode_384_zia_choice(zia_row as u32, *self.get_zia(zia_row))
-                        // FIXME: Fold this into the error system??
-                        .expect("invalid ZIA input");
-
-                    zia_row_crbit_write_helper(x, y, zia_row, &zia_choice_bits, false, fuse_array);
-                },
-                XC2Device::XC2C512 => {
-                    let zia_choice_bits = XC2ZIAInput::encode_512_zia_choice(zia_row as u32, *self.get_zia(zia_row))
-                        // FIXME: Fold this into the error system??
-                        .expect("invalid ZIA input");
-
-                    zia_row_crbit_write_helper(x, y, zia_row, &zia_choice_bits, false, fuse_array);
-                },
-            };
-        }
-
-        // AND block
-        let (x, y, mirror) = and_block_loc(device, fb);
-        match device {
-            // "Type 1" blocks (OR array is in the middle)
-            XC2Device::XC2C32 | XC2Device::XC2C32A | XC2Device::XC2C64 | XC2Device::XC2C64A | XC2Device::XC2C256 => {
-                for term_idx in 0..ANDTERMS_PER_FB {
-                    let out_x = (x as isize) + ((term_idx as isize * 2) * if !mirror {1} else {-1});
-
-                    <XC2PLAAndTerm as BitFragment<pla::CrbitCentralOrBlock>>::encode(
-                        self.get_andterm(term_idx),
-                        fuse_array,
-                        [out_x, y as isize],
-                        [mirror, false],
-                        ());
-                }
-            },
-            // "Type 2" blocks (OR array is on the sides)
-            XC2Device::XC2C128 | XC2Device::XC2C384 | XC2Device::XC2C512 => {
-                for logi_term_idx in 0..ANDTERMS_PER_FB {
-                    let term_idx = AND_BLOCK_TYPE2_L2P_MAP[logi_term_idx];
-                    let out_x = (x as isize) + ((term_idx as isize * 2) * if !mirror {1} else {-1});
-
-                    <XC2PLAAndTerm as BitFragment<pla::CrbitSideOrBlock>>::encode(
-                        self.get_andterm(logi_term_idx),
-                        fuse_array,
-                        [out_x, y as isize],
-                        [mirror, false],
-                        ());
-                }
-            },
-        }
-
-        // OR block
-        let (x, y, mirror) = or_block_loc(device, fb);
-        match device {
-            // "Type 1" blocks (OR array is in the middle)
-            XC2Device::XC2C32 | XC2Device::XC2C32A | XC2Device::XC2C64 | XC2Device::XC2C64A | XC2Device::XC2C256 => {
-                for or_term_idx in 0..MCS_PER_FB {
-                    let out_y = y + (or_term_idx / 2);
-                    let off_x = if !mirror {
-                        x + or_term_idx % 2
-                    } else {
-                        x - or_term_idx % 2
-                    };
-
-                    <XC2PLAOrTerm as BitFragment<pla::CrbitCentralOrBlock>>::encode(
-                        &self.or_terms[or_term_idx],
-                        fuse_array,
-                        [off_x as isize, out_y as isize],
-                        [mirror, false],
-                        ());
-                }
-            },
-            // "Type 2" blocks (OR array is on the sides)
-            XC2Device::XC2C128 | XC2Device::XC2C384 | XC2Device::XC2C512 => {
-                for or_term_idx in 0..MCS_PER_FB {
-                    let off_x = if !mirror {
-                        x + or_term_idx * 2
-                    } else {
-                        x - or_term_idx * 2
-                    };
-
-                    <XC2PLAOrTerm as BitFragment<pla::CrbitSideOrBlock>>::encode(
-                        &self.or_terms[or_term_idx],
-                        fuse_array,
-                        [off_x as isize, y as isize],
-                        [mirror, false],
-                        ());
-                }
+                <Self as BitFragment<CrbitXC2C512>>::encode(
+                    &self,
+                    fuse_array,
+                    [0, 0],
+                    [false, false],
+                    fb as usize);
             },
         }
     }
