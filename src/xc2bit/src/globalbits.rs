@@ -28,31 +28,59 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 use core::fmt;
 
 use crate::*;
-use crate::fusemap_logical::{gck_fuse_idx, gsr_fuse_idx, gts_fuse_idx, global_term_fuse_idx, clock_div_fuse_idx};
-use crate::fusemap_physical::{gck_fuse_coords, gsr_fuse_coords, gts_fuse_coords, global_term_fuse_coord,
-                              clock_div_fuse_coord};
+use crate::fusemap_logical::{gck_fuse_idx, gsr_fuse_idx, gts_fuse_idx, global_term_fuse_idx};
+use crate::fusemap_physical::{gck_fuse_coords, gsr_fuse_coords, gts_fuse_coords, global_term_fuse_coord};
+
+pub enum JedCommon {}
+pub enum JedXC2C32 {}
+
+pub enum CrbitXC2C128 {}
+pub enum CrbitXC2C256 {}
+pub enum CrbitXC2C384 {}
+pub enum CrbitXC2C512 {}
 
 /// Represents the configuration of the global nets. Coolrunner-II parts have various global control signals that have
 /// dedicated low-skew paths.
+#[bitfragment(variant = JedXC2C32, dimensions = 1)]
 #[derive(Copy, Clone, Eq, PartialEq, Hash, Debug, Serialize, Deserialize)]
 pub struct XC2GlobalNets {
     /// Controls whether the three global clock nets are enabled or not
+    #[offset(variant = JedXC2C32, [12256])]
+    #[arr_off(variant = JedXC2C32, |i| [i])]
+    #[pat_bits(frag_variant = JedXC2C32, "0" = 0)]
     pub gck_enable: [bool; 3],
+
     /// Controls whether the global set/reset net is enabled or not
+    #[offset(variant = JedXC2C32, [12259 + 1])]
+    #[pat_bits(frag_variant = JedXC2C32, "0" = 0)]
     pub gsr_enable: bool,
+
     /// Controls the polarity of the global set/reset signal
     ///
     /// `false` = active low, `true` = active high
+    #[offset(variant = JedXC2C32, [12259])]
+    #[pat_bits(frag_variant = JedXC2C32, "0" = 0)]
     pub gsr_invert: bool,
+
     /// Controls whether the four global tristate nets are enabled or not
+    #[offset(variant = JedXC2C32, [12261 + 1])]
+    #[arr_off(variant = JedXC2C32, |i| [i * 2])]
+    #[pat_bits(frag_variant = JedXC2C32, "0" = !0)]
     pub gts_enable: [bool; 4],
+
     /// Controls the polarity of the global tristate signal
     ///
     /// `false` = used as T, `true` = used as !T
+    #[offset(variant = JedXC2C32, [12261])]
+    #[arr_off(variant = JedXC2C32, |i| [i * 2])]
+    #[pat_bits(frag_variant = JedXC2C32, "0" = 0)]
     pub gts_invert: [bool; 4],
+
     /// Controls the mode of the global termination
     ///
     /// `false` = keeper, `true` = pull-up
+    #[offset(variant = JedXC2C32, [12269])]
+    #[pat_bits(frag_variant = JedXC2C32, "0" = 0)]
     pub global_pu: bool,
 }
 
@@ -214,13 +242,45 @@ pub enum XC2ClockDivRatio {
 
 /// Represents the configuration of the programmable clock divider in devices with 128 macrocells or more. This is
 /// hard-wired onto the GCK2 clock pin.
+#[bitfragment(variant = JedCommon, dimensions = 1)]
+#[bitfragment(variant = CrbitXC2C128, dimensions = 2)]
+#[bitfragment(variant = CrbitXC2C256, dimensions = 2)]
+#[bitfragment(variant = CrbitXC2C384, dimensions = 2)]
+#[bitfragment(variant = CrbitXC2C512, dimensions = 2)]
 #[derive(Copy, Clone, Eq, PartialEq, Hash, Debug, Serialize, Deserialize)]
 pub struct XC2ClockDiv {
     /// Ratio that input clock is divided by
+    #[pat_pict(frag_variant = JedCommon, ". 0 1 2 .")]
+    #[pat_bits(frag_variant = CrbitXC2C128,
+        "0" = (363, 67),
+        "1" = (362, 67),
+        "2" = (361, 67))]
+    #[pat_bits(frag_variant = CrbitXC2C256,
+        "0" = (518, 24),
+        "1" = (517, 24),
+        "2" = (516, 24))]
+    #[pat_bits(frag_variant = CrbitXC2C384,
+        "0" = (470, 107),
+        "1" = (469, 107),
+        "2" = (468, 107))]
+    #[pat_bits(frag_variant = CrbitXC2C512,
+        "0" = (977, 147),
+        "1" = (976, 147),
+        "2" = (975, 147))]
     pub div_ratio: XC2ClockDivRatio,
     /// Whether the "delay" feature is enabled
+    #[pat_pict(frag_variant = JedCommon, ". . . . !0")]
+    #[pat_bits(frag_variant = CrbitXC2C128, "0" = !(360, 67))]
+    #[pat_bits(frag_variant = CrbitXC2C256, "0" = !(515, 24))]
+    #[pat_bits(frag_variant = CrbitXC2C384, "0" = !(467, 107))]
+    #[pat_bits(frag_variant = CrbitXC2C512, "0" = !(974, 147))]
     pub delay: bool,
     /// Whether the clock divider is enabled (other settings are ignored if not)
+    #[pat_pict(frag_variant = JedCommon, "!0 . . . .")]
+    #[pat_bits(frag_variant = CrbitXC2C128, "0" = !(364, 67))]
+    #[pat_bits(frag_variant = CrbitXC2C256, "0" = !(519, 24))]
+    #[pat_bits(frag_variant = CrbitXC2C384, "0" = !(471, 107))]
+    #[pat_bits(frag_variant = CrbitXC2C512, "0" = !(978, 147))]
     pub enabled: bool,
 }
 
@@ -251,35 +311,6 @@ impl Default for XC2ClockDiv {
             div_ratio: XC2ClockDivRatio::Div16,
             delay: false,
             enabled: false,
-        }
-    }
-}
-
-impl XC2ClockDiv {
-    /// Internal function to read the clock divider configuration from a 128-macrocell part
-    pub fn from_jed(device: XC2Device, fuses: &[bool]) -> Self {
-        let clock_fuse_block = clock_div_fuse_idx(device);
-
-        XC2ClockDiv {
-            delay: !fuses[clock_fuse_block + 4],
-            enabled: !fuses[clock_fuse_block],
-            div_ratio: XC2ClockDivRatio::decode(&[fuses[clock_fuse_block + 1], fuses[clock_fuse_block + 2], fuses[clock_fuse_block + 3]], ()).unwrap(),
-        }
-    }
-
-    /// Internal function to read the clock divider configuration from a 128-macrocell part
-    pub fn from_crbit(device: XC2Device, fuse_array: &FuseArray) -> Self {
-        let ((clken_x, clken_y), (clkdiv0_x, clkdiv0_y), (clkdiv1_x, clkdiv1_y), (clkdiv2_x, clkdiv2_y),
-            (clkdelay_x, clkdelay_y)) = clock_div_fuse_coord(device);
-
-        let div_ratio_bits = [fuse_array.get(clkdiv0_x, clkdiv0_y),
-                              fuse_array.get(clkdiv1_x, clkdiv1_y),
-                              fuse_array.get(clkdiv2_x, clkdiv2_y)];
-
-        XC2ClockDiv {
-            delay: !fuse_array.get(clkdelay_x, clkdelay_y),
-            enabled: !fuse_array.get(clken_x, clken_y),
-            div_ratio: XC2ClockDivRatio::decode(&div_ratio_bits, ()).unwrap(),
         }
     }
 }

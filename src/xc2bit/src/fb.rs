@@ -68,6 +68,8 @@ fn large_get_macrocell_offset(device: XC2Device, fb_i: usize, mc_i: usize) -> us
 pub static MC_TO_ROW_MAP_LARGE: [usize; MCS_PER_FB] =
     [0, 3, 5, 8, 10, 13, 15, 18, 20, 23, 25, 28, 30, 33, 35, 38];
 
+// Weird mapping here in (mostly) groups of 3
+// TODO: Explain better
 static AND_BLOCK_TYPE2_L2P_MAP: [usize; ANDTERMS_PER_FB] = [
     0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10,
     14, 15, 16,
@@ -579,45 +581,6 @@ impl Default for XC2BitstreamFB {
     }
 }
 
-/// Internal helper that reads a ZIA row from the fuse array
-fn zia_row_crbit_read_helper(x: usize, y: usize, zia_row: usize, zia_bits: &mut [bool], has_gap: bool,
-    fuse_array: &FuseArray) {
-
-    let l = zia_bits.len();
-
-    for zia_bit in 0..l {
-        let mut out_y = y + zia_row;
-        if has_gap && zia_row >= 20 {
-            // There is an OR array in the middle, 8 rows high
-            out_y += 8;
-        }
-
-        let out_x = x + zia_bit * 2;
-
-        zia_bits[l - 1 - zia_bit] = fuse_array.get(out_x, out_y);
-    }
-}
-
-// Weird mapping here in (mostly) groups of 3
-// TODO: Explain better
-static AND_BLOCK_TYPE2_P2L_MAP: [usize; ANDTERMS_PER_FB] = [
-    0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10,
-    55, 54, 53,
-    11, 12, 13,
-    52, 51, 50,
-    14, 15, 16,
-    49, 48, 47,
-    17, 18, 19,
-    46, 45, 44,
-    20, 21, 22,
-    43, 42, 41,
-    23, 24, 25,
-    40, 39, 38,
-    26, 27, 28,
-    37, 36, 35,
-    29, 30, 31,
-    34, 33, 32];
-
 impl XC2BitstreamFB {
     /// Dump a human-readable explanation of the settings for this FB to the given `writer` object.
     /// `device` must be the device type this FB was extracted from and is needed to decode I/O pin numbers.
@@ -751,127 +714,50 @@ impl XC2BitstreamFB {
     /// `device` must be the device type this FB was extracted from.
     /// `fb` must be the index of this function block.
     pub fn from_crbit(device: XC2Device, fb: u32, fuse_array: &FuseArray) -> Result<Self, XC2BitError> {
-        let mut ret = Self::default();
-
-        // ZIA
-        let (x, y) = zia_block_loc(device, fb);
-        for zia_row in 0..INPUTS_PER_ANDTERM {
-            *ret.get_mut_zia(zia_row) = match device {
-                XC2Device::XC2C32 | XC2Device::XC2C32A => {
-                    let mut zia_bits = [false; 8];
-                    zia_row_crbit_read_helper(x, y, zia_row, &mut zia_bits, true, fuse_array);
-                    XC2ZIAInput::decode_32_zia_choice(zia_row, &zia_bits)?
-                },
-                XC2Device::XC2C64 | XC2Device::XC2C64A => {
-                    let mut zia_bits = [false; 16];
-                    zia_row_crbit_read_helper(x, y, zia_row, &mut zia_bits, true, fuse_array);
-                    XC2ZIAInput::decode_64_zia_choice(zia_row, &zia_bits)?
-                },
-                XC2Device::XC2C128 => {
-                    let mut zia_bits = [false; 28];
-                    zia_row_crbit_read_helper(x, y, zia_row, &mut zia_bits, false, fuse_array);
-                    XC2ZIAInput::decode_128_zia_choice(zia_row, &zia_bits)?
-                },
-                XC2Device::XC2C256 => {
-                    let mut zia_bits = [false; 48];
-                    zia_row_crbit_read_helper(x, y, zia_row, &mut zia_bits, true, fuse_array);
-                    XC2ZIAInput::decode_256_zia_choice(zia_row, &zia_bits)?
-                },
-                XC2Device::XC2C384 => {
-                    let mut zia_bits = [false; 74];
-                    zia_row_crbit_read_helper(x, y, zia_row, &mut zia_bits, false, fuse_array);
-                    XC2ZIAInput::decode_384_zia_choice(zia_row, &zia_bits)?
-                },
-                XC2Device::XC2C512 => {
-                    let mut zia_bits = [false; 88];
-                    zia_row_crbit_read_helper(x, y, zia_row, &mut zia_bits, false, fuse_array);
-                    XC2ZIAInput::decode_512_zia_choice(zia_row, &zia_bits)?
-                },
-            };
-        }
-
-        // AND block
-        let (x, y, mirror) = and_block_loc(device, fb);
         match device {
-            // "Type 1" blocks (OR array is in the middle)
-            XC2Device::XC2C32 | XC2Device::XC2C32A | XC2Device::XC2C64 | XC2Device::XC2C64A | XC2Device::XC2C256 => {
-                for term_idx in 0..ANDTERMS_PER_FB {
-                    let out_x = (x as isize) + ((term_idx as isize * 2) * if !mirror {1} else {-1});
-
-                    let andterm = <XC2PLAAndTerm as BitFragment<pla::CrbitCentralOrBlock>>::decode(
-                        fuse_array,
-                        [out_x, y as isize],
-                        [mirror, false],
-                        ()).unwrap();
-
-                    *ret.get_mut_andterm(term_idx) = andterm;
-                }
+            XC2Device::XC2C32 | XC2Device::XC2C32A => {
+                <Self as BitFragment<CrbitXC2C32>>::decode(
+                    fuse_array,
+                    [0, 0],
+                    [false, false],
+                    fb as usize)
             },
-            // "Type 2" blocks (OR array is on the sides)
-            XC2Device::XC2C128 | XC2Device::XC2C384 | XC2Device::XC2C512 => {
-                for term_idx in 0..ANDTERMS_PER_FB {
-                    let phys_term_idx = AND_BLOCK_TYPE2_P2L_MAP[term_idx];
-                    let out_x = (x as isize) + ((term_idx as isize * 2) * if !mirror {1} else {-1});
-
-                    let andterm = <XC2PLAAndTerm as BitFragment<pla::CrbitSideOrBlock>>::decode(
-                        fuse_array,
-                        [out_x, y as isize],
-                        [mirror, false],
-                        ()).unwrap();
-
-                    *ret.get_mut_andterm(phys_term_idx) = andterm;
-                }
+            XC2Device::XC2C64 | XC2Device::XC2C64A => {
+                <Self as BitFragment<CrbitXC2C64>>::decode(
+                    fuse_array,
+                    [0, 0],
+                    [false, false],
+                    fb as usize)
             },
-        }
-
-        // OR block
-        let (x, y, mirror) = or_block_loc(device, fb);
-        match device {
-            // "Type 1" blocks (OR array is in the middle)
-            XC2Device::XC2C32 | XC2Device::XC2C32A | XC2Device::XC2C64 | XC2Device::XC2C64A | XC2Device::XC2C256 => {
-                for or_term_idx in 0..MCS_PER_FB {
-                    let out_y = y + (or_term_idx / 2);
-                    let off_x = if !mirror {
-                        x + or_term_idx % 2
-                    } else {
-                        x - or_term_idx % 2
-                    };
-
-                    let orterm = <XC2PLAOrTerm as BitFragment<pla::CrbitCentralOrBlock>>::decode(
-                        fuse_array,
-                        [off_x as isize, out_y as isize],
-                        [mirror, false],
-                        ()).unwrap();
-
-                    ret.or_terms[or_term_idx] = orterm;
-                }
+            XC2Device::XC2C128 => {
+                <Self as BitFragment<CrbitXC2C128>>::decode(
+                    fuse_array,
+                    [0, 0],
+                    [false, false],
+                    fb as usize)
             },
-            // "Type 2" blocks (OR array is on the sides)
-            XC2Device::XC2C128 | XC2Device::XC2C384 | XC2Device::XC2C512 => {
-                for or_term_idx in 0..MCS_PER_FB {
-                    let off_x = if !mirror {
-                        x + or_term_idx * 2
-                    } else {
-                        x - or_term_idx * 2
-                    };
-
-                    let orterm = <XC2PLAOrTerm as BitFragment<pla::CrbitSideOrBlock>>::decode(
-                        fuse_array,
-                        [off_x as isize, y as isize],
-                        [mirror, false],
-                        ()).unwrap();
-
-                    ret.or_terms[or_term_idx] = orterm;
-                }
+            XC2Device::XC2C256 => {
+                <Self as BitFragment<CrbitXC2C256>>::decode(
+                    fuse_array,
+                    [0, 0],
+                    [false, false],
+                    fb as usize)
+            },
+            XC2Device::XC2C384 => {
+                <Self as BitFragment<CrbitXC2C384>>::decode(
+                    fuse_array,
+                    [0, 0],
+                    [false, false],
+                    fb as usize)
+            },
+            XC2Device::XC2C512 => {
+                <Self as BitFragment<CrbitXC2C512>>::decode(
+                    fuse_array,
+                    [0, 0],
+                    [false, false],
+                    fb as usize)
             },
         }
-
-        // FFs
-        for i in 0..MCS_PER_FB {
-            ret.mcs[i] = XC2Macrocell::from_crbit(device, fb, i as u32, fuse_array);
-        }
-
-        Ok(ret)
     }
 
     /// Write the .JED representation of the settings for this FB to the given `jed` object.

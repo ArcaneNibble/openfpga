@@ -33,7 +33,7 @@ use jedec::*;
 use crate::*;
 use crate::fusemap_logical::{fb_fuse_idx, gck_fuse_idx, gsr_fuse_idx, gts_fuse_idx, global_term_fuse_idx,
                              total_logical_fuse_count, clock_div_fuse_idx};
-use crate::fusemap_physical::{fuse_array_dims, clock_div_fuse_coord};
+use crate::fusemap_physical::{fuse_array_dims};
 use crate::util::{LinebreakSet};
 use crate::zia::{zia_get_row_width};
 
@@ -702,17 +702,25 @@ impl XC2BitstreamBits {
 
         // Clock divider
         if let Some(clock_div) = self.get_clock_div() {
-            let ((clken_x, clken_y), (clkdiv0_x, clkdiv0_y), (clkdiv1_x, clkdiv1_y), (clkdiv2_x, clkdiv2_y),
-                (clkdelay_x, clkdelay_y)) = clock_div_fuse_coord(self.device_type());
-
-            fuse_array.set(clken_x, clken_y, !clock_div.enabled);
-
-            let divratio = clock_div.div_ratio.encode(());
-            fuse_array.set(clkdiv0_x, clkdiv0_y, divratio[0]);
-            fuse_array.set(clkdiv1_x, clkdiv1_y, divratio[1]);
-            fuse_array.set(clkdiv2_x, clkdiv2_y, divratio[2]);
-
-            fuse_array.set(clkdelay_x, clkdelay_y, !clock_div.delay);
+            match self.device_type() {
+                XC2Device::XC2C128 => {
+                    <XC2ClockDiv as BitFragment<globalbits::CrbitXC2C128>>::encode(
+                        clock_div, fuse_array, [0, 0], [false, false], ());
+                },
+                XC2Device::XC2C256 => {
+                    <XC2ClockDiv as BitFragment<globalbits::CrbitXC2C256>>::encode(
+                        clock_div, fuse_array, [0, 0], [false, false], ());
+                },
+                XC2Device::XC2C384 => {
+                    <XC2ClockDiv as BitFragment<globalbits::CrbitXC2C384>>::encode(
+                        clock_div, fuse_array, [0, 0], [false, false], ());
+                },
+                XC2Device::XC2C512 => {
+                    <XC2ClockDiv as BitFragment<globalbits::CrbitXC2C512>>::encode(
+                        clock_div, fuse_array, [0, 0], [false, false], ());
+                },
+                _ => unreachable!()
+            }
         }
 
         // Bank voltages and miscellaneous
@@ -948,31 +956,33 @@ impl XC2BitstreamBits {
         // GCK
         linebreaks.add(gck_fuse_idx(self.device_type()));
         linebreaks.add(gck_fuse_idx(self.device_type()));
+        if self.device_type() != XC2Device::XC2C32 && self.device_type() != XC2Device::XC2C32A {
         jed.f[gck_fuse_idx(self.device_type()) + 0] = self.get_global_nets().gck_enable[0];
         jed.f[gck_fuse_idx(self.device_type()) + 1] = self.get_global_nets().gck_enable[1];
         jed.f[gck_fuse_idx(self.device_type()) + 2] = self.get_global_nets().gck_enable[2];
+        }
 
         // Clock divider
         if let Some(clock_div) = self.get_clock_div() {
             let clock_fuse_block = clock_div_fuse_idx(self.device_type());
 
             linebreaks.add(clock_fuse_block);
-            jed.f[clock_fuse_block] = !clock_div.enabled;
-            let clk_div_bits = clock_div.div_ratio.encode(());
-            jed.f[clock_fuse_block+1] = clk_div_bits[0];
-            jed.f[clock_fuse_block+2] = clk_div_bits[1];
-            jed.f[clock_fuse_block+3] = clk_div_bits[2];
             linebreaks.add(clock_fuse_block + 4);
-            jed.f[clock_fuse_block + 4] = !clock_div.delay;
+
+            <XC2ClockDiv as BitFragment<globalbits::JedCommon>>::encode(
+                clock_div, &mut jed.f, [clock_fuse_block as isize], [false], ());
         }
 
         // GSR
         linebreaks.add(gsr_fuse_idx(self.device_type()));
+        if self.device_type() != XC2Device::XC2C32 && self.device_type() != XC2Device::XC2C32A {
         jed.f[gsr_fuse_idx(self.device_type()) + 0] = self.get_global_nets().gsr_invert;
         jed.f[gsr_fuse_idx(self.device_type()) + 1] = self.get_global_nets().gsr_enable;
+        }
 
         // GTS
         linebreaks.add(gts_fuse_idx(self.device_type()));
+        if self.device_type() != XC2Device::XC2C32 && self.device_type() != XC2Device::XC2C32A {
         jed.f[gts_fuse_idx(self.device_type()) + 0] = self.get_global_nets().gts_invert[0];
         jed.f[gts_fuse_idx(self.device_type()) + 1] = !self.get_global_nets().gts_enable[0];
         jed.f[gts_fuse_idx(self.device_type()) + 2] = self.get_global_nets().gts_invert[1];
@@ -981,10 +991,19 @@ impl XC2BitstreamBits {
         jed.f[gts_fuse_idx(self.device_type()) + 5] = !self.get_global_nets().gts_enable[2];
         jed.f[gts_fuse_idx(self.device_type()) + 6] = self.get_global_nets().gts_invert[3];
         jed.f[gts_fuse_idx(self.device_type()) + 7] = !self.get_global_nets().gts_enable[3];
+        }
 
         // Global termination
         linebreaks.add(global_term_fuse_idx(self.device_type()));
+        if self.device_type() != XC2Device::XC2C32 && self.device_type() != XC2Device::XC2C32A {
         jed.f[global_term_fuse_idx(self.device_type())] = self.get_global_nets().global_pu;
+        }
+
+        if self.device_type() == XC2Device::XC2C32 || self.device_type() == XC2Device::XC2C32A {
+            <XC2GlobalNets as BitFragment<globalbits::JedXC2C32>>::encode(
+                self.get_global_nets(),
+                &mut jed.f, [0], [false], ());
+        }
 
         // Bank voltages and miscellaneous
         match self {
@@ -1280,7 +1299,9 @@ fn read_128_bitstream_logical(fuses: &[bool]) -> Result<XC2BitstreamBits, XC2Bit
         fb,
         iobs: iobs2,
         global_nets,
-        clock_div: XC2ClockDiv::from_jed(XC2Device::XC2C128, fuses),
+        clock_div:
+            <XC2ClockDiv as BitFragment<globalbits::JedCommon>>::decode(
+                fuses, [clock_div_fuse_idx(XC2Device::XC2C128) as isize], [false], ()).unwrap(),
         data_gate: !fuses[55335],
         use_vref: !fuses[55340],
         ivoltage: [
@@ -1312,7 +1333,9 @@ fn read_256_bitstream_logical(fuses: &[bool]) -> Result<XC2BitstreamBits, XC2Bit
         fb,
         iobs: iobs2,
         global_nets,
-        clock_div: XC2ClockDiv::from_jed(XC2Device::XC2C256, fuses),
+        clock_div:
+            <XC2ClockDiv as BitFragment<globalbits::JedCommon>>::decode(
+                fuses, [clock_div_fuse_idx(XC2Device::XC2C256) as isize], [false], ()).unwrap(),
         data_gate: !fuses[123243],
         use_vref: !fuses[123248],
         ivoltage: [
@@ -1344,7 +1367,9 @@ fn read_384_bitstream_logical(fuses: &[bool]) -> Result<XC2BitstreamBits, XC2Bit
         fb,
         iobs: iobs2,
         global_nets,
-        clock_div: XC2ClockDiv::from_jed(XC2Device::XC2C384, fuses),
+        clock_div:
+            <XC2ClockDiv as BitFragment<globalbits::JedCommon>>::decode(
+                fuses, [clock_div_fuse_idx(XC2Device::XC2C384) as isize], [false], ()).unwrap(),
         data_gate: !fuses[209347],
         use_vref: !fuses[209356],
         ivoltage: [
@@ -1380,7 +1405,9 @@ fn read_512_bitstream_logical(fuses: &[bool]) -> Result<XC2BitstreamBits, XC2Bit
         fb,
         iobs: iobs2,
         global_nets,
-        clock_div: XC2ClockDiv::from_jed(XC2Device::XC2C512, fuses),
+        clock_div:
+            <XC2ClockDiv as BitFragment<globalbits::JedCommon>>::decode(
+                fuses, [clock_div_fuse_idx(XC2Device::XC2C512) as isize], [false], ()).unwrap(),
         data_gate: !fuses[296393],
         use_vref: !fuses[296402],
         ivoltage: [
@@ -1550,7 +1577,9 @@ fn read_128_bitstream_physical(fuse_array: &FuseArray) -> Result<XC2BitstreamBit
         fb,
         iobs: iobs2,
         global_nets,
-        clock_div: XC2ClockDiv::from_crbit(XC2Device::XC2C128, fuse_array),
+        clock_div:
+            <XC2ClockDiv as BitFragment<globalbits::CrbitXC2C128>>::decode(
+                fuse_array, [0, 0], [false, false], ()).unwrap(),
         data_gate: !fuse_array.get(371, 67),
         use_vref: !fuse_array.get(10, 67),
         ivoltage: [
@@ -1582,7 +1611,9 @@ fn read_256_bitstream_physical(fuse_array: &FuseArray) -> Result<XC2BitstreamBit
         fb,
         iobs: iobs2,
         global_nets,
-        clock_div: XC2ClockDiv::from_crbit(XC2Device::XC2C256, fuse_array),
+        clock_div:
+            <XC2ClockDiv as BitFragment<globalbits::CrbitXC2C256>>::decode(
+                fuse_array, [0, 0], [false, false], ()).unwrap(),
         data_gate: !fuse_array.get(518, 23),
         use_vref: !fuse_array.get(177, 23),
         ivoltage: [
@@ -1614,7 +1645,9 @@ fn read_384_bitstream_physical(fuse_array: &FuseArray) -> Result<XC2BitstreamBit
         fb,
         iobs: iobs2,
         global_nets,
-        clock_div: XC2ClockDiv::from_crbit(XC2Device::XC2C384, fuse_array),
+        clock_div:
+            <XC2ClockDiv as BitFragment<globalbits::CrbitXC2C384>>::decode(
+                fuse_array, [0, 0], [false, false], ()).unwrap(),
         data_gate: !fuse_array.get(932, 17),
         use_vref: !fuse_array.get(3, 17),
         ivoltage: [
@@ -1650,7 +1683,9 @@ fn read_512_bitstream_physical(fuse_array: &FuseArray) -> Result<XC2BitstreamBit
         fb,
         iobs: iobs2,
         global_nets,
-        clock_div: XC2ClockDiv::from_crbit(XC2Device::XC2C512, fuse_array),
+        clock_div:
+            <XC2ClockDiv as BitFragment<globalbits::CrbitXC2C512>>::decode(
+                fuse_array, [0, 0], [false, false], ()).unwrap(),
         data_gate: !fuse_array.get(982, 147),
         use_vref: !fuse_array.get(1, 147),
         ivoltage: [

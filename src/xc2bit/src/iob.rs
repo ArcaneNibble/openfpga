@@ -31,7 +31,7 @@ use jedec::*;
 
 use crate::*;
 use crate::fusemap_physical::{mc_block_loc};
-use crate::mc::{MC_TO_ROW_MAP_LARGE};
+use crate::fb::{MC_TO_ROW_MAP_LARGE};
 use crate::zia::{zia_get_row_width};
 
 /// Mux selection for the ZIA input from this I/O pin's input. The ZIA input can be chosen to come from either the

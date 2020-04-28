@@ -28,7 +28,6 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 use core::fmt;
 
 use crate::*;
-use crate::fusemap_physical::{mc_block_loc};
 
 /// Clock source for the register in a macrocell
 #[bitpattern]
@@ -485,9 +484,6 @@ impl Default for XC2Macrocell {
     }
 }
 
-pub static MC_TO_ROW_MAP_LARGE: [usize; MCS_PER_FB] =
-    [0, 3, 5, 8, 10, 13, 15, 18, 20, 23, 25, 28, 30, 33, 35, 38];
-
 impl fmt::Display for XC2Macrocell {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "FF mode: {}\n", match self.reg_mode {
@@ -532,38 +528,5 @@ impl fmt::Display for XC2Macrocell {
         })?;
 
         Ok(())
-    }
-}
-
-impl XC2Macrocell {
-    /// Reads the crbit representation of this macrocell from the given `fuse_array`.
-    pub fn from_crbit(device: XC2Device, fb: u32, mc: u32, fuse_array: &FuseArray) -> Self {
-        let (x, y, mirror) = mc_block_loc(device, fb);
-        match device {
-            XC2Device::XC2C32 | XC2Device::XC2C32A => {
-                // The "32" variant
-                // each macrocell is 3 rows high
-                let y = y + (mc as usize) * 3;
-                <Self as BitFragment::<Crbit32>>::decode(fuse_array, [x as isize, y as isize], [mirror, false], ()).unwrap()
-            },
-            XC2Device::XC2C64 | XC2Device::XC2C64A => {
-                // The "64" variant
-                // each macrocell is 3 rows high
-                let y = y + (mc as usize) * 3;
-                <Self as BitFragment::<Crbit64>>::decode(fuse_array, [x as isize, y as isize], [mirror, false], ()).unwrap()
-            },
-            XC2Device::XC2C256 => {
-                // The "256" variant
-                // each macrocell is 3 rows high
-                let y = y + (mc as usize) * 3;
-                <Self as BitFragment::<Crbit256>>::decode(fuse_array, [x as isize, y as isize], [mirror, false], ()).unwrap()
-            },
-            XC2Device::XC2C128 | XC2Device::XC2C384 | XC2Device::XC2C512 => {
-                // The "common large macrocell" variant
-                // we need this funny lookup table, but otherwise macrocells are 2x15
-                let y = y + MC_TO_ROW_MAP_LARGE[mc as usize];
-                <Self as BitFragment::<CrbitLarge>>::decode(fuse_array, [x as isize, y as isize], [mirror, false], ()).unwrap()
-            }
-        }
     }
 }
