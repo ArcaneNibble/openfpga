@@ -329,26 +329,21 @@ impl BitFragment<Jed> for XC2PLAOrTerm {
             fuses[((offset[0] as isize) +
                 ((MCS_PER_FB * i) as isize) * (if mirror[0] {-1} else {1})) as usize] =
 
-                ((self.input[i / 8]) & (1 << (i % 8))) == 0;
+                !self.get(i);
         }
     }
     fn decode<F>(fuses: &F,
         offset: Self::OffsettingType, mirror: Self::MirroringType, _: ()) -> Result<Self, ()>
         where F: ::core::ops::Index<Self::IndexingType, Output=bool> + ?Sized {
 
-        let mut input = [0u8; ANDTERMS_PER_FB / 8];
+        let mut ret = Self::default();
 
         for i in 0..ANDTERMS_PER_FB {
-            if !fuses[((offset[0] as isize) +
-                ((MCS_PER_FB * i) as isize) * (if mirror[0] {-1} else {1})) as usize] {
-
-                input[i / 8] |= 1 << (i % 8);
-            }
+            ret.set(i, !fuses[((offset[0] as isize) +
+                ((MCS_PER_FB * i) as isize) * (if mirror[0] {-1} else {1})) as usize]);
         }
 
-        Ok(XC2PLAOrTerm {
-            input,
-        })
+        Ok(ret)
     }
 
     fn fieldname(_: usize) -> &'static str {"input"}
@@ -362,12 +357,124 @@ impl BitFragment<Jed> for XC2PLAOrTerm {
     fn field_bit_base_pos(_: usize, _bit_i: usize) -> Self::OffsettingType {[0]}
 }
 
-impl XC2PLAOrTerm {
-    /// Internal function that reads one single OR term from a block of fuses using logical fuse indexing
-    pub fn from_jed(fuses: &[bool], block_idx: usize, term_idx: usize) -> XC2PLAOrTerm {
-        <Self as BitFragment<Jed>>::decode(fuses, [(block_idx + term_idx) as isize], [false], ()).unwrap()
+// across a row, interleaved
+impl BitFragment<CrbitCentralOrBlock> for XC2PLAOrTerm {
+    const IDX_DIMS: usize = 2;
+    type IndexingType = [usize; 2];
+    type OffsettingType = [isize; 2];
+    type MirroringType = [bool; 2];
+
+    type ErrType = ();
+
+    type EncodeExtraType = ();
+    type DecodeExtraType = ();
+
+    const FIELD_COUNT: usize = 2;
+
+    fn encode<F>(&self, fuses: &mut F,
+        offset: Self::OffsettingType, mirror: Self::MirroringType, _: ())
+        where F: ::core::ops::IndexMut<Self::IndexingType, Output=bool> + ?Sized {
+
+        for i in 0..ANDTERMS_PER_FB {
+            let x = (offset[0] as isize) + 2 * (i as isize) * if !mirror[0] {1} else {-1};
+            fuses[[x as usize, offset[1] as usize]] = !self.get(i);
+        }
+    }
+    fn decode<F>(fuses: &F,
+        offset: Self::OffsettingType, mirror: Self::MirroringType, _: ()) -> Result<Self, ()>
+        where F: ::core::ops::Index<Self::IndexingType, Output=bool> + ?Sized {
+
+        let mut ret = Self::default();
+
+        for i in 0..ANDTERMS_PER_FB {
+            let x = (offset[0] as isize) + 2 * (i as isize) * if !mirror[0] {1} else {-1};
+            ret.set(i, !fuses[[x as usize, offset[1] as usize]]);
+        }
+
+        Ok(ret)
     }
 
+    fn fieldname(_: usize) -> &'static str {"input"}
+    fn fielddesc(_: usize) -> &'static str {"inputs"}
+    fn fieldtype(_: usize) -> BitFragmentFieldType {
+        BitFragmentFieldType::PatternArray(ANDTERMS_PER_FB)
+    }
+    fn field_offset(_: usize, _: usize) -> Self::OffsettingType {[0, 0]}
+    fn field_mirror(_: usize, _: usize) -> Self::MirroringType {[false, false]}
+    fn field_bits(_: usize) -> usize {0}
+    fn field_bit_base_pos(_: usize, _bit_i: usize) -> Self::OffsettingType {[0, 0]}
+}
+
+static OR_BLOCK_TYPE2_ROW_MAP: [usize; ANDTERMS_PER_FB / 2] =
+    [17, 19, 22, 20, 0, 1, 3, 4, 5, 7, 8, 11, 12, 13, 15, 16, 23, 24, 26, 27, 28, 31, 32, 34, 35, 36, 38, 39];
+
+// down, 2 colums wide, but with gaps
+impl BitFragment<CrbitSideOrBlock> for XC2PLAOrTerm {
+    const IDX_DIMS: usize = 2;
+    type IndexingType = [usize; 2];
+    type OffsettingType = [isize; 2];
+    type MirroringType = [bool; 2];
+
+    type ErrType = ();
+
+    type EncodeExtraType = ();
+    type DecodeExtraType = ();
+
+    const FIELD_COUNT: usize = 2;
+
+    fn encode<F>(&self, fuses: &mut F,
+        offset: Self::OffsettingType, mirror: Self::MirroringType, _: ())
+        where F: ::core::ops::IndexMut<Self::IndexingType, Output=bool> + ?Sized {
+
+        for i in 0..ANDTERMS_PER_FB {
+            let yoff = OR_BLOCK_TYPE2_ROW_MAP[i / 2];
+            let xoff = if OR_BLOCK_TYPE2_ROW_MAP[i / 2] >= 23 {
+                // "Reverse"
+                1 - (i % 2)
+            } else {
+                i % 2
+            };
+
+            let x = (offset[0] as isize) + (xoff as isize) * if !mirror[0] {1} else {-1};
+            let y = (offset[1] as isize) + (yoff as isize) * if !mirror[1] {1} else {-1};
+            fuses[[x as usize, y as usize]] = !self.get(i);
+        }
+    }
+    fn decode<F>(fuses: &F,
+        offset: Self::OffsettingType, mirror: Self::MirroringType, _: ()) -> Result<Self, ()>
+        where F: ::core::ops::Index<Self::IndexingType, Output=bool> + ?Sized {
+
+        let mut ret = Self::default();
+
+        for i in 0..ANDTERMS_PER_FB {
+            let yoff = OR_BLOCK_TYPE2_ROW_MAP[i / 2];
+            let xoff = if OR_BLOCK_TYPE2_ROW_MAP[i / 2] >= 23 {
+                // "Reverse"
+                1 - (i % 2)
+            } else {
+                i % 2
+            };
+
+            let x = (offset[0] as isize) + (xoff as isize) * if !mirror[0] {1} else {-1};
+            let y = (offset[1] as isize) + (yoff as isize) * if !mirror[1] {1} else {-1};
+            ret.set(i, !fuses[[x as usize, y as usize]]);
+        }
+
+        Ok(ret)
+    }
+
+    fn fieldname(_: usize) -> &'static str {"input"}
+    fn fielddesc(_: usize) -> &'static str {"inputs"}
+    fn fieldtype(_: usize) -> BitFragmentFieldType {
+        BitFragmentFieldType::PatternArray(ANDTERMS_PER_FB)
+    }
+    fn field_offset(_: usize, _: usize) -> Self::OffsettingType {[0, 0]}
+    fn field_mirror(_: usize, _: usize) -> Self::MirroringType {[false, false]}
+    fn field_bits(_: usize) -> usize {0}
+    fn field_bit_base_pos(_: usize, _bit_i: usize) -> Self::OffsettingType {[0, 0]}
+}
+
+impl XC2PLAOrTerm {
     /// Returns `true` if the `i`th AND term is used in this OR term
     pub fn get(&self, i: usize) -> bool {
         self.input[i / 8] & (1 << (i % 8)) != 0

@@ -10013,8 +10013,8 @@ pub fn zia_get_row_width(device: XC2Device) -> usize {
     }
 }
 
-macro_rules! zia_bitfrag {
-    ($jedvariant:ident, $patvariant:ident, $spacing:literal) => {
+macro_rules! jed_zia_bitfrag {
+    ($jedvariant:ident, $patvariant:ident) => {
         impl BitFragment<$jedvariant> for XC2ZIAInput {
             const IDX_DIMS: usize = 1;
             type IndexingType = usize;
@@ -10037,7 +10037,7 @@ macro_rules! zia_bitfrag {
 
                 for i in 0..x.len() {
                     fuses[((offset[0] as isize) +
-                        (if mirror[0] {-1} else {1}) * ($spacing * i as isize)) as usize] = x[i];
+                        (if mirror[0] {-1} else {1}) * (i as isize)) as usize] = x[i];
                 }
             }
             fn decode<F>(fuses: &F,
@@ -10049,7 +10049,7 @@ macro_rules! zia_bitfrag {
 
                 for i in 0..x.len() {
                     x[i] = fuses[((offset[0] as isize) +
-                        (if mirror[0] {-1} else {1}) * ($spacing * i as isize)) as usize];
+                        (if mirror[0] {-1} else {1}) * (i as isize)) as usize];
                 }
 
                 <Self as BitPattern<$patvariant>>::decode(&x, row)
@@ -10073,12 +10073,67 @@ pub enum JedXC2C256 {}
 pub enum JedXC2C384 {}
 pub enum JedXC2C512 {}
 
-zia_bitfrag!(JedXC2C32, XC2C32, 1);
-zia_bitfrag!(JedXC2C64, XC2C64, 1);
-zia_bitfrag!(JedXC2C128, XC2C128, 1);
-zia_bitfrag!(JedXC2C256, XC2C256, 1);
-zia_bitfrag!(JedXC2C384, XC2C384, 1);
-zia_bitfrag!(JedXC2C512, XC2C512, 1);
+jed_zia_bitfrag!(JedXC2C32, XC2C32);
+jed_zia_bitfrag!(JedXC2C64, XC2C64);
+jed_zia_bitfrag!(JedXC2C128, XC2C128);
+jed_zia_bitfrag!(JedXC2C256, XC2C256);
+jed_zia_bitfrag!(JedXC2C384, XC2C384);
+jed_zia_bitfrag!(JedXC2C512, XC2C512);
+
+macro_rules! crbit_zia_bitfrag {
+    ($jedvariant:ident, $patvariant:ident) => {
+        impl BitFragment<$jedvariant> for XC2ZIAInput {
+            const IDX_DIMS: usize = 2;
+            type IndexingType = [usize; 2];
+            type OffsettingType = [isize; 2];
+            type MirroringType = [bool; 2];
+
+            type ErrType = XC2BitError;
+
+            type EncodeExtraType = usize;
+            type DecodeExtraType = usize;
+
+            const FIELD_COUNT: usize = 1;
+
+            fn encode<F>(&self, fuses: &mut F,
+                offset: Self::OffsettingType, mirror: Self::MirroringType,
+                row: usize)
+                where F: ::core::ops::IndexMut<Self::IndexingType, Output=bool> + ?Sized {
+
+                let x = BitPattern::<$patvariant>::encode(self, row);
+
+                for i in 0..x.len() {
+                    fuses[[((offset[0] as isize) +
+                        (if mirror[0] {-1} else {1}) * (2 * (x.len() - 1 - i) as isize)) as usize,
+                        offset[1] as usize]] = x[i];
+                }
+            }
+            fn decode<F>(fuses: &F,
+                offset: Self::OffsettingType, mirror: Self::MirroringType,
+                row: usize) -> Result<Self, Self::ErrType>
+                where F: ::core::ops::Index<Self::IndexingType, Output=bool> + ?Sized {
+
+                let mut x = [false; <Self as BitPattern<$patvariant>>::BITS_COUNT];
+
+                for i in 0..x.len() {
+                    x[i] = fuses[[((offset[0] as isize) +
+                        (if mirror[0] {-1} else {1}) * (2 * (x.len() - 1 - i) as isize)) as usize,
+                    offset[1] as usize]];
+                }
+
+                <Self as BitPattern<$patvariant>>::decode(&x, row)
+            }
+
+            fn fieldname(_: usize) -> &'static str {"zia"}
+            fn fielddesc(_: usize) -> &'static str {"ZIA row entry"}
+            fn fieldtype(_: usize) -> BitFragmentFieldType {BitFragmentFieldType::Pattern}
+            fn field_offset(_: usize, _: usize) -> Self::OffsettingType {[0, 0]}
+            fn field_mirror(_: usize, _: usize) -> Self::MirroringType {[false, false]}
+            fn field_bits(_: usize) -> usize {0}
+            fn field_bit_base_pos(_: usize, _bit_i: usize) -> Self::OffsettingType {[0, 0]}
+        }
+    };
+}
 
 pub enum CrbitXC2C32 {}
 pub enum CrbitXC2C64 {}
@@ -10087,9 +10142,9 @@ pub enum CrbitXC2C256 {}
 pub enum CrbitXC2C384 {}
 pub enum CrbitXC2C512 {}
 
-zia_bitfrag!(CrbitXC2C32, XC2C32, 2);
-zia_bitfrag!(CrbitXC2C64, XC2C64, 2);
-zia_bitfrag!(CrbitXC2C128, XC2C128, 2);
-zia_bitfrag!(CrbitXC2C256, XC2C256, 2);
-zia_bitfrag!(CrbitXC2C384, XC2C384, 2);
-zia_bitfrag!(CrbitXC2C512, XC2C512, 2);
+crbit_zia_bitfrag!(CrbitXC2C32, XC2C32);
+crbit_zia_bitfrag!(CrbitXC2C64, XC2C64);
+crbit_zia_bitfrag!(CrbitXC2C128, XC2C128);
+crbit_zia_bitfrag!(CrbitXC2C256, XC2C256);
+crbit_zia_bitfrag!(CrbitXC2C384, XC2C384);
+crbit_zia_bitfrag!(CrbitXC2C512, XC2C512);

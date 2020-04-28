@@ -31,7 +31,7 @@ use std::io::Write;
 use jedec::*;
 
 use crate::*;
-use crate::fusemap_physical::{zia_block_loc, and_block_loc, or_block_loc};
+use crate::fusemap_physical::{zia_block_loc, and_block_loc, or_block_loc, mc_block_loc};
 use crate::util::{LinebreakSet};
 use crate::zia::{zia_get_row_width};
 
@@ -41,6 +41,8 @@ pub enum JedXC2C128 {}
 pub enum JedXC2C256 {}
 pub enum JedXC2C384 {}
 pub enum JedXC2C512 {}
+
+pub enum CrbitXC2C32 {}
 
 fn large_get_macrocell_offset(device: XC2Device, fb_i: usize, mc_i: usize) -> usize {
     let mut current_fuse_offset = 0;
@@ -64,6 +66,8 @@ fn large_get_macrocell_offset(device: XC2Device, fb_i: usize, mc_i: usize) -> us
 #[bitfragment(variant = JedXC2C256, dimensions = 1, errtype = XC2BitError, encode_extra_type = usize, decode_extra_type = usize)]
 #[bitfragment(variant = JedXC2C384, dimensions = 1, errtype = XC2BitError, encode_extra_type = usize, decode_extra_type = usize)]
 #[bitfragment(variant = JedXC2C512, dimensions = 1, errtype = XC2BitError, encode_extra_type = usize, decode_extra_type = usize)]
+
+#[bitfragment(variant = CrbitXC2C32, dimensions = 2, errtype = XC2BitError, encode_extra_type = usize, decode_extra_type = usize)]
 #[derive(Copy, Clone, Eq, PartialEq, Hash, Debug, Serialize, Deserialize)]
 /// Represents a collection of all the parts that make up one function block
 pub struct XC2BitstreamFB {
@@ -92,6 +96,21 @@ pub struct XC2BitstreamFB {
     #[arr_off(variant = JedXC2C512, |i| [i * INPUTS_PER_ANDTERM * 2])]
     #[frag(outer_frag_variant = JedXC2C512, inner_frag_variant = pla::Jed)]
 
+    #[offset(variant = CrbitXC2C32, {
+        let (x, y, _mirror) = and_block_loc(XC2Device::XC2C32, extra_data as u32);
+        [x, y]
+    })]
+    #[mirror(variant = CrbitXC2C32, {
+        let (_x, _y, mirror) = and_block_loc(XC2Device::XC2C32, extra_data as u32);
+        [mirror, false]
+    })]
+    #[arr_off(variant = CrbitXC2C32, |i| {
+        // FIXME WTF
+        let (_x, _y, mirror) = and_block_loc(XC2Device::XC2C32, extra_data as u32);
+        [(i as isize) * 2 * (if !mirror {1} else {-1}), 0]
+    })]
+    #[frag(outer_frag_variant = CrbitXC2C32, inner_frag_variant = pla::CrbitCentralOrBlock)]
+
     and_terms: [[XC2PLAAndTerm; ANDTERMS_PER_FB / 2]; 2],
 
 
@@ -119,6 +138,21 @@ pub struct XC2BitstreamFB {
     #[offset(variant = JedXC2C512, [zia_get_row_width(XC2Device::XC2C512) * INPUTS_PER_ANDTERM + INPUTS_PER_ANDTERM * 2 * ANDTERMS_PER_FB])]
     #[arr_off(variant = JedXC2C512, |i| [i])]
     #[frag(outer_frag_variant = JedXC2C512, inner_frag_variant = pla::Jed)]
+
+    #[offset(variant = CrbitXC2C32, {
+        let (x, y, _mirror) = or_block_loc(XC2Device::XC2C32, extra_data as u32);
+        [x, y]
+    })]
+    #[mirror(variant = CrbitXC2C32, {
+        let (_x, _y, mirror) = or_block_loc(XC2Device::XC2C32, extra_data as u32);
+        [mirror, false]
+    })]
+    #[arr_off(variant = CrbitXC2C32, |i| {
+        // FIXME WTF
+        let (_x, _y, mirror) = or_block_loc(XC2Device::XC2C32, extra_data as u32);
+        [((i % 2) as isize) * (if !mirror {1} else {-1}), (i as isize) / 2]
+    })]
+    #[frag(outer_frag_variant = CrbitXC2C32, inner_frag_variant = pla::CrbitCentralOrBlock)]
 
     pub or_terms: [XC2PLAOrTerm; MCS_PER_FB],
 
@@ -153,6 +187,22 @@ pub struct XC2BitstreamFB {
     #[frag(outer_frag_variant = JedXC2C512, inner_frag_variant = zia::JedXC2C512)]
     #[encode_sub_extra_data(variant = JedXC2C512, arr_elem_i)]
     #[decode_sub_extra_data(variant = JedXC2C512, arr_elem_i)]
+
+    #[offset(variant = CrbitXC2C32, {
+        let (x, y) = zia_block_loc(XC2Device::XC2C32, extra_data as u32);
+        [x, y]
+    })]
+    #[arr_off(variant = CrbitXC2C32, |i| {
+        if i >= 20 {
+            // There is an OR array in the middle, 8 rows high
+            [0, i + 8]
+        } else {
+            [0, i]
+        }
+    })]
+    #[frag(outer_frag_variant = CrbitXC2C32, inner_frag_variant = zia::CrbitXC2C32)]
+    #[encode_sub_extra_data(variant = CrbitXC2C32, arr_elem_i)]
+    #[decode_sub_extra_data(variant = CrbitXC2C32, arr_elem_i)]
 
     zia_bits: [[XC2ZIAInput; INPUTS_PER_ANDTERM / 2]; 2],
 
@@ -189,6 +239,17 @@ pub struct XC2BitstreamFB {
     #[frag(outer_frag_variant = JedXC2C512, inner_frag_variant = mc::JedLarge)]
     #[encode_sub_extra_data(variant = JedXC2C512, fb_mc_num_to_iob_num(XC2Device::XC2C512, extra_data as u32, arr_elem_i as u32).is_none())]
     #[decode_sub_extra_data(variant = JedXC2C512, fb_mc_num_to_iob_num(XC2Device::XC2C512, extra_data as u32, arr_elem_i as u32).is_none())]
+
+    #[offset(variant = CrbitXC2C32, {
+        let (x, y, _mirror) = mc_block_loc(XC2Device::XC2C32, extra_data as u32);
+        [x, y]
+    })]
+    #[mirror(variant = CrbitXC2C32, {
+        let (_x, _y, mirror) = mc_block_loc(XC2Device::XC2C32, extra_data as u32);
+        [mirror, false]
+    })]
+    #[arr_off(variant = CrbitXC2C32, |i| [0, 3 * i])]
+    #[frag(outer_frag_variant = CrbitXC2C32, inner_frag_variant = mc::Crbit32)]
 
     pub mcs: [XC2Macrocell; MCS_PER_FB],
 }
@@ -278,8 +339,23 @@ static AND_BLOCK_TYPE2_P2L_MAP: [usize; ANDTERMS_PER_FB] = [
     29, 30, 31,
     34, 33, 32];
 
-static OR_BLOCK_TYPE2_ROW_MAP: [usize; ANDTERMS_PER_FB / 2] =
-    [17, 19, 22, 20, 0, 1, 3, 4, 5, 7, 8, 11, 12, 13, 15, 16, 23, 24, 26, 27, 28, 31, 32, 34, 35, 36, 38, 39];
+static AND_BLOCK_TYPE2_L2P_MAP: [usize; ANDTERMS_PER_FB] = [
+    0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10,
+    14, 15, 16,
+    20, 21, 22,
+    26, 27, 28,
+    32, 33, 34,
+    38, 39, 40,
+    44, 45, 46,
+    50, 51, 52,
+    55, 54, 53,
+    49, 48, 47,
+    43, 42, 41,
+    37, 36, 35,
+    31, 30, 29,
+    25, 24, 23,
+    19, 18, 17,
+    13, 12, 11];
 
 impl XC2BitstreamFB {
     /// Dump a human-readable explanation of the settings for this FB to the given `writer` object.
@@ -358,6 +434,17 @@ impl XC2BitstreamFB {
     /// `device` must be the device type this FB was extracted from.
     /// `fb` must be the index of this function block.
     pub fn to_crbit(&self, device: XC2Device, fb: u32, fuse_array: &mut FuseArray) {
+        if device == XC2Device::XC2C32 || device == XC2Device::XC2C32A {
+            <Self as BitFragment<CrbitXC2C32>>::encode(
+                &self,
+                fuse_array,
+                [0, 0],
+                [false, false],
+                fb as usize);
+
+            return;
+        }
+
         // FFs
         for i in 0..MCS_PER_FB {
             self.mcs[i].to_crbit(device, fb, i as u32, fuse_array);
@@ -430,12 +517,12 @@ impl XC2BitstreamFB {
             },
             // "Type 2" blocks (OR array is on the sides)
             XC2Device::XC2C128 | XC2Device::XC2C384 | XC2Device::XC2C512 => {
-                for term_idx in 0..ANDTERMS_PER_FB {
-                    let phys_term_idx = AND_BLOCK_TYPE2_P2L_MAP[term_idx];
+                for logi_term_idx in 0..ANDTERMS_PER_FB {
+                    let term_idx = AND_BLOCK_TYPE2_L2P_MAP[logi_term_idx];
                     let out_x = (x as isize) + ((term_idx as isize * 2) * if !mirror {1} else {-1});
 
                     <XC2PLAAndTerm as BitFragment<pla::CrbitSideOrBlock>>::encode(
-                        self.get_andterm(phys_term_idx),
+                        self.get_andterm(logi_term_idx),
                         fuse_array,
                         [out_x, y as isize],
                         [mirror, false],
@@ -450,45 +537,36 @@ impl XC2BitstreamFB {
             // "Type 1" blocks (OR array is in the middle)
             XC2Device::XC2C32 | XC2Device::XC2C32A | XC2Device::XC2C64 | XC2Device::XC2C64A | XC2Device::XC2C256 => {
                 for or_term_idx in 0..MCS_PER_FB {
-                    for and_term_idx in 0..ANDTERMS_PER_FB {
-                        let out_y = y + (or_term_idx / 2);
-                        let off_x = and_term_idx * 2 + (or_term_idx % 2);
-                        let out_x = if !mirror {
-                            x + off_x
-                        } else {
-                            x - off_x
-                        };
+                    let out_y = y + (or_term_idx / 2);
+                    let off_x = if !mirror {
+                        x + or_term_idx % 2
+                    } else {
+                        x - or_term_idx % 2
+                    };
 
-                        fuse_array.set(out_x, out_y, !self.or_terms[or_term_idx].get(and_term_idx));
-                    }
+                    <XC2PLAOrTerm as BitFragment<pla::CrbitCentralOrBlock>>::encode(
+                        &self.or_terms[or_term_idx],
+                        fuse_array,
+                        [off_x as isize, out_y as isize],
+                        [mirror, false],
+                        ());
                 }
             },
             // "Type 2" blocks (OR array is on the sides)
             XC2Device::XC2C128 | XC2Device::XC2C384 | XC2Device::XC2C512 => {
                 for or_term_idx in 0..MCS_PER_FB {
-                    for and_term_idx in 0..ANDTERMS_PER_FB {
-                        let out_y = y + OR_BLOCK_TYPE2_ROW_MAP[and_term_idx / 2];
-                        let mut out_x = or_term_idx * 2;
-                        // TODO: Explain wtf is happening here
-                        if OR_BLOCK_TYPE2_ROW_MAP[and_term_idx / 2] >= 23 {
-                            // "Reverse"
-                            if and_term_idx % 2 == 0 {
-                                out_x += 1;
-                            }
-                        } else {
-                            if and_term_idx % 2 == 1 {
-                                out_x += 1;
-                            }
-                        }
+                    let off_x = if !mirror {
+                        x + or_term_idx * 2
+                    } else {
+                        x - or_term_idx * 2
+                    };
 
-                        let out_x = if !mirror {
-                            x + out_x
-                        } else {
-                            x - out_x
-                        };
-
-                        fuse_array.set(out_x, out_y, !self.or_terms[or_term_idx].get(and_term_idx));
-                    }
+                    <XC2PLAOrTerm as BitFragment<pla::CrbitSideOrBlock>>::encode(
+                        &self.or_terms[or_term_idx],
+                        fuse_array,
+                        [off_x as isize, y as isize],
+                        [mirror, false],
+                        ());
                 }
             },
         }
@@ -577,45 +655,38 @@ impl XC2BitstreamFB {
             // "Type 1" blocks (OR array is in the middle)
             XC2Device::XC2C32 | XC2Device::XC2C32A | XC2Device::XC2C64 | XC2Device::XC2C64A | XC2Device::XC2C256 => {
                 for or_term_idx in 0..MCS_PER_FB {
-                    for and_term_idx in 0..ANDTERMS_PER_FB {
-                        let out_y = y + (or_term_idx / 2);
-                        let off_x = and_term_idx * 2 + (or_term_idx % 2);
-                        let out_x = if !mirror {
-                            x + off_x
-                        } else {
-                            x - off_x
-                        };
+                    let out_y = y + (or_term_idx / 2);
+                    let off_x = if !mirror {
+                        x + or_term_idx % 2
+                    } else {
+                        x - or_term_idx % 2
+                    };
 
-                        ret.or_terms[or_term_idx].set(and_term_idx, !fuse_array.get(out_x, out_y));
-                    }
+                    let orterm = <XC2PLAOrTerm as BitFragment<pla::CrbitCentralOrBlock>>::decode(
+                        fuse_array,
+                        [off_x as isize, out_y as isize],
+                        [mirror, false],
+                        ()).unwrap();
+
+                    ret.or_terms[or_term_idx] = orterm;
                 }
             },
             // "Type 2" blocks (OR array is on the sides)
             XC2Device::XC2C128 | XC2Device::XC2C384 | XC2Device::XC2C512 => {
                 for or_term_idx in 0..MCS_PER_FB {
-                    for and_term_idx in 0..ANDTERMS_PER_FB {
-                        let out_y = y + OR_BLOCK_TYPE2_ROW_MAP[and_term_idx / 2];
-                        let mut out_x = or_term_idx * 2;
-                        // TODO: Explain wtf is happening here
-                        if OR_BLOCK_TYPE2_ROW_MAP[and_term_idx / 2] >= 23 {
-                            // "Reverse"
-                            if and_term_idx % 2 == 0 {
-                                out_x += 1;
-                            }
-                        } else {
-                            if and_term_idx % 2 == 1 {
-                                out_x += 1;
-                            }
-                        }
+                    let off_x = if !mirror {
+                        x + or_term_idx * 2
+                    } else {
+                        x - or_term_idx * 2
+                    };
 
-                        let out_x = if !mirror {
-                            x + out_x
-                        } else {
-                            x - out_x
-                        };
+                    let orterm = <XC2PLAOrTerm as BitFragment<pla::CrbitSideOrBlock>>::decode(
+                        fuse_array,
+                        [off_x as isize, y as isize],
+                        [mirror, false],
+                        ()).unwrap();
 
-                        ret.or_terms[or_term_idx].set(and_term_idx, !fuse_array.get(out_x, out_y));
-                    }
+                    ret.or_terms[or_term_idx] = orterm;
                 }
             },
         }
