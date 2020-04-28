@@ -28,12 +28,17 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 use core::fmt;
 
 use crate::*;
-use crate::fusemap_logical::{gck_fuse_idx, gsr_fuse_idx, gts_fuse_idx, global_term_fuse_idx};
-use crate::fusemap_physical::{gck_fuse_coords, gsr_fuse_coords, gts_fuse_coords, global_term_fuse_coord};
 
 pub enum JedCommon {}
 pub enum JedXC2C32 {}
+pub enum JedXC2C64 {}
+pub enum JedXC2C128 {}
+pub enum JedXC2C256 {}
+pub enum JedXC2C384 {}
+pub enum JedXC2C512 {}
 
+pub enum CrbitXC2C32 {}
+pub enum CrbitXC2C64 {}
 pub enum CrbitXC2C128 {}
 pub enum CrbitXC2C256 {}
 pub enum CrbitXC2C384 {}
@@ -42,17 +47,80 @@ pub enum CrbitXC2C512 {}
 /// Represents the configuration of the global nets. Coolrunner-II parts have various global control signals that have
 /// dedicated low-skew paths.
 #[bitfragment(variant = JedXC2C32, dimensions = 1)]
+#[bitfragment(variant = JedXC2C64, dimensions = 1)]
+#[bitfragment(variant = JedXC2C128, dimensions = 1)]
+#[bitfragment(variant = JedXC2C256, dimensions = 1)]
+#[bitfragment(variant = JedXC2C384, dimensions = 1)]
+#[bitfragment(variant = JedXC2C512, dimensions = 1)]
+
+#[bitfragment(variant = CrbitXC2C32, dimensions = 2)]
+#[bitfragment(variant = CrbitXC2C64, dimensions = 2)]
+#[bitfragment(variant = CrbitXC2C128, dimensions = 2)]
+#[bitfragment(variant = CrbitXC2C256, dimensions = 2)]
+#[bitfragment(variant = CrbitXC2C384, dimensions = 2)]
+#[bitfragment(variant = CrbitXC2C512, dimensions = 2)]
 #[derive(Copy, Clone, Eq, PartialEq, Hash, Debug, Serialize, Deserialize)]
 pub struct XC2GlobalNets {
     /// Controls whether the three global clock nets are enabled or not
     #[offset(variant = JedXC2C32, [12256])]
     #[arr_off(variant = JedXC2C32, |i| [i])]
     #[pat_bits(frag_variant = JedXC2C32, "0" = 0)]
+    #[offset(variant = JedXC2C64, [25792])]
+    #[arr_off(variant = JedXC2C64, |i| [i])]
+    #[pat_bits(frag_variant = JedXC2C64, "0" = 0)]
+    #[offset(variant = JedXC2C128, [55316])]
+    #[arr_off(variant = JedXC2C128, |i| [i])]
+    #[pat_bits(frag_variant = JedXC2C128, "0" = 0)]
+    #[offset(variant = JedXC2C256, [123224])]
+    #[arr_off(variant = JedXC2C256, |i| [i])]
+    #[pat_bits(frag_variant = JedXC2C256, "0" = 0)]
+    #[offset(variant = JedXC2C384, [209328])]
+    #[arr_off(variant = JedXC2C384, |i| [i])]
+    #[pat_bits(frag_variant = JedXC2C384, "0" = 0)]
+    #[offset(variant = JedXC2C512, [296374])]
+    #[arr_off(variant = JedXC2C512, |i| [i])]
+    #[pat_bits(frag_variant = JedXC2C512, "0" = 0)]
+
+    #[arr_off(variant = CrbitXC2C32, |i|
+        [[126, 23], [127, 23], [128, 23]][i])]
+    #[pat_bits(frag_variant = CrbitXC2C32, "0" = (0, 0))]
+    #[arr_off(variant = CrbitXC2C64, |i|
+        [[133, 23], [134, 23], [135, 23]][i])]
+    #[pat_bits(frag_variant = CrbitXC2C64, "0" = (0, 0))]
+    #[arr_off(variant = CrbitXC2C128, |i|
+        [[365, 67], [366, 67], [367, 67]][i])]
+    #[pat_bits(frag_variant = CrbitXC2C128, "0" = (0, 0))]
+    #[arr_off(variant = CrbitXC2C256, |i|
+        [[519, 23], [520, 23], [521, 23]][i])]
+    #[pat_bits(frag_variant = CrbitXC2C256, "0" = (0, 0))]
+    #[arr_off(variant = CrbitXC2C384, |i|
+        [[467, 102], [468, 102], [469, 102]][i])]
+    #[pat_bits(frag_variant = CrbitXC2C384, "0" = (0, 0))]
+    #[arr_off(variant = CrbitXC2C512, |i|
+        [[979, 147], [980, 147], [981, 147]][i])]
+    #[pat_bits(frag_variant = CrbitXC2C512, "0" = (0, 0))]
     pub gck_enable: [bool; 3],
 
     /// Controls whether the global set/reset net is enabled or not
     #[offset(variant = JedXC2C32, [12259 + 1])]
     #[pat_bits(frag_variant = JedXC2C32, "0" = 0)]
+    #[offset(variant = JedXC2C64, [25795 + 1])]
+    #[pat_bits(frag_variant = JedXC2C64, "0" = 0)]
+    #[offset(variant = JedXC2C128, [55324 + 1])]
+    #[pat_bits(frag_variant = JedXC2C128, "0" = 0)]
+    #[offset(variant = JedXC2C256, [123232 + 1])]
+    #[pat_bits(frag_variant = JedXC2C256, "0" = 0)]
+    #[offset(variant = JedXC2C384, [209336 + 1])]
+    #[pat_bits(frag_variant = JedXC2C384, "0" = 0)]
+    #[offset(variant = JedXC2C512, [296382 + 1])]
+    #[pat_bits(frag_variant = JedXC2C512, "0" = 0)]
+
+    #[pat_bits(frag_variant = CrbitXC2C32, "0" = (130, 23))]
+    #[pat_bits(frag_variant = CrbitXC2C64, "0" = (136, 73))]
+    #[pat_bits(frag_variant = CrbitXC2C128, "0" = (2, 67))]
+    #[pat_bits(frag_variant = CrbitXC2C256, "0" = (179, 23))]
+    #[pat_bits(frag_variant = CrbitXC2C384, "0" = (2, 97))]
+    #[pat_bits(frag_variant = CrbitXC2C512, "0" = (2, 27))]
     pub gsr_enable: bool,
 
     /// Controls the polarity of the global set/reset signal
@@ -60,12 +128,63 @@ pub struct XC2GlobalNets {
     /// `false` = active low, `true` = active high
     #[offset(variant = JedXC2C32, [12259])]
     #[pat_bits(frag_variant = JedXC2C32, "0" = 0)]
+    #[offset(variant = JedXC2C64, [25795])]
+    #[pat_bits(frag_variant = JedXC2C64, "0" = 0)]
+    #[offset(variant = JedXC2C128, [55324])]
+    #[pat_bits(frag_variant = JedXC2C128, "0" = 0)]
+    #[offset(variant = JedXC2C256, [123232])]
+    #[pat_bits(frag_variant = JedXC2C256, "0" = 0)]
+    #[offset(variant = JedXC2C384, [209336])]
+    #[pat_bits(frag_variant = JedXC2C384, "0" = 0)]
+    #[offset(variant = JedXC2C512, [296382])]
+    #[pat_bits(frag_variant = JedXC2C512, "0" = 0)]
+
+    #[pat_bits(frag_variant = CrbitXC2C32, "0" = (129, 23))]
+    #[pat_bits(frag_variant = CrbitXC2C64, "0" = (135, 73))]
+    #[pat_bits(frag_variant = CrbitXC2C128, "0" = (1, 67))]
+    #[pat_bits(frag_variant = CrbitXC2C256, "0" = (178, 23))]
+    #[pat_bits(frag_variant = CrbitXC2C384, "0" = (1, 97))]
+    #[pat_bits(frag_variant = CrbitXC2C512, "0" = (1, 27))]
     pub gsr_invert: bool,
 
     /// Controls whether the four global tristate nets are enabled or not
     #[offset(variant = JedXC2C32, [12261 + 1])]
     #[arr_off(variant = JedXC2C32, |i| [i * 2])]
     #[pat_bits(frag_variant = JedXC2C32, "0" = !0)]
+    #[offset(variant = JedXC2C64, [25797 + 1])]
+    #[arr_off(variant = JedXC2C64, |i| [i * 2])]
+    #[pat_bits(frag_variant = JedXC2C64, "0" = !0)]
+    #[offset(variant = JedXC2C128, [55326 + 1])]
+    #[arr_off(variant = JedXC2C128, |i| [i * 2])]
+    #[pat_bits(frag_variant = JedXC2C128, "0" = !0)]
+    #[offset(variant = JedXC2C256, [123234 + 1])]
+    #[arr_off(variant = JedXC2C256, |i| [i * 2])]
+    #[pat_bits(frag_variant = JedXC2C256, "0" = !0)]
+    #[offset(variant = JedXC2C384, [209338 + 1])]
+    #[arr_off(variant = JedXC2C384, |i| [i * 2])]
+    #[pat_bits(frag_variant = JedXC2C384, "0" = !0)]
+    #[offset(variant = JedXC2C512, [296384 + 1])]
+    #[arr_off(variant = JedXC2C512, |i| [i * 2])]
+    #[pat_bits(frag_variant = JedXC2C512, "0" = !0)]
+
+    #[arr_off(variant = CrbitXC2C32, |i|
+        [[127, 24], [129, 24], [127, 25], [129, 25]][i])]
+    #[pat_bits(frag_variant = CrbitXC2C32, "0" = !(0, 0))]
+    #[arr_off(variant = CrbitXC2C64, |i|
+        [[134, 24], [136, 24], [138, 73], [138, 24]][i])]
+    #[pat_bits(frag_variant = CrbitXC2C64, "0" = !(0, 0))]
+    #[arr_off(variant = CrbitXC2C128, |i|
+        [[5, 27], [7, 27], [5, 67], [7, 67]][i])]
+    #[pat_bits(frag_variant = CrbitXC2C128, "0" = !(0, 0))]
+    #[arr_off(variant = CrbitXC2C256, |i|
+        [[182, 23], [177, 24], [179, 24], [182, 24]][i])]
+    #[pat_bits(frag_variant = CrbitXC2C256, "0" = !(0, 0))]
+    #[arr_off(variant = CrbitXC2C384, |i|
+        [[463, 107], [464, 107], [465, 107], [466, 107]][i])]
+    #[pat_bits(frag_variant = CrbitXC2C384, "0" = !(0, 0))]
+    #[arr_off(variant = CrbitXC2C512, |i|
+        [[4, 27], [481, 27], [6, 27], [8, 27]][i])]
+    #[pat_bits(frag_variant = CrbitXC2C512, "0" = !(0, 0))]
     pub gts_enable: [bool; 4],
 
     /// Controls the polarity of the global tristate signal
@@ -74,6 +193,40 @@ pub struct XC2GlobalNets {
     #[offset(variant = JedXC2C32, [12261])]
     #[arr_off(variant = JedXC2C32, |i| [i * 2])]
     #[pat_bits(frag_variant = JedXC2C32, "0" = 0)]
+    #[offset(variant = JedXC2C64, [25797])]
+    #[arr_off(variant = JedXC2C64, |i| [i * 2])]
+    #[pat_bits(frag_variant = JedXC2C64, "0" = 0)]
+    #[offset(variant = JedXC2C128, [55326])]
+    #[arr_off(variant = JedXC2C128, |i| [i * 2])]
+    #[pat_bits(frag_variant = JedXC2C128, "0" = 0)]
+    #[offset(variant = JedXC2C256, [123234])]
+    #[arr_off(variant = JedXC2C256, |i| [i * 2])]
+    #[pat_bits(frag_variant = JedXC2C256, "0" = 0)]
+    #[offset(variant = JedXC2C384, [209338])]
+    #[arr_off(variant = JedXC2C384, |i| [i * 2])]
+    #[pat_bits(frag_variant = JedXC2C384, "0" = 0)]
+    #[offset(variant = JedXC2C512, [296384])]
+    #[arr_off(variant = JedXC2C512, |i| [i * 2])]
+    #[pat_bits(frag_variant = JedXC2C512, "0" = 0)]
+
+    #[arr_off(variant = CrbitXC2C32, |i|
+        [[126, 24], [128, 24], [126, 25], [128, 25]][i])]
+    #[pat_bits(frag_variant = CrbitXC2C32, "0" = (0, 0))]
+    #[arr_off(variant = CrbitXC2C64, |i|
+        [[133, 24], [135, 24], [137, 73], [137, 24]][i])]
+    #[pat_bits(frag_variant = CrbitXC2C64, "0" = (0, 0))]
+    #[arr_off(variant = CrbitXC2C128, |i|
+        [[4, 27], [6, 27], [4, 67], [6, 67]][i])]
+    #[pat_bits(frag_variant = CrbitXC2C128, "0" = (0, 0))]
+    #[arr_off(variant = CrbitXC2C256, |i|
+        [[181, 23], [176, 24], [178, 24], [181, 24]][i])]
+    #[pat_bits(frag_variant = CrbitXC2C256, "0" = (0, 0))]
+    #[arr_off(variant = CrbitXC2C384, |i|
+        [[463, 102], [464, 102], [465, 102], [466, 102]][i])]
+    #[pat_bits(frag_variant = CrbitXC2C384, "0" = (0, 0))]
+    #[arr_off(variant = CrbitXC2C512, |i|
+        [[3, 27], [480, 27], [5, 27], [7, 27]][i])]
+    #[pat_bits(frag_variant = CrbitXC2C512, "0" = (0, 0))]
     pub gts_invert: [bool; 4],
 
     /// Controls the mode of the global termination
@@ -81,6 +234,23 @@ pub struct XC2GlobalNets {
     /// `false` = keeper, `true` = pull-up
     #[offset(variant = JedXC2C32, [12269])]
     #[pat_bits(frag_variant = JedXC2C32, "0" = 0)]
+    #[offset(variant = JedXC2C64, [25805])]
+    #[pat_bits(frag_variant = JedXC2C64, "0" = 0)]
+    #[offset(variant = JedXC2C128, [55334])]
+    #[pat_bits(frag_variant = JedXC2C128, "0" = 0)]
+    #[offset(variant = JedXC2C256, [123242])]
+    #[pat_bits(frag_variant = JedXC2C256, "0" = 0)]
+    #[offset(variant = JedXC2C384, [209346])]
+    #[pat_bits(frag_variant = JedXC2C384, "0" = 0)]
+    #[offset(variant = JedXC2C512, [296392])]
+    #[pat_bits(frag_variant = JedXC2C512, "0" = 0)]
+
+    #[pat_bits(frag_variant = CrbitXC2C32, "0" = (131, 23))]
+    #[pat_bits(frag_variant = CrbitXC2C64, "0" = (136, 23))]
+    #[pat_bits(frag_variant = CrbitXC2C128, "0" = (370, 67))]
+    #[pat_bits(frag_variant = CrbitXC2C256, "0" = (517, 23))]
+    #[pat_bits(frag_variant = CrbitXC2C384, "0" = (931, 17))]
+    #[pat_bits(frag_variant = CrbitXC2C512, "0" = (983, 147))]
     pub global_pu: bool,
 }
 
@@ -130,90 +300,67 @@ impl fmt::Display for XC2GlobalNets {
 impl XC2GlobalNets {
     /// Write the crbit representation of the global net settings to the given `fuse_array`.
     pub fn to_crbit(&self, device: XC2Device, fuse_array: &mut FuseArray) {
-        let ((gck0x, gck0y), (gck1x, gck1y), (gck2x, gck2y)) = gck_fuse_coords(device);
-        fuse_array.set(gck0x, gck0y, self.gck_enable[0]);
-        fuse_array.set(gck1x, gck1y, self.gck_enable[1]);
-        fuse_array.set(gck2x, gck2y, self.gck_enable[2]);
-
-        let ((gsren_x, gsren_y), (gsrinv_x, gsrinv_y)) = gsr_fuse_coords(device);
-        fuse_array.set(gsren_x, gsren_y, self.gsr_enable);
-        fuse_array.set(gsrinv_x, gsrinv_y, self.gsr_invert);
-
-        let (((gts0en_x, gts0en_y), (gts0inv_x, gts0inv_y)), ((gts1en_x, gts1en_y), (gts1inv_x, gts1inv_y)),
-             ((gts2en_x, gts2en_y), (gts2inv_x, gts2inv_y)), ((gts3en_x, gts3en_y), (gts3inv_x, gts3inv_y))) =
-                gts_fuse_coords(device);
-        fuse_array.set(gts0en_x, gts0en_y, !self.gts_enable[0]);
-        fuse_array.set(gts0inv_x, gts0inv_y, self.gts_invert[0]);
-        fuse_array.set(gts1en_x, gts1en_y, !self.gts_enable[1]);
-        fuse_array.set(gts1inv_x, gts1inv_y, self.gts_invert[1]);
-        fuse_array.set(gts2en_x, gts2en_y, !self.gts_enable[2]);
-        fuse_array.set(gts2inv_x, gts2inv_y, self.gts_invert[2]);
-        fuse_array.set(gts3en_x, gts3en_y, !self.gts_enable[3]);
-        fuse_array.set(gts3inv_x, gts3inv_y, self.gts_invert[3]);
-
-        let (term_x, term_y) = global_term_fuse_coord(device);
-        fuse_array.set(term_x, term_y, self.global_pu);
-    }
-
-    /// Internal function to read the global nets
-    pub fn from_jed(device: XC2Device, fuses: &[bool]) -> Self {
-        XC2GlobalNets {
-            gck_enable: [
-                fuses[gck_fuse_idx(device) + 0],
-                fuses[gck_fuse_idx(device) + 1],
-                fuses[gck_fuse_idx(device) + 2],
-            ],
-            gsr_enable: fuses[gsr_fuse_idx(device) + 1],
-            gsr_invert: fuses[gsr_fuse_idx(device) + 0],
-            gts_enable: [
-                !fuses[gts_fuse_idx(device) + 1],
-                !fuses[gts_fuse_idx(device) + 3],
-                !fuses[gts_fuse_idx(device) + 5],
-                !fuses[gts_fuse_idx(device) + 7],
-            ],
-            gts_invert: [
-                fuses[gts_fuse_idx(device) + 0],
-                fuses[gts_fuse_idx(device) + 2],
-                fuses[gts_fuse_idx(device) + 4],
-                fuses[gts_fuse_idx(device) + 6],
-            ],
-            global_pu: fuses[global_term_fuse_idx(device)],
+        match device {
+            XC2Device::XC2C32 | XC2Device::XC2C32A => {
+                <Self as BitFragment<CrbitXC2C32>>::encode(
+                    self, fuse_array, [0, 0], [false, false], ());
+                return;
+            },
+            XC2Device::XC2C64 | XC2Device::XC2C64A => {
+                <Self as BitFragment<CrbitXC2C64>>::encode(
+                    self, fuse_array, [0, 0], [false, false], ());
+                return;
+            },
+            XC2Device::XC2C128 => {
+                <Self as BitFragment<CrbitXC2C128>>::encode(
+                    self, fuse_array, [0, 0], [false, false], ());
+                return;
+            },
+            XC2Device::XC2C256 => {
+                <Self as BitFragment<CrbitXC2C256>>::encode(
+                    self, fuse_array, [0, 0], [false, false], ());
+                return;
+            },
+            XC2Device::XC2C384 => {
+                <Self as BitFragment<CrbitXC2C384>>::encode(
+                    self, fuse_array, [0, 0], [false, false], ());
+                return;
+            },
+            XC2Device::XC2C512 => {
+                <Self as BitFragment<CrbitXC2C512>>::encode(
+                    self, fuse_array, [0, 0], [false, false], ());
+                return;
+            },
         }
     }
 
     /// Internal function to read the global nets
     pub fn from_crbit(device: XC2Device, fuse_array: &FuseArray) -> Self {
-        let ((gck0x, gck0y), (gck1x, gck1y), (gck2x, gck2y)) = gck_fuse_coords(device);
-
-        let ((gsren_x, gsren_y), (gsrinv_x, gsrinv_y)) = gsr_fuse_coords(device);
-
-        let (((gts0en_x, gts0en_y), (gts0inv_x, gts0inv_y)), ((gts1en_x, gts1en_y), (gts1inv_x, gts1inv_y)),
-             ((gts2en_x, gts2en_y), (gts2inv_x, gts2inv_y)), ((gts3en_x, gts3en_y), (gts3inv_x, gts3inv_y))) =
-                gts_fuse_coords(device);
-
-        let (term_x, term_y) = global_term_fuse_coord(device);
-
-        XC2GlobalNets {
-            gck_enable: [
-                fuse_array.get(gck0x, gck0y),
-                fuse_array.get(gck1x, gck1y),
-                fuse_array.get(gck2x, gck2y),
-            ],
-            gsr_enable: fuse_array.get(gsren_x, gsren_y),
-            gsr_invert: fuse_array.get(gsrinv_x, gsrinv_y),
-            gts_enable: [
-                !fuse_array.get(gts0en_x, gts0en_y),
-                !fuse_array.get(gts1en_x, gts1en_y),
-                !fuse_array.get(gts2en_x, gts2en_y),
-                !fuse_array.get(gts3en_x, gts3en_y),
-            ],
-            gts_invert: [
-                fuse_array.get(gts0inv_x, gts0inv_y),
-                fuse_array.get(gts1inv_x, gts1inv_y),
-                fuse_array.get(gts2inv_x, gts2inv_y),
-                fuse_array.get(gts3inv_x, gts3inv_y),
-            ],
-            global_pu: fuse_array.get(term_x, term_y),
+        match device {
+            XC2Device::XC2C32 | XC2Device::XC2C32A => {
+                <Self as BitFragment<CrbitXC2C32>>::decode(
+                    fuse_array, [0, 0], [false, false], ()).unwrap()
+            },
+            XC2Device::XC2C64 | XC2Device::XC2C64A => {
+                <Self as BitFragment<CrbitXC2C64>>::decode(
+                    fuse_array, [0, 0], [false, false], ()).unwrap()
+            },
+            XC2Device::XC2C128 => {
+                <Self as BitFragment<CrbitXC2C128>>::decode(
+                    fuse_array, [0, 0], [false, false], ()).unwrap()
+            },
+            XC2Device::XC2C256 => {
+                <Self as BitFragment<CrbitXC2C256>>::decode(
+                    fuse_array, [0, 0], [false, false], ()).unwrap()
+            },
+            XC2Device::XC2C384 => {
+                <Self as BitFragment<CrbitXC2C384>>::decode(
+                    fuse_array, [0, 0], [false, false], ()).unwrap()
+            },
+            XC2Device::XC2C512 => {
+                <Self as BitFragment<CrbitXC2C512>>::decode(
+                    fuse_array, [0, 0], [false, false], ()).unwrap()
+            },
         }
     }
 }

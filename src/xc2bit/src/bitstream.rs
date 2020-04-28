@@ -956,11 +956,6 @@ impl XC2BitstreamBits {
         // GCK
         linebreaks.add(gck_fuse_idx(self.device_type()));
         linebreaks.add(gck_fuse_idx(self.device_type()));
-        if self.device_type() != XC2Device::XC2C32 && self.device_type() != XC2Device::XC2C32A {
-        jed.f[gck_fuse_idx(self.device_type()) + 0] = self.get_global_nets().gck_enable[0];
-        jed.f[gck_fuse_idx(self.device_type()) + 1] = self.get_global_nets().gck_enable[1];
-        jed.f[gck_fuse_idx(self.device_type()) + 2] = self.get_global_nets().gck_enable[2];
-        }
 
         // Clock divider
         if let Some(clock_div) = self.get_clock_div() {
@@ -975,34 +970,45 @@ impl XC2BitstreamBits {
 
         // GSR
         linebreaks.add(gsr_fuse_idx(self.device_type()));
-        if self.device_type() != XC2Device::XC2C32 && self.device_type() != XC2Device::XC2C32A {
-        jed.f[gsr_fuse_idx(self.device_type()) + 0] = self.get_global_nets().gsr_invert;
-        jed.f[gsr_fuse_idx(self.device_type()) + 1] = self.get_global_nets().gsr_enable;
-        }
 
         // GTS
         linebreaks.add(gts_fuse_idx(self.device_type()));
-        if self.device_type() != XC2Device::XC2C32 && self.device_type() != XC2Device::XC2C32A {
-        jed.f[gts_fuse_idx(self.device_type()) + 0] = self.get_global_nets().gts_invert[0];
-        jed.f[gts_fuse_idx(self.device_type()) + 1] = !self.get_global_nets().gts_enable[0];
-        jed.f[gts_fuse_idx(self.device_type()) + 2] = self.get_global_nets().gts_invert[1];
-        jed.f[gts_fuse_idx(self.device_type()) + 3] = !self.get_global_nets().gts_enable[1];
-        jed.f[gts_fuse_idx(self.device_type()) + 4] = self.get_global_nets().gts_invert[2];
-        jed.f[gts_fuse_idx(self.device_type()) + 5] = !self.get_global_nets().gts_enable[2];
-        jed.f[gts_fuse_idx(self.device_type()) + 6] = self.get_global_nets().gts_invert[3];
-        jed.f[gts_fuse_idx(self.device_type()) + 7] = !self.get_global_nets().gts_enable[3];
-        }
 
         // Global termination
         linebreaks.add(global_term_fuse_idx(self.device_type()));
-        if self.device_type() != XC2Device::XC2C32 && self.device_type() != XC2Device::XC2C32A {
-        jed.f[global_term_fuse_idx(self.device_type())] = self.get_global_nets().global_pu;
-        }
 
-        if self.device_type() == XC2Device::XC2C32 || self.device_type() == XC2Device::XC2C32A {
-            <XC2GlobalNets as BitFragment<globalbits::JedXC2C32>>::encode(
-                self.get_global_nets(),
-                &mut jed.f, [0], [false], ());
+        // Actually write bits
+        match self.device_type() {
+            XC2Device::XC2C32 | XC2Device::XC2C32A => {
+                <XC2GlobalNets as BitFragment<globalbits::JedXC2C32>>::encode(
+                    self.get_global_nets(),
+                    &mut jed.f, [0], [false], ());
+            },
+            XC2Device::XC2C64 | XC2Device::XC2C64A => {
+                <XC2GlobalNets as BitFragment<globalbits::JedXC2C64>>::encode(
+                    self.get_global_nets(),
+                    &mut jed.f, [0], [false], ());
+            },
+            XC2Device::XC2C128 => {
+                <XC2GlobalNets as BitFragment<globalbits::JedXC2C128>>::encode(
+                    self.get_global_nets(),
+                    &mut jed.f, [0], [false], ());
+            },
+            XC2Device::XC2C256 => {
+                <XC2GlobalNets as BitFragment<globalbits::JedXC2C256>>::encode(
+                    self.get_global_nets(),
+                    &mut jed.f, [0], [false], ());
+            },
+            XC2Device::XC2C384 => {
+                <XC2GlobalNets as BitFragment<globalbits::JedXC2C384>>::encode(
+                    self.get_global_nets(),
+                    &mut jed.f, [0], [false], ());
+            },
+            XC2Device::XC2C512 => {
+                <XC2GlobalNets as BitFragment<globalbits::JedXC2C512>>::encode(
+                    self.get_global_nets(),
+                    &mut jed.f, [0], [false], ());
+            },
         }
 
         // Bank voltages and miscellaneous
@@ -1186,7 +1192,8 @@ fn read_32_bitstream_logical(fuses: &[bool]) -> Result<XC2BitstreamBits, XC2BitE
 
     let inpin = <XC2ExtraIBuf as BitFragment<iob::Jed>>::decode(fuses, [0], [false], ()).unwrap();
 
-    let global_nets = XC2GlobalNets::from_jed(XC2Device::XC2C32, fuses);
+    let global_nets = <XC2GlobalNets as BitFragment<globalbits::JedXC2C32>>::decode(
+        fuses, [0], [false], ()).unwrap();
 
     Ok(XC2BitstreamBits::XC2C32 {
         fb,
@@ -1207,7 +1214,8 @@ fn read_32a_bitstream_logical(fuses: &[bool]) -> Result<XC2BitstreamBits, XC2Bit
 
     let inpin = <XC2ExtraIBuf as BitFragment<iob::Jed>>::decode(fuses, [0], [false], ()).unwrap();
 
-    let global_nets = XC2GlobalNets::from_jed(XC2Device::XC2C32A, fuses);
+    let global_nets = <XC2GlobalNets as BitFragment<globalbits::JedXC2C32>>::decode(
+        fuses, [0], [false], ()).unwrap();
 
     Ok(XC2BitstreamBits::XC2C32A {
         fb,
@@ -1234,7 +1242,8 @@ fn read_64_bitstream_logical(fuses: &[bool]) -> Result<XC2BitstreamBits, XC2BitE
     
     read_bitstream_logical_common_small(fuses, XC2Device::XC2C64, &mut fb, &mut iobs)?;
 
-    let global_nets = XC2GlobalNets::from_jed(XC2Device::XC2C64, fuses);
+    let global_nets = <XC2GlobalNets as BitFragment<globalbits::JedXC2C64>>::decode(
+        fuses, [0], [false], ()).unwrap();
 
     let mut iobs2 = [[XC2MCSmallIOB::default(); 32]; 2];
     for i in 0..iobs.len() {
@@ -1257,7 +1266,8 @@ fn read_64a_bitstream_logical(fuses: &[bool]) -> Result<XC2BitstreamBits, XC2Bit
     
     read_bitstream_logical_common_small(fuses, XC2Device::XC2C64A, &mut fb, &mut iobs)?;
 
-    let global_nets = XC2GlobalNets::from_jed(XC2Device::XC2C64A, fuses);
+    let global_nets = <XC2GlobalNets as BitFragment<globalbits::JedXC2C64>>::decode(
+        fuses, [0], [false], ()).unwrap();
 
     let mut iobs2 = [[XC2MCSmallIOB::default(); 32]; 2];
     for i in 0..iobs.len() {
@@ -1288,7 +1298,8 @@ fn read_128_bitstream_logical(fuses: &[bool]) -> Result<XC2BitstreamBits, XC2Bit
     
     read_bitstream_logical_common_large(fuses, XC2Device::XC2C128, &mut fb, &mut iobs)?;
 
-    let global_nets = XC2GlobalNets::from_jed(XC2Device::XC2C128, fuses);
+    let global_nets = <XC2GlobalNets as BitFragment<globalbits::JedXC2C128>>::decode(
+        fuses, [0], [false], ()).unwrap();
 
     let mut iobs2 = [[XC2MCLargeIOB::default(); 25]; 4];
     for i in 0..iobs.len() {
@@ -1322,7 +1333,8 @@ fn read_256_bitstream_logical(fuses: &[bool]) -> Result<XC2BitstreamBits, XC2Bit
     
     read_bitstream_logical_common_large(fuses, XC2Device::XC2C256, &mut fb, &mut iobs)?;
 
-    let global_nets = XC2GlobalNets::from_jed(XC2Device::XC2C256, fuses);
+    let global_nets = <XC2GlobalNets as BitFragment<globalbits::JedXC2C256>>::decode(
+        fuses, [0], [false], ()).unwrap();
 
     let mut iobs2 = [[XC2MCLargeIOB::default(); 23]; 8];
     for i in 0..iobs.len() {
@@ -1356,7 +1368,8 @@ fn read_384_bitstream_logical(fuses: &[bool]) -> Result<XC2BitstreamBits, XC2Bit
     
     read_bitstream_logical_common_large(fuses, XC2Device::XC2C384, &mut fb, &mut iobs)?;
 
-    let global_nets = XC2GlobalNets::from_jed(XC2Device::XC2C384, fuses);
+    let global_nets = <XC2GlobalNets as BitFragment<globalbits::JedXC2C384>>::decode(
+        fuses, [0], [false], ()).unwrap();
 
     let mut iobs2 = [[XC2MCLargeIOB::default(); 24]; 10];
     for i in 0..iobs.len() {
@@ -1394,7 +1407,8 @@ fn read_512_bitstream_logical(fuses: &[bool]) -> Result<XC2BitstreamBits, XC2Bit
     
     read_bitstream_logical_common_large(fuses, XC2Device::XC2C512, &mut fb, &mut iobs)?;
 
-    let global_nets = XC2GlobalNets::from_jed(XC2Device::XC2C512, fuses);
+    let global_nets = <XC2GlobalNets as BitFragment<globalbits::JedXC2C512>>::decode(
+        fuses, [0], [false], ()).unwrap();
 
     let mut iobs2 = [[XC2MCLargeIOB::default(); 27]; 10];
     for i in 0..iobs.len() {
