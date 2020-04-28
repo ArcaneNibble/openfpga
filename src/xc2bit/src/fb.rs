@@ -43,6 +43,7 @@ pub enum JedXC2C384 {}
 pub enum JedXC2C512 {}
 
 pub enum CrbitXC2C32 {}
+pub enum CrbitXC2C64 {}
 
 fn large_get_macrocell_offset(device: XC2Device, fb_i: usize, mc_i: usize) -> usize {
     let mut current_fuse_offset = 0;
@@ -68,6 +69,8 @@ fn large_get_macrocell_offset(device: XC2Device, fb_i: usize, mc_i: usize) -> us
 #[bitfragment(variant = JedXC2C512, dimensions = 1, errtype = XC2BitError, encode_extra_type = usize, decode_extra_type = usize)]
 
 #[bitfragment(variant = CrbitXC2C32, dimensions = 2, errtype = XC2BitError, encode_extra_type = usize, decode_extra_type = usize)]
+#[bitfragment(variant = CrbitXC2C64, dimensions = 2, errtype = XC2BitError, encode_extra_type = usize, decode_extra_type = usize)]
+
 #[derive(Copy, Clone, Eq, PartialEq, Hash, Debug, Serialize, Deserialize)]
 /// Represents a collection of all the parts that make up one function block
 pub struct XC2BitstreamFB {
@@ -111,6 +114,21 @@ pub struct XC2BitstreamFB {
     })]
     #[frag(outer_frag_variant = CrbitXC2C32, inner_frag_variant = pla::CrbitCentralOrBlock)]
 
+    #[offset(variant = CrbitXC2C64, {
+        let (x, y, _mirror) = and_block_loc(XC2Device::XC2C64, extra_data as u32);
+        [x, y]
+    })]
+    #[mirror(variant = CrbitXC2C64, {
+        let (_x, _y, mirror) = and_block_loc(XC2Device::XC2C64, extra_data as u32);
+        [mirror, false]
+    })]
+    #[arr_off(variant = CrbitXC2C64, |i| {
+        // FIXME WTF
+        let (_x, _y, mirror) = and_block_loc(XC2Device::XC2C64, extra_data as u32);
+        [(i as isize) * 2 * (if !mirror {1} else {-1}), 0]
+    })]
+    #[frag(outer_frag_variant = CrbitXC2C64, inner_frag_variant = pla::CrbitCentralOrBlock)]
+
     and_terms: [[XC2PLAAndTerm; ANDTERMS_PER_FB / 2]; 2],
 
 
@@ -153,6 +171,21 @@ pub struct XC2BitstreamFB {
         [((i % 2) as isize) * (if !mirror {1} else {-1}), (i as isize) / 2]
     })]
     #[frag(outer_frag_variant = CrbitXC2C32, inner_frag_variant = pla::CrbitCentralOrBlock)]
+
+    #[offset(variant = CrbitXC2C64, {
+        let (x, y, _mirror) = or_block_loc(XC2Device::XC2C64, extra_data as u32);
+        [x, y]
+    })]
+    #[mirror(variant = CrbitXC2C64, {
+        let (_x, _y, mirror) = or_block_loc(XC2Device::XC2C64, extra_data as u32);
+        [mirror, false]
+    })]
+    #[arr_off(variant = CrbitXC2C64, |i| {
+        // FIXME WTF
+        let (_x, _y, mirror) = or_block_loc(XC2Device::XC2C64, extra_data as u32);
+        [((i % 2) as isize) * (if !mirror {1} else {-1}), (i as isize) / 2]
+    })]
+    #[frag(outer_frag_variant = CrbitXC2C64, inner_frag_variant = pla::CrbitCentralOrBlock)]
 
     pub or_terms: [XC2PLAOrTerm; MCS_PER_FB],
 
@@ -204,6 +237,22 @@ pub struct XC2BitstreamFB {
     #[encode_sub_extra_data(variant = CrbitXC2C32, arr_elem_i)]
     #[decode_sub_extra_data(variant = CrbitXC2C32, arr_elem_i)]
 
+    #[offset(variant = CrbitXC2C64, {
+        let (x, y) = zia_block_loc(XC2Device::XC2C64, extra_data as u32);
+        [x, y]
+    })]
+    #[arr_off(variant = CrbitXC2C64, |i| {
+        if i >= 20 {
+            // There is an OR array in the middle, 8 rows high
+            [0, i + 8]
+        } else {
+            [0, i]
+        }
+    })]
+    #[frag(outer_frag_variant = CrbitXC2C64, inner_frag_variant = zia::CrbitXC2C64)]
+    #[encode_sub_extra_data(variant = CrbitXC2C64, arr_elem_i)]
+    #[decode_sub_extra_data(variant = CrbitXC2C64, arr_elem_i)]
+
     zia_bits: [[XC2ZIAInput; INPUTS_PER_ANDTERM / 2]; 2],
 
 
@@ -250,6 +299,17 @@ pub struct XC2BitstreamFB {
     })]
     #[arr_off(variant = CrbitXC2C32, |i| [0, 3 * i])]
     #[frag(outer_frag_variant = CrbitXC2C32, inner_frag_variant = mc::Crbit32)]
+
+    #[offset(variant = CrbitXC2C64, {
+        let (x, y, _mirror) = mc_block_loc(XC2Device::XC2C64, extra_data as u32);
+        [x, y]
+    })]
+    #[mirror(variant = CrbitXC2C64, {
+        let (_x, _y, mirror) = mc_block_loc(XC2Device::XC2C64, extra_data as u32);
+        [mirror, false]
+    })]
+    #[arr_off(variant = CrbitXC2C64, |i| [0, 3 * i])]
+    #[frag(outer_frag_variant = CrbitXC2C64, inner_frag_variant = mc::Crbit64)]
 
     pub mcs: [XC2Macrocell; MCS_PER_FB],
 }
@@ -436,6 +496,16 @@ impl XC2BitstreamFB {
     pub fn to_crbit(&self, device: XC2Device, fb: u32, fuse_array: &mut FuseArray) {
         if device == XC2Device::XC2C32 || device == XC2Device::XC2C32A {
             <Self as BitFragment<CrbitXC2C32>>::encode(
+                &self,
+                fuse_array,
+                [0, 0],
+                [false, false],
+                fb as usize);
+
+            return;
+        }
+        if device == XC2Device::XC2C64 || device == XC2Device::XC2C64A {
+            <Self as BitFragment<CrbitXC2C64>>::encode(
                 &self,
                 fuse_array,
                 [0, 0],
