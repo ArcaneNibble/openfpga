@@ -44,6 +44,10 @@ pub enum JedXC2C512 {}
 
 pub enum CrbitXC2C32 {}
 pub enum CrbitXC2C64 {}
+pub enum CrbitXC2C128 {}
+pub enum CrbitXC2C256 {}
+pub enum CrbitXC2C384 {}
+pub enum CrbitXC2C512 {}
 
 fn large_get_macrocell_offset(device: XC2Device, fb_i: usize, mc_i: usize) -> usize {
     let mut current_fuse_offset = 0;
@@ -61,6 +65,27 @@ fn large_get_macrocell_offset(device: XC2Device, fb_i: usize, mc_i: usize) -> us
     current_fuse_offset
 }
 
+pub static MC_TO_ROW_MAP_LARGE: [usize; MCS_PER_FB] =
+    [0, 3, 5, 8, 10, 13, 15, 18, 20, 23, 25, 28, 30, 33, 35, 38];
+
+static AND_BLOCK_TYPE2_L2P_MAP: [usize; ANDTERMS_PER_FB] = [
+    0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10,
+    14, 15, 16,
+    20, 21, 22,
+    26, 27, 28,
+    32, 33, 34,
+    38, 39, 40,
+    44, 45, 46,
+    50, 51, 52,
+    55, 54, 53,
+    49, 48, 47,
+    43, 42, 41,
+    37, 36, 35,
+    31, 30, 29,
+    25, 24, 23,
+    19, 18, 17,
+    13, 12, 11];
+
 #[bitfragment(variant = JedXC2C32, dimensions = 1, errtype = XC2BitError)]
 #[bitfragment(variant = JedXC2C64, dimensions = 1, errtype = XC2BitError)]
 #[bitfragment(variant = JedXC2C128, dimensions = 1, errtype = XC2BitError, encode_extra_type = usize, decode_extra_type = usize)]
@@ -70,6 +95,7 @@ fn large_get_macrocell_offset(device: XC2Device, fb_i: usize, mc_i: usize) -> us
 
 #[bitfragment(variant = CrbitXC2C32, dimensions = 2, errtype = XC2BitError, encode_extra_type = usize, decode_extra_type = usize)]
 #[bitfragment(variant = CrbitXC2C64, dimensions = 2, errtype = XC2BitError, encode_extra_type = usize, decode_extra_type = usize)]
+#[bitfragment(variant = CrbitXC2C128, dimensions = 2, errtype = XC2BitError, encode_extra_type = usize, decode_extra_type = usize)]
 
 #[derive(Copy, Clone, Eq, PartialEq, Hash, Debug, Serialize, Deserialize)]
 /// Represents a collection of all the parts that make up one function block
@@ -129,6 +155,21 @@ pub struct XC2BitstreamFB {
     })]
     #[frag(outer_frag_variant = CrbitXC2C64, inner_frag_variant = pla::CrbitCentralOrBlock)]
 
+    #[offset(variant = CrbitXC2C128, {
+        let (x, y, _mirror) = and_block_loc(XC2Device::XC2C128, extra_data as u32);
+        [x, y]
+    })]
+    #[mirror(variant = CrbitXC2C128, {
+        let (_x, _y, mirror) = and_block_loc(XC2Device::XC2C128, extra_data as u32);
+        [mirror, false]
+    })]
+    #[arr_off(variant = CrbitXC2C128, |i| {
+        // FIXME WTF
+        let (_x, _y, mirror) = and_block_loc(XC2Device::XC2C128, extra_data as u32);
+        [(AND_BLOCK_TYPE2_L2P_MAP[i] as isize) * 2 * (if !mirror {1} else {-1}), 0]
+    })]
+    #[frag(outer_frag_variant = CrbitXC2C128, inner_frag_variant = pla::CrbitSideOrBlock)]
+
     and_terms: [[XC2PLAAndTerm; ANDTERMS_PER_FB / 2]; 2],
 
 
@@ -186,6 +227,21 @@ pub struct XC2BitstreamFB {
         [((i % 2) as isize) * (if !mirror {1} else {-1}), (i as isize) / 2]
     })]
     #[frag(outer_frag_variant = CrbitXC2C64, inner_frag_variant = pla::CrbitCentralOrBlock)]
+
+    #[offset(variant = CrbitXC2C128, {
+        let (x, y, _mirror) = or_block_loc(XC2Device::XC2C128, extra_data as u32);
+        [x, y]
+    })]
+    #[mirror(variant = CrbitXC2C128, {
+        let (_x, _y, mirror) = or_block_loc(XC2Device::XC2C128, extra_data as u32);
+        [mirror, false]
+    })]
+    #[arr_off(variant = CrbitXC2C128, |i| {
+        // FIXME WTF
+        let (_x, _y, mirror) = or_block_loc(XC2Device::XC2C128, extra_data as u32);
+        [((i * 2) as isize) * (if !mirror {1} else {-1}), 0]
+    })]
+    #[frag(outer_frag_variant = CrbitXC2C128, inner_frag_variant = pla::CrbitSideOrBlock)]
 
     pub or_terms: [XC2PLAOrTerm; MCS_PER_FB],
 
@@ -253,6 +309,15 @@ pub struct XC2BitstreamFB {
     #[encode_sub_extra_data(variant = CrbitXC2C64, arr_elem_i)]
     #[decode_sub_extra_data(variant = CrbitXC2C64, arr_elem_i)]
 
+    #[offset(variant = CrbitXC2C128, {
+        let (x, y) = zia_block_loc(XC2Device::XC2C128, extra_data as u32);
+        [x, y]
+    })]
+    #[arr_off(variant = CrbitXC2C128, |i| [0, i])]
+    #[frag(outer_frag_variant = CrbitXC2C128, inner_frag_variant = zia::CrbitXC2C128)]
+    #[encode_sub_extra_data(variant = CrbitXC2C128, arr_elem_i)]
+    #[decode_sub_extra_data(variant = CrbitXC2C128, arr_elem_i)]
+
     zia_bits: [[XC2ZIAInput; INPUTS_PER_ANDTERM / 2]; 2],
 
 
@@ -310,6 +375,17 @@ pub struct XC2BitstreamFB {
     })]
     #[arr_off(variant = CrbitXC2C64, |i| [0, 3 * i])]
     #[frag(outer_frag_variant = CrbitXC2C64, inner_frag_variant = mc::Crbit64)]
+
+    #[offset(variant = CrbitXC2C128, {
+        let (x, y, _mirror) = mc_block_loc(XC2Device::XC2C128, extra_data as u32);
+        [x, y]
+    })]
+    #[mirror(variant = CrbitXC2C128, {
+        let (_x, _y, mirror) = mc_block_loc(XC2Device::XC2C128, extra_data as u32);
+        [mirror, false]
+    })]
+    #[arr_off(variant = CrbitXC2C128, |i| [0, MC_TO_ROW_MAP_LARGE[i]])]
+    #[frag(outer_frag_variant = CrbitXC2C128, inner_frag_variant = mc::CrbitLarge)]
 
     pub mcs: [XC2Macrocell; MCS_PER_FB],
 }
@@ -398,24 +474,6 @@ static AND_BLOCK_TYPE2_P2L_MAP: [usize; ANDTERMS_PER_FB] = [
     37, 36, 35,
     29, 30, 31,
     34, 33, 32];
-
-static AND_BLOCK_TYPE2_L2P_MAP: [usize; ANDTERMS_PER_FB] = [
-    0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10,
-    14, 15, 16,
-    20, 21, 22,
-    26, 27, 28,
-    32, 33, 34,
-    38, 39, 40,
-    44, 45, 46,
-    50, 51, 52,
-    55, 54, 53,
-    49, 48, 47,
-    43, 42, 41,
-    37, 36, 35,
-    31, 30, 29,
-    25, 24, 23,
-    19, 18, 17,
-    13, 12, 11];
 
 impl XC2BitstreamFB {
     /// Dump a human-readable explanation of the settings for this FB to the given `writer` object.
@@ -506,6 +564,16 @@ impl XC2BitstreamFB {
         }
         if device == XC2Device::XC2C64 || device == XC2Device::XC2C64A {
             <Self as BitFragment<CrbitXC2C64>>::encode(
+                &self,
+                fuse_array,
+                [0, 0],
+                [false, false],
+                fb as usize);
+
+            return;
+        }
+        if device == XC2Device::XC2C128 {
+            <Self as BitFragment<CrbitXC2C128>>::encode(
                 &self,
                 fuse_array,
                 [0, 0],
