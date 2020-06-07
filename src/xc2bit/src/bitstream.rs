@@ -1515,34 +1515,3 @@ impl XC2BitstreamBits {
         }
     }
 }
-
-/// Common logic for reading bitstreams on "large" devices
-fn read_bitstream_logical_common_large(fuses: &[bool], device: XC2Device,
-    fb: &mut [XC2BitstreamFB], iobs: &mut [XC2MCLargeIOB]) -> Result<(), XC2BitError> {
-
-    for i in 0..fb.len() {
-        let base_fuse = fb_fuse_idx(device, i as u32);
-        let res = XC2BitstreamFB::from_jed(device, fuses, i as u32, base_fuse)?;
-        fb[i] = res;
-
-        let zia_row_width = zia_get_row_width(device);
-        let size_of_zia = zia_row_width * INPUTS_PER_ANDTERM;
-        let size_of_and = INPUTS_PER_ANDTERM * 2 * ANDTERMS_PER_FB;
-        let size_of_or = ANDTERMS_PER_FB * MCS_PER_FB;
-        let mut iob_fuse = base_fuse + size_of_zia + size_of_and + size_of_or;
-        for mc in 0..MCS_PER_FB {
-            let iob = fb_mc_num_to_iob_num(device, i as u32, mc as u32);
-            if iob.is_some() {
-                let res = XC2MCLargeIOB::from_jed(fuses, iob_fuse)?;
-                iobs[iob.unwrap() as usize] = res;
-                // Must be not a buried macrocell
-                iob_fuse += 29;
-            } else {
-                // Buried
-                iob_fuse += 16;
-            }
-        }
-    };
-
-    Ok(())
-}

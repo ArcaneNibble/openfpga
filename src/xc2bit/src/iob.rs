@@ -387,11 +387,6 @@ impl fmt::Display for XC2MCLargeIOB {
 }
 
 impl XC2MCLargeIOB {
-    /// Internal function that reads only the IO-related bits from the macrocell configuration
-    pub fn from_jed(fuses: &[bool], fuse_idx: usize) -> Result<Self, XC2BitError> {
-        <Self as BitFragment::<Jed>>::decode(fuses, [fuse_idx as isize], [false], ())
-    }
-
     /// Helper that prints the IOB configuration on the "large" parts
     pub fn to_jed(&self, jed: &mut JEDECFile, fuse_base: usize) {
         <Self as BitFragment::<Jed>>::encode(&self, &mut jed.f, [fuse_base as isize], [false], ());

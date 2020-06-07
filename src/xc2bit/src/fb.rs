@@ -744,32 +744,6 @@ impl XC2BitstreamFB {
             },
         }
     }
-
-    /// Internal function that reads a function block
-    pub fn from_jed(device: XC2Device, fuses: &[bool], fb: u32, fuse_base: usize)
-        -> Result<XC2BitstreamFB, XC2BitError> {
-
-        match device {
-            XC2Device::XC2C32 | XC2Device::XC2C32A => {
-                <Self as BitFragment<JedXC2C32>>::decode(fuses, [fuse_base as isize], [false], ())
-            },
-            XC2Device::XC2C64 | XC2Device::XC2C64A => {
-                <Self as BitFragment<JedXC2C64>>::decode(fuses, [fuse_base as isize], [false], ())
-            },
-            XC2Device::XC2C128 => {
-                <Self as BitFragment<JedXC2C128>>::decode(fuses, [fuse_base as isize], [false], fb as usize)
-            },
-            XC2Device::XC2C256 => {
-                <Self as BitFragment<JedXC2C256>>::decode(fuses, [fuse_base as isize], [false], fb as usize)
-            },
-            XC2Device::XC2C384 => {
-                <Self as BitFragment<JedXC2C384>>::decode(fuses, [fuse_base as isize], [false], fb as usize)
-            },
-            XC2Device::XC2C512 => {
-                <Self as BitFragment<JedXC2C512>>::decode(fuses, [fuse_base as isize], [false], fb as usize)
-            },
-        }
-    }
 }
 
 // TODO: This is the same across all sizes, right?
