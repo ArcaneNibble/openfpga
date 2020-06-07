@@ -349,7 +349,7 @@ impl XC2Bitstream {
                 XC2Bitstream {
                     speed_grade,
                     package,
-                    bits: XC2BitstreamBits::XC2C256 {
+                    bits: XC2BitstreamBits::XC2C256(XC2BitsXC2C256 {
                         fb: [XC2BitstreamFB::default(); 16],
                         iobs: [[XC2MCLargeIOB::default(); 23]; 8],
                         global_nets: XC2GlobalNets::default(),
@@ -358,14 +358,14 @@ impl XC2Bitstream {
                         data_gate: false,
                         use_vref: false,
                         clock_div: XC2ClockDiv::default(),
-                    }
+                    })
                 }
             },
             XC2Device::XC2C384 => {
                 XC2Bitstream {
                     speed_grade,
                     package,
-                    bits: XC2BitstreamBits::XC2C384 {
+                    bits: XC2BitstreamBits::XC2C384(XC2BitsXC2C384 {
                         fb: [XC2BitstreamFB::default(); 24],
                         iobs: [[XC2MCLargeIOB::default(); 24]; 10],
                         global_nets: XC2GlobalNets::default(),
@@ -374,14 +374,14 @@ impl XC2Bitstream {
                         data_gate: false,
                         use_vref: false,
                         clock_div: XC2ClockDiv::default(),
-                    }
+                    })
                 }
             },
             XC2Device::XC2C512 => {
                 XC2Bitstream {
                     speed_grade,
                     package,
-                    bits: XC2BitstreamBits::XC2C512 {
+                    bits: XC2BitstreamBits::XC2C512(XC2BitsXC2C512 {
                         fb: [XC2BitstreamFB::default(); 32],
                         iobs: [[XC2MCLargeIOB::default(); 27]; 10],
                         global_nets: XC2GlobalNets::default(),
@@ -390,7 +390,7 @@ impl XC2Bitstream {
                         data_gate: false,
                         use_vref: false,
                         clock_div: XC2ClockDiv::default(),
-                    }
+                    })
                 }
             }
         }
@@ -658,6 +658,171 @@ pub struct XC2BitsXC2C128 {
     ovoltage: [bool; 2],
 }
 
+#[bitfragment(variant = Crbit, dimensions = 2, errtype = XC2BitError)]
+#[derive(Copy, Clone, Eq, PartialEq, Hash, Debug, Serialize, Deserialize)]
+pub struct XC2BitsXC2C256 {
+    #[arr_off(variant = Crbit, |_| [0, 0])]
+    #[frag(outer_frag_variant = Crbit, inner_frag_variant = fb::CrbitXC2C256)]
+    #[encode_sub_extra_data(variant = Crbit, arr_elem_i)]
+    #[decode_sub_extra_data(variant = Crbit, arr_elem_i)]
+    fb: [XC2BitstreamFB; 16],
+
+    // XXX this offset is here whereas the fb offset is automagic
+    #[arr_off(variant = Crbit, |iob| {
+        let (fb, mc) = iob_num_to_fb_mc_num(XC2Device::XC2C256, iob as u32).unwrap();
+        let (x, y, _mirror) = mc_block_loc(XC2Device::XC2C256, fb);
+        // The "256" variant
+        // each macrocell is 3 rows high
+        let y = y + (mc as usize) * 3;
+        [x, y]
+    })]
+    #[arr_mirror(variant = Crbit, |iob| {
+        let (fb, _mc) = iob_num_to_fb_mc_num(XC2Device::XC2C256, iob as u32).unwrap();
+        let (_x, _y, mirror) = mc_block_loc(XC2Device::XC2C256, fb);
+        [mirror, false]
+    })]
+    #[frag(outer_frag_variant = Crbit, inner_frag_variant = iob::Crbit256)]
+    iobs: [[XC2MCLargeIOB; 23]; 8],
+
+    #[frag(outer_frag_variant = Crbit, inner_frag_variant = globalbits::CrbitXC2C256)]
+    global_nets: XC2GlobalNets,
+
+    #[frag(outer_frag_variant = Crbit, inner_frag_variant = globalbits::CrbitXC2C256)]
+    clock_div: XC2ClockDiv,
+
+    /// Whether the DataGate feature is used
+    #[pat_bits(frag_variant = Crbit, "0" = !(518, 23))]
+    data_gate: bool,
+
+    /// Whether I/O standards with VREF are used
+    #[pat_bits(frag_variant = Crbit, "0" = !(177, 23))]
+    use_vref: bool,
+
+    /// Voltage level control for each I/O bank
+    ///
+    /// `false` = low, `true` = high
+    #[arr_off(variant = Crbit, |i| [[175, 23], [515, 23]][i])]
+    #[pat_bits(frag_variant = Crbit, "0" = !(0, 0))]
+    ivoltage: [bool; 2],
+
+    /// Voltage level control for each I/O bank
+    ///
+    /// `false` = low, `true` = high
+    #[arr_off(variant = Crbit, |i| [[176, 23], [516, 23]][i])]
+    #[pat_bits(frag_variant = Crbit, "0" = !(0, 0))]
+    ovoltage: [bool; 2],
+}
+
+#[bitfragment(variant = Crbit, dimensions = 2, errtype = XC2BitError)]
+#[derive(Copy, Clone, Eq, PartialEq, Hash, Debug, Serialize, Deserialize)]
+pub struct XC2BitsXC2C384 {
+    #[arr_off(variant = Crbit, |_| [0, 0])]
+    #[frag(outer_frag_variant = Crbit, inner_frag_variant = fb::CrbitXC2C384)]
+    #[encode_sub_extra_data(variant = Crbit, arr_elem_i)]
+    #[decode_sub_extra_data(variant = Crbit, arr_elem_i)]
+    fb: [XC2BitstreamFB; 24],
+
+    // XXX this offset is here whereas the fb offset is automagic
+    #[arr_off(variant = Crbit, |iob| {
+        let (fb, mc) = iob_num_to_fb_mc_num(XC2Device::XC2C384, iob as u32).unwrap();
+        let (x, y, _mirror) = mc_block_loc(XC2Device::XC2C384, fb);
+        // The "common large macrocell" variant
+        // we need this funny lookup table, but otherwise macrocells are 2x15
+        let y = y + MC_TO_ROW_MAP_LARGE[mc as usize];
+        [x, y]
+    })]
+    #[arr_mirror(variant = Crbit, |iob| {
+        let (fb, _mc) = iob_num_to_fb_mc_num(XC2Device::XC2C384, iob as u32).unwrap();
+        let (_x, _y, mirror) = mc_block_loc(XC2Device::XC2C384, fb);
+        [mirror, false]
+    })]
+    #[frag(outer_frag_variant = Crbit, inner_frag_variant = iob::CrbitLarge)]
+    iobs: [[XC2MCLargeIOB; 24]; 10],
+
+    #[frag(outer_frag_variant = Crbit, inner_frag_variant = globalbits::CrbitXC2C384)]
+    global_nets: XC2GlobalNets,
+
+    #[frag(outer_frag_variant = Crbit, inner_frag_variant = globalbits::CrbitXC2C384)]
+    clock_div: XC2ClockDiv,
+
+    /// Whether the DataGate feature is used
+    #[pat_bits(frag_variant = Crbit, "0" = !(932, 17))]
+    data_gate: bool,
+
+    /// Whether I/O standards with VREF are used
+    #[pat_bits(frag_variant = Crbit, "0" = !(3, 17))]
+    use_vref: bool,
+
+    /// Voltage level control for each I/O bank
+    ///
+    /// `false` = low, `true` = high
+    #[arr_off(variant = Crbit, |i| [[936, 17], [1864, 17], [1, 17], [929, 17]][i])]
+    #[pat_bits(frag_variant = Crbit, "0" = !(0, 0))]
+    ivoltage: [bool; 4],
+
+    /// Voltage level control for each I/O bank
+    ///
+    /// `false` = low, `true` = high
+    #[arr_off(variant = Crbit, |i| [[937, 17], [1865, 17], [2, 17], [930, 17]][i])]
+    #[pat_bits(frag_variant = Crbit, "0" = !(0, 0))]
+    ovoltage: [bool; 4],
+}
+
+#[bitfragment(variant = Crbit, dimensions = 2, errtype = XC2BitError)]
+#[derive(Copy, Clone, Eq, PartialEq, Hash, Debug, Serialize, Deserialize)]
+pub struct XC2BitsXC2C512 {
+    #[arr_off(variant = Crbit, |_| [0, 0])]
+    #[frag(outer_frag_variant = Crbit, inner_frag_variant = fb::CrbitXC2C512)]
+    #[encode_sub_extra_data(variant = Crbit, arr_elem_i)]
+    #[decode_sub_extra_data(variant = Crbit, arr_elem_i)]
+    fb: [XC2BitstreamFB; 32],
+
+    // XXX this offset is here whereas the fb offset is automagic
+    #[arr_off(variant = Crbit, |iob| {
+        let (fb, mc) = iob_num_to_fb_mc_num(XC2Device::XC2C512, iob as u32).unwrap();
+        let (x, y, _mirror) = mc_block_loc(XC2Device::XC2C512, fb);
+        // The "common large macrocell" variant
+        // we need this funny lookup table, but otherwise macrocells are 2x15
+        let y = y + MC_TO_ROW_MAP_LARGE[mc as usize];
+        [x, y]
+    })]
+    #[arr_mirror(variant = Crbit, |iob| {
+        let (fb, _mc) = iob_num_to_fb_mc_num(XC2Device::XC2C512, iob as u32).unwrap();
+        let (_x, _y, mirror) = mc_block_loc(XC2Device::XC2C512, fb);
+        [mirror, false]
+    })]
+    #[frag(outer_frag_variant = Crbit, inner_frag_variant = iob::CrbitLarge)]
+    iobs: [[XC2MCLargeIOB; 27]; 10],
+
+    #[frag(outer_frag_variant = Crbit, inner_frag_variant = globalbits::CrbitXC2C512)]
+    global_nets: XC2GlobalNets,
+
+    #[frag(outer_frag_variant = Crbit, inner_frag_variant = globalbits::CrbitXC2C512)]
+    clock_div: XC2ClockDiv,
+
+    /// Whether the DataGate feature is used
+    #[pat_bits(frag_variant = Crbit, "0" = !(982, 147))]
+    data_gate: bool,
+
+    /// Whether I/O standards with VREF are used
+    #[pat_bits(frag_variant = Crbit, "0" = !(1, 147))]
+    use_vref: bool,
+
+    /// Voltage level control for each I/O bank
+    ///
+    /// `false` = low, `true` = high
+    #[arr_off(variant = Crbit, |i| [[992, 147], [1965, 147], [3, 147], [985, 147]][i])]
+    #[pat_bits(frag_variant = Crbit, "0" = (0, 0))]
+    ivoltage: [bool; 4],
+
+    /// Voltage level control for each I/O bank
+    ///
+    /// `false` = low, `true` = high
+    #[arr_off(variant = Crbit, |i| [[991, 147], [1964, 147], [2, 147], [984, 147]][i])]
+    #[pat_bits(frag_variant = Crbit, "0" = (0, 0))]
+    ovoltage: [bool; 4],
+}
+
 /// The actual bitstream bits for each possible Coolrunner-II part
 #[derive(Copy, Clone, Eq, PartialEq, Hash, Debug, Serialize, Deserialize)]
 pub enum XC2BitstreamBits {
@@ -666,60 +831,9 @@ pub enum XC2BitstreamBits {
     XC2C64(XC2BitsXC2C64),
     XC2C64A(XC2BitsXC2C64A),
     XC2C128(XC2BitsXC2C128),
-    XC2C256 {
-        fb: [XC2BitstreamFB; 16],
-        iobs: [[XC2MCLargeIOB; 23]; 8],
-        global_nets: XC2GlobalNets,
-        clock_div: XC2ClockDiv,
-        /// Whether the DataGate feature is used
-        data_gate: bool,
-        /// Whether I/O standards with VREF are used
-        use_vref: bool,
-        /// Voltage level control for each I/O bank
-        ///
-        /// `false` = low, `true` = high
-        ivoltage: [bool; 2],
-        /// Voltage level control for each I/O bank
-        ///
-        /// `false` = low, `true` = high
-        ovoltage: [bool; 2],
-    },
-    XC2C384 {
-        fb: [XC2BitstreamFB; 24],
-        iobs: [[XC2MCLargeIOB; 24]; 10],
-        global_nets: XC2GlobalNets,
-        clock_div: XC2ClockDiv,
-        /// Whether the DataGate feature is used
-        data_gate: bool,
-        /// Whether I/O standards with VREF are used
-        use_vref: bool,
-        /// Voltage level control for each I/O bank
-        ///
-        /// `false` = low, `true` = high
-        ivoltage: [bool; 4],
-        /// Voltage level control for each I/O bank
-        ///
-        /// `false` = low, `true` = high
-        ovoltage: [bool; 4],
-    },
-    XC2C512 {
-        fb: [XC2BitstreamFB; 32],
-        iobs: [[XC2MCLargeIOB; 27]; 10],
-        global_nets: XC2GlobalNets,
-        clock_div: XC2ClockDiv,
-        /// Whether the DataGate feature is used
-        data_gate: bool,
-        /// Whether I/O standards with VREF are used
-        use_vref: bool,
-        /// Voltage level control for each I/O bank
-        ///
-        /// `false` = low, `true` = high
-        ivoltage: [bool; 4],
-        /// Voltage level control for each I/O bank
-        ///
-        /// `false` = low, `true` = high
-        ovoltage: [bool; 4],
-    }
+    XC2C256(XC2BitsXC2C256),
+    XC2C384(XC2BitsXC2C384),
+    XC2C512(XC2BitsXC2C512),
 }
 
 impl XC2BitstreamBits {
@@ -745,9 +859,9 @@ impl XC2BitstreamBits {
             &XC2BitstreamBits::XC2C64(XC2BitsXC2C64{ref fb, ..}) => fb,
             &XC2BitstreamBits::XC2C64A(XC2BitsXC2C64A{ref fb, ..}) => fb,
             &XC2BitstreamBits::XC2C128(XC2BitsXC2C128{ref fb, ..}) => fb,
-            &XC2BitstreamBits::XC2C256{ref fb, ..} => fb,
-            &XC2BitstreamBits::XC2C384{ref fb, ..} => fb,
-            &XC2BitstreamBits::XC2C512{ref fb, ..} => fb,
+            &XC2BitstreamBits::XC2C256(XC2BitsXC2C256{ref fb, ..}) => fb,
+            &XC2BitstreamBits::XC2C384(XC2BitsXC2C384{ref fb, ..}) => fb,
+            &XC2BitstreamBits::XC2C512(XC2BitsXC2C512{ref fb, ..}) => fb,
         }
     }
 
@@ -759,9 +873,9 @@ impl XC2BitstreamBits {
             &mut XC2BitstreamBits::XC2C64(XC2BitsXC2C64{ref mut fb, ..}) => fb,
             &mut XC2BitstreamBits::XC2C64A(XC2BitsXC2C64A{ref mut fb, ..}) => fb,
             &mut XC2BitstreamBits::XC2C128(XC2BitsXC2C128{ref mut fb, ..}) => fb,
-            &mut XC2BitstreamBits::XC2C256{ref mut fb, ..} => fb,
-            &mut XC2BitstreamBits::XC2C384{ref mut fb, ..} => fb,
-            &mut XC2BitstreamBits::XC2C512{ref mut fb, ..} => fb,
+            &mut XC2BitstreamBits::XC2C256(XC2BitsXC2C256{ref mut fb, ..}) => fb,
+            &mut XC2BitstreamBits::XC2C384(XC2BitsXC2C384{ref mut fb, ..}) => fb,
+            &mut XC2BitstreamBits::XC2C512(XC2BitsXC2C512{ref mut fb, ..}) => fb,
         }
     }
 
@@ -791,9 +905,9 @@ impl XC2BitstreamBits {
     pub fn get_large_iob(&self, i: usize) -> Option<&XC2MCLargeIOB> {
         match self {
             &XC2BitstreamBits::XC2C128(XC2BitsXC2C128{ref iobs, ..}) => Some(&iobs[i / 25][i % 25]),
-            &XC2BitstreamBits::XC2C256{ref iobs, ..} => Some(&iobs[i / 23][i % 23]),
-            &XC2BitstreamBits::XC2C384{ref iobs, ..} => Some(&iobs[i / 24][i % 24]),
-            &XC2BitstreamBits::XC2C512{ref iobs, ..} => Some(&iobs[i / 27][i % 27]),
+            &XC2BitstreamBits::XC2C256(XC2BitsXC2C256{ref iobs, ..}) => Some(&iobs[i / 23][i % 23]),
+            &XC2BitstreamBits::XC2C384(XC2BitsXC2C384{ref iobs, ..}) => Some(&iobs[i / 24][i % 24]),
+            &XC2BitstreamBits::XC2C512(XC2BitsXC2C512{ref iobs, ..}) => Some(&iobs[i / 27][i % 27]),
             _ => None,
         }
     }
@@ -802,9 +916,9 @@ impl XC2BitstreamBits {
     pub fn get_mut_large_iob(&mut self, i: usize) -> Option<&mut XC2MCLargeIOB> {
         match self {
             &mut XC2BitstreamBits::XC2C128(XC2BitsXC2C128{ref mut iobs, ..}) => Some(&mut iobs[i / 25][i % 25]),
-            &mut XC2BitstreamBits::XC2C256{ref mut iobs, ..} => Some(&mut iobs[i / 23][i % 23]),
-            &mut XC2BitstreamBits::XC2C384{ref mut iobs, ..} => Some(&mut iobs[i / 24][i % 24]),
-            &mut XC2BitstreamBits::XC2C512{ref mut iobs, ..} => Some(&mut iobs[i / 27][i % 27]),
+            &mut XC2BitstreamBits::XC2C256(XC2BitsXC2C256{ref mut iobs, ..}) => Some(&mut iobs[i / 23][i % 23]),
+            &mut XC2BitstreamBits::XC2C384(XC2BitsXC2C384{ref mut iobs, ..}) => Some(&mut iobs[i / 24][i % 24]),
+            &mut XC2BitstreamBits::XC2C512(XC2BitsXC2C512{ref mut iobs, ..}) => Some(&mut iobs[i / 27][i % 27]),
             _ => None,
         }
     }
@@ -817,9 +931,9 @@ impl XC2BitstreamBits {
             &XC2BitstreamBits::XC2C64(XC2BitsXC2C64{ref global_nets, ..}) => global_nets,
             &XC2BitstreamBits::XC2C64A(XC2BitsXC2C64A{ref global_nets, ..}) => global_nets,
             &XC2BitstreamBits::XC2C128(XC2BitsXC2C128{ref global_nets, ..}) => global_nets,
-            &XC2BitstreamBits::XC2C256{ref global_nets, ..} => global_nets,
-            &XC2BitstreamBits::XC2C384{ref global_nets, ..} => global_nets,
-            &XC2BitstreamBits::XC2C512{ref global_nets, ..} => global_nets,
+            &XC2BitstreamBits::XC2C256(XC2BitsXC2C256{ref global_nets, ..}) => global_nets,
+            &XC2BitstreamBits::XC2C384(XC2BitsXC2C384{ref global_nets, ..}) => global_nets,
+            &XC2BitstreamBits::XC2C512(XC2BitsXC2C512{ref global_nets, ..}) => global_nets,
         }
     }
 
@@ -831,9 +945,9 @@ impl XC2BitstreamBits {
             &mut XC2BitstreamBits::XC2C64(XC2BitsXC2C64{ref mut global_nets, ..}) => global_nets,
             &mut XC2BitstreamBits::XC2C64A(XC2BitsXC2C64A{ref mut global_nets, ..}) => global_nets,
             &mut XC2BitstreamBits::XC2C128(XC2BitsXC2C128{ref mut global_nets, ..}) => global_nets,
-            &mut XC2BitstreamBits::XC2C256{ref mut global_nets, ..} => global_nets,
-            &mut XC2BitstreamBits::XC2C384{ref mut global_nets, ..} => global_nets,
-            &mut XC2BitstreamBits::XC2C512{ref mut global_nets, ..} => global_nets,
+            &mut XC2BitstreamBits::XC2C256(XC2BitsXC2C256{ref mut global_nets, ..}) => global_nets,
+            &mut XC2BitstreamBits::XC2C384(XC2BitsXC2C384{ref mut global_nets, ..}) => global_nets,
+            &mut XC2BitstreamBits::XC2C512(XC2BitsXC2C512{ref mut global_nets, ..}) => global_nets,
         }
     }
 
@@ -844,9 +958,9 @@ impl XC2BitstreamBits {
             &XC2BitstreamBits::XC2C64{..} => None,
             &XC2BitstreamBits::XC2C64A{..} => None,
             &XC2BitstreamBits::XC2C128(XC2BitsXC2C128{ref clock_div, ..}) => Some(clock_div),
-            &XC2BitstreamBits::XC2C256{ref clock_div, ..} => Some(clock_div),
-            &XC2BitstreamBits::XC2C384{ref clock_div, ..} => Some(clock_div),
-            &XC2BitstreamBits::XC2C512{ref clock_div, ..} => Some(clock_div),
+            &XC2BitstreamBits::XC2C256(XC2BitsXC2C256{ref clock_div, ..}) => Some(clock_div),
+            &XC2BitstreamBits::XC2C384(XC2BitsXC2C384{ref clock_div, ..}) => Some(clock_div),
+            &XC2BitstreamBits::XC2C512(XC2BitsXC2C512{ref clock_div, ..}) => Some(clock_div),
         }
     }
 
@@ -873,106 +987,89 @@ impl XC2BitstreamBits {
                 <XC2BitsXC2C128 as BitFragment<Crbit>>::encode(
                     x, fuse_array, [0, 0], [false, false], ());
             },
-            _ => {}
+            XC2BitstreamBits::XC2C256(x) => {
+                <XC2BitsXC2C256 as BitFragment<Crbit>>::encode(
+                    x, fuse_array, [0, 0], [false, false], ());
+            },
+            XC2BitstreamBits::XC2C384(x) => {
+                <XC2BitsXC2C384 as BitFragment<Crbit>>::encode(
+                    x, fuse_array, [0, 0], [false, false], ());
+            },
+            XC2BitstreamBits::XC2C512(x) => {
+                <XC2BitsXC2C512 as BitFragment<Crbit>>::encode(
+                    x, fuse_array, [0, 0], [false, false], ());
+            },
         }
 
-        if self.device_type() != XC2Device::XC2C32 && self.device_type() != XC2Device::XC2C32A && self.device_type() != XC2Device::XC2C64 && self.device_type() != XC2Device::XC2C64A && self.device_type() != XC2Device::XC2C128 {
-        // FBs
-        for i in 0..self.device_type().num_fbs() {
-            self.get_fb()[i].to_crbit(self.device_type(), i as u32, fuse_array);
-        }
+        // if self.device_type() == XC2Device::XC2C512 {
+        // // FBs
+        // for i in 0..self.device_type().num_fbs() {
+        //     self.get_fb()[i].to_crbit(self.device_type(), i as u32, fuse_array);
+        // }
 
-        // IOBs
-        for i in 0..self.device_type().num_iobs() {
-            if let Some(iob) = self.get_large_iob(i) {
-                iob.to_crbit(self.device_type(), i as u32, fuse_array);
-            }
-        }
+        // // IOBs
+        // for i in 0..self.device_type().num_iobs() {
+        //     if let Some(iob) = self.get_large_iob(i) {
+        //         iob.to_crbit(self.device_type(), i as u32, fuse_array);
+        //     }
+        // }
 
-        // Global nets
-        self.get_global_nets().to_crbit(self.device_type(), fuse_array);
+        // // Global nets
+        // self.get_global_nets().to_crbit(self.device_type(), fuse_array);
 
-        // Clock divider
-        if let Some(clock_div) = self.get_clock_div() {
-            match self.device_type() {
-                XC2Device::XC2C128 => {
-                    <XC2ClockDiv as BitFragment<globalbits::CrbitXC2C128>>::encode(
-                        clock_div, fuse_array, [0, 0], [false, false], ());
-                },
-                XC2Device::XC2C256 => {
-                    <XC2ClockDiv as BitFragment<globalbits::CrbitXC2C256>>::encode(
-                        clock_div, fuse_array, [0, 0], [false, false], ());
-                },
-                XC2Device::XC2C384 => {
-                    <XC2ClockDiv as BitFragment<globalbits::CrbitXC2C384>>::encode(
-                        clock_div, fuse_array, [0, 0], [false, false], ());
-                },
-                XC2Device::XC2C512 => {
-                    <XC2ClockDiv as BitFragment<globalbits::CrbitXC2C512>>::encode(
-                        clock_div, fuse_array, [0, 0], [false, false], ());
-                },
-                _ => unreachable!()
-            }
-        }
+        // // Clock divider
+        // if let Some(clock_div) = self.get_clock_div() {
+        //     match self.device_type() {
+        //         XC2Device::XC2C128 => {
+        //             <XC2ClockDiv as BitFragment<globalbits::CrbitXC2C128>>::encode(
+        //                 clock_div, fuse_array, [0, 0], [false, false], ());
+        //         },
+        //         XC2Device::XC2C256 => {
+        //             <XC2ClockDiv as BitFragment<globalbits::CrbitXC2C256>>::encode(
+        //                 clock_div, fuse_array, [0, 0], [false, false], ());
+        //         },
+        //         XC2Device::XC2C384 => {
+        //             <XC2ClockDiv as BitFragment<globalbits::CrbitXC2C384>>::encode(
+        //                 clock_div, fuse_array, [0, 0], [false, false], ());
+        //         },
+        //         XC2Device::XC2C512 => {
+        //             <XC2ClockDiv as BitFragment<globalbits::CrbitXC2C512>>::encode(
+        //                 clock_div, fuse_array, [0, 0], [false, false], ());
+        //         },
+        //         _ => unreachable!()
+        //     }
+        // }
 
-        // Bank voltages and miscellaneous
-        match self {
-            &XC2BitstreamBits::XC2C32(XC2BitsXC2C32{ref ivoltage, ref ovoltage, ..}) |
-            &XC2BitstreamBits::XC2C32A(XC2BitsXC2C32A{legacy_ivoltage: ref ivoltage, legacy_ovoltage: ref ovoltage, ..}) => {
-            }
-            &XC2BitstreamBits::XC2C64(XC2BitsXC2C64{ref ivoltage, ref ovoltage, ..}) |
-            &XC2BitstreamBits::XC2C64A(XC2BitsXC2C64A{legacy_ivoltage: ref ivoltage, legacy_ovoltage: ref ovoltage, ..}) => {
-            }
-            &XC2BitstreamBits::XC2C128(XC2BitsXC2C128{ref ivoltage, ref ovoltage, ref data_gate, ref use_vref, ..})  => {
-                fuse_array.set(371, 67, !*data_gate);
+        // // Bank voltages and miscellaneous
+        // match self {
+        //     &XC2BitstreamBits::XC2C32(..) |
+        //     &XC2BitstreamBits::XC2C32A(..) => {
+        //     }
+        //     &XC2BitstreamBits::XC2C64(..) |
+        //     &XC2BitstreamBits::XC2C64A(..) => {
+        //     }
+        //     &XC2BitstreamBits::XC2C128(..)  => {
+        //     }
+        //     &XC2BitstreamBits::XC2C256(..) => {
+        //     }
+        //     &XC2BitstreamBits::XC2C384(..)  => {
+        //     }
+        //     &XC2BitstreamBits::XC2C512 {ref ivoltage, ref ovoltage, ref data_gate, ref use_vref, ..}  => {
+        //         fuse_array.set(982, 147, !*data_gate);
 
-                fuse_array.set(8, 67, !ivoltage[0]);
-                fuse_array.set(9, 67, !ovoltage[0]);
-                fuse_array.set(368, 67, !ivoltage[1]);
-                fuse_array.set(369, 67, !ovoltage[1]);
-
-                fuse_array.set(10, 67, !*use_vref);
-            }
-            &XC2BitstreamBits::XC2C256 {ref ivoltage, ref ovoltage, ref data_gate, ref use_vref, ..}  => {
-                fuse_array.set(518, 23, !*data_gate);
-
-                fuse_array.set(175, 23, !ivoltage[0]);
-                fuse_array.set(176, 23, !ovoltage[0]);
-                fuse_array.set(515, 23, !ivoltage[1]);
-                fuse_array.set(516, 23, !ovoltage[1]);
+        //         fuse_array.set(992, 147, ivoltage[0]);
+        //         fuse_array.set(991, 147, ovoltage[0]);
+        //         fuse_array.set(1965, 147, ivoltage[1]);
+        //         fuse_array.set(1964, 147, ovoltage[1]);
+        //         fuse_array.set(3, 147, ivoltage[2]);
+        //         fuse_array.set(2, 147, ovoltage[2]);
+        //         fuse_array.set(985, 147, ivoltage[3]);
+        //         fuse_array.set(984, 147, ovoltage[3]);
                 
-                fuse_array.set(177, 23, !*use_vref);
-            }
-            &XC2BitstreamBits::XC2C384 {ref ivoltage, ref ovoltage, ref data_gate, ref use_vref, ..}  => {
-                fuse_array.set(932, 17, !*data_gate);
-
-                fuse_array.set(936, 17, !ivoltage[0]);
-                fuse_array.set(937, 17, !ovoltage[0]);
-                fuse_array.set(1864, 17, !ivoltage[1]);
-                fuse_array.set(1865, 17, !ovoltage[1]);
-                fuse_array.set(1, 17, !ivoltage[2]);
-                fuse_array.set(2, 17, !ovoltage[2]);
-                fuse_array.set(929, 17, !ivoltage[3]);
-                fuse_array.set(930, 17, !ovoltage[3]);
-                
-                fuse_array.set(3, 17, !*use_vref);
-            }
-            &XC2BitstreamBits::XC2C512 {ref ivoltage, ref ovoltage, ref data_gate, ref use_vref, ..}  => {
-                fuse_array.set(982, 147, !*data_gate);
-
-                fuse_array.set(992, 147, ivoltage[0]);
-                fuse_array.set(991, 147, ovoltage[0]);
-                fuse_array.set(1965, 147, ivoltage[1]);
-                fuse_array.set(1964, 147, ovoltage[1]);
-                fuse_array.set(3, 147, ivoltage[2]);
-                fuse_array.set(2, 147, ovoltage[2]);
-                fuse_array.set(985, 147, ivoltage[3]);
-                fuse_array.set(984, 147, ovoltage[3]);
-                
-                fuse_array.set(1, 147, !*use_vref);
-            }
-        }
-        }
+        //         fuse_array.set(1, 147, !*use_vref);
+        //     }
+        // }
+        // }
 
         // Initialize security/done/usercode rows to all 1s
         for x in 0..fuse_array.dim().0 {
@@ -1026,7 +1123,7 @@ impl XC2BitstreamBits {
                 write!(writer, "bank 1 input voltage range: {}\n", if ivoltage[1] {"high"} else {"low"})?;
             },
             &XC2BitstreamBits::XC2C128(XC2BitsXC2C128{ref ivoltage, ref ovoltage, ref data_gate, ref use_vref, ..}) |
-            &XC2BitstreamBits::XC2C256 {ref ivoltage, ref ovoltage, ref data_gate, ref use_vref, ..} => {
+            &XC2BitstreamBits::XC2C256(XC2BitsXC2C256{ref ivoltage, ref ovoltage, ref data_gate, ref use_vref, ..}) => {
                 write!(writer, "bank 0 output voltage range: {}\n", if ovoltage[0] {"high"} else {"low"})?;
                 write!(writer, "bank 1 output voltage range: {}\n", if ovoltage[1] {"high"} else {"low"})?;
                 write!(writer, "bank 0 input voltage range: {}\n", if ivoltage[0] {"high"} else {"low"})?;
@@ -1034,8 +1131,8 @@ impl XC2BitstreamBits {
                 write!(writer, "DataGate used: {}\n", if *data_gate {"yes"} else {"no"})?;
                 write!(writer, "VREF used: {}\n", if *use_vref {"yes"} else {"no"})?;
             },
-            &XC2BitstreamBits::XC2C384 {ref ivoltage, ref ovoltage, ref data_gate, ref use_vref, ..} |
-            &XC2BitstreamBits::XC2C512 {ref ivoltage, ref ovoltage, ref data_gate, ref use_vref, ..} => {
+            &XC2BitstreamBits::XC2C384(XC2BitsXC2C384{ref ivoltage, ref ovoltage, ref data_gate, ref use_vref, ..}) |
+            &XC2BitstreamBits::XC2C512(XC2BitsXC2C512{ref ivoltage, ref ovoltage, ref data_gate, ref use_vref, ..}) => {
                 write!(writer, "bank 0 output voltage range: {}\n", if ovoltage[0] {"high"} else {"low"})?;
                 write!(writer, "bank 1 output voltage range: {}\n", if ovoltage[1] {"high"} else {"low"})?;
                 write!(writer, "bank 2 output voltage range: {}\n", if ovoltage[2] {"high"} else {"low"})?;
@@ -1219,7 +1316,7 @@ impl XC2BitstreamBits {
                 linebreaks.add(55340);
                 jed.f[55340] = !use_vref;
             }
-            &XC2BitstreamBits::XC2C256 {ref ivoltage, ref ovoltage, ref data_gate, ref use_vref, ..}  => {
+            &XC2BitstreamBits::XC2C256(XC2BitsXC2C256{ref ivoltage, ref ovoltage, ref data_gate, ref use_vref, ..})  => {
                 linebreaks.add(123243);
                 jed.f[123243] = !data_gate;
 
@@ -1233,7 +1330,7 @@ impl XC2BitstreamBits {
                 linebreaks.add(123248);
                 jed.f[123248] = !use_vref;
             }
-            &XC2BitstreamBits::XC2C384 {ref ivoltage, ref ovoltage, ref data_gate, ref use_vref, ..}  => {
+            &XC2BitstreamBits::XC2C384(XC2BitsXC2C384{ref ivoltage, ref ovoltage, ref data_gate, ref use_vref, ..})  => {
                 linebreaks.add(209347);
                 jed.f[209347] = !data_gate;
 
@@ -1252,7 +1349,7 @@ impl XC2BitstreamBits {
                 linebreaks.add(209356);
                 jed.f[209356] = !use_vref;
             }
-            &XC2BitstreamBits::XC2C512 {ref ivoltage, ref ovoltage, ref data_gate, ref use_vref, ..}  => {
+            &XC2BitstreamBits::XC2C512(XC2BitsXC2C512{ref ivoltage, ref ovoltage, ref data_gate, ref use_vref, ..})  => {
                 linebreaks.add(296393);
                 jed.f[296393] = !data_gate;
 
@@ -1513,7 +1610,7 @@ fn read_256_bitstream_logical(fuses: &[bool]) -> Result<XC2BitstreamBits, XC2Bit
         iobs2[i / 23][i % 23] = iobs[i];
     }
 
-    Ok(XC2BitstreamBits::XC2C256 {
+    Ok(XC2BitstreamBits::XC2C256(XC2BitsXC2C256 {
         fb,
         iobs: iobs2,
         global_nets,
@@ -1530,7 +1627,7 @@ fn read_256_bitstream_logical(fuses: &[bool]) -> Result<XC2BitstreamBits, XC2Bit
             !fuses[123246],
             !fuses[123247],
         ]
-    })
+    }))
 }
 
 /// Internal function for parsing an XC2C384 bitstream
@@ -1548,7 +1645,7 @@ fn read_384_bitstream_logical(fuses: &[bool]) -> Result<XC2BitstreamBits, XC2Bit
         iobs2[i / 24][i % 24] = iobs[i];
     }
 
-    Ok(XC2BitstreamBits::XC2C384 {
+    Ok(XC2BitstreamBits::XC2C384(XC2BitsXC2C384 {
         fb,
         iobs: iobs2,
         global_nets,
@@ -1569,7 +1666,7 @@ fn read_384_bitstream_logical(fuses: &[bool]) -> Result<XC2BitstreamBits, XC2Bit
             !fuses[209354],
             !fuses[209355],
         ]
-    })
+    }))
 }
 
 /// Internal function for parsing an XC2C512 bitstream
@@ -1587,7 +1684,7 @@ fn read_512_bitstream_logical(fuses: &[bool]) -> Result<XC2BitstreamBits, XC2Bit
         iobs2[i / 27][i % 27] = iobs[i];
     }
 
-    Ok(XC2BitstreamBits::XC2C512 {
+    Ok(XC2BitstreamBits::XC2C512(XC2BitsXC2C512 {
         fb,
         iobs: iobs2,
         global_nets,
@@ -1608,7 +1705,7 @@ fn read_512_bitstream_logical(fuses: &[bool]) -> Result<XC2BitstreamBits, XC2Bit
             fuses[296400],
             fuses[296401],
         ]
-    })
+    }))
 }
 
 /// Common logic for reading bitstreams on "small" devices
@@ -1793,7 +1890,7 @@ fn read_256_bitstream_physical(fuse_array: &FuseArray) -> Result<XC2BitstreamBit
         iobs2[i / 23][i % 23] = iobs[i];
     }
 
-    Ok(XC2BitstreamBits::XC2C256 {
+    Ok(XC2BitstreamBits::XC2C256(XC2BitsXC2C256 {
         fb,
         iobs: iobs2,
         global_nets,
@@ -1810,7 +1907,7 @@ fn read_256_bitstream_physical(fuse_array: &FuseArray) -> Result<XC2BitstreamBit
             !fuse_array.get(176, 23),
             !fuse_array.get(516, 23),
         ]
-    })
+    }))
 }
 
 /// Internal function for parsing an XC2C384 bitstream
@@ -1827,7 +1924,7 @@ fn read_384_bitstream_physical(fuse_array: &FuseArray) -> Result<XC2BitstreamBit
         iobs2[i / 24][i % 24] = iobs[i];
     }
 
-    Ok(XC2BitstreamBits::XC2C384 {
+    Ok(XC2BitstreamBits::XC2C384(XC2BitsXC2C384 {
         fb,
         iobs: iobs2,
         global_nets,
@@ -1848,7 +1945,7 @@ fn read_384_bitstream_physical(fuse_array: &FuseArray) -> Result<XC2BitstreamBit
             !fuse_array.get(2, 17),
             !fuse_array.get(930, 17),
         ]
-    })
+    }))
 }
 
 /// Internal function for parsing an XC2C512 bitstream
@@ -1865,7 +1962,7 @@ fn read_512_bitstream_physical(fuse_array: &FuseArray) -> Result<XC2BitstreamBit
         iobs2[i / 27][i % 27] = iobs[i];
     }
 
-    Ok(XC2BitstreamBits::XC2C512 {
+    Ok(XC2BitstreamBits::XC2C512(XC2BitsXC2C512 {
         fb,
         iobs: iobs2,
         global_nets,
@@ -1886,5 +1983,5 @@ fn read_512_bitstream_physical(fuse_array: &FuseArray) -> Result<XC2BitstreamBit
             fuse_array.get(2, 147),
             fuse_array.get(984, 147),
         ]
-    })
+    }))
 }
