@@ -223,11 +223,6 @@ impl fmt::Display for XC2MCSmallIOB {
 }
 
 impl XC2MCSmallIOB {
-    /// Internal function that reads only the IO-related bits from the macrocell configuration
-    pub fn from_jed(fuses: &[bool], fuse_idx: usize) -> Result<Self, XC2BitError> {
-        <Self as BitFragment::<Jed>>::decode(fuses, [fuse_idx as isize], [false], ())
-    }
-
     /// Helper that prints the IOB and macrocell configuration on the "small" parts
     pub fn to_jed(&self, jed: &mut JEDECFile, device: XC2Device, fuse_base: usize, i: usize) {
         let zia_row_width = zia_get_row_width(device);
