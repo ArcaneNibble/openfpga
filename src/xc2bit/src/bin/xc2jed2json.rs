@@ -252,7 +252,7 @@ fn main() {
 
                     attributes.insert(String::from("LOC"), AttributeVal::S(String::from("INPAD")));
                     match bitstream.bits {
-                        XC2BitstreamBits::XC2C32{ref inpin, ..} | XC2BitstreamBits::XC2C32A{ref inpin, ..} => {
+                        XC2BitstreamBits::XC2C32(XC2BitsXC2C32{ref inpin, ..}) | XC2BitstreamBits::XC2C32A(XC2BitsXC2C32A{ref inpin, ..}) => {
                             if inpin.termination_enabled {
                                 attributes.insert(String::from("TERM"), AttributeVal::S(String::from("TRUE")));
                             } else {
