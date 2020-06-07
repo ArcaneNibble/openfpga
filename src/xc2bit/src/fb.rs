@@ -49,7 +49,7 @@ pub enum CrbitXC2C256 {}
 pub enum CrbitXC2C384 {}
 pub enum CrbitXC2C512 {}
 
-fn large_get_macrocell_offset(device: XC2Device, fb_i: usize, mc_i: usize) -> usize {
+pub fn large_get_macrocell_offset(device: XC2Device, fb_i: usize, mc_i: usize) -> usize {
     let mut current_fuse_offset = 0;
 
     for i in 0..mc_i {

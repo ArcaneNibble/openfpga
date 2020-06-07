@@ -31,7 +31,7 @@ use std::io::Write;
 use jedec::*;
 
 use crate::*;
-use crate::fb::{MC_TO_ROW_MAP_LARGE};
+use crate::fb::{MC_TO_ROW_MAP_LARGE, large_get_macrocell_offset};
 use crate::fusemap_logical::{fb_fuse_idx, gck_fuse_idx, gsr_fuse_idx, gts_fuse_idx, global_term_fuse_idx,
                              total_logical_fuse_count, clock_div_fuse_idx};
 use crate::fusemap_physical::{fuse_array_dims, mc_block_loc};
@@ -145,11 +145,12 @@ impl XC2Bitstream {
                 })
             },
             XC2Device::XC2C128 => {
-                let bits = read_128_bitstream_logical(fuses)?;
+                let bits = <XC2BitsXC2C128 as BitFragment<Jed>>::decode(
+                    fuses, [0], [false], ())?;
                 Ok(XC2Bitstream {
                     speed_grade: spd,
                     package: pkg,
-                    bits,
+                    bits: XC2BitstreamBits::XC2C128(bits),
                 })
             },
             XC2Device::XC2C256 => {
@@ -688,9 +689,15 @@ pub struct XC2BitsXC2C64A {
     ovoltage: [bool; 2],
 }
 
+#[bitfragment(variant = Jed, dimensions = 1, errtype = XC2BitError)]
 #[bitfragment(variant = Crbit, dimensions = 2, errtype = XC2BitError)]
 #[derive(Copy, Clone, Eq, PartialEq, Hash, Debug, Serialize, Deserialize)]
 pub struct XC2BitsXC2C128 {
+    #[arr_off(variant = Jed, |i| [fb_fuse_idx(XC2Device::XC2C128, i as u32)])]
+    #[frag(outer_frag_variant = Jed, inner_frag_variant = fb::JedXC2C128)]
+    #[encode_sub_extra_data(variant = Jed, arr_elem_i)]
+    #[decode_sub_extra_data(variant = Jed, arr_elem_i)]
+
     #[arr_off(variant = Crbit, |_| [0, 0])]
     #[frag(outer_frag_variant = Crbit, inner_frag_variant = fb::CrbitXC2C128)]
     #[encode_sub_extra_data(variant = Crbit, arr_elem_i)]
@@ -698,6 +705,16 @@ pub struct XC2BitsXC2C128 {
     fb: [XC2BitstreamFB; 8],
 
     // XXX this offset is here whereas the fb offset is automagic
+    #[arr_off(variant = Jed, |iob| {
+        // XXX wtf
+        let (fb, mc) = iob_num_to_fb_mc_num(XC2Device::XC2C128, iob as u32).unwrap();
+        let fboff = fb_fuse_idx(XC2Device::XC2C128, fb);
+        let everythingelseoff = zia_get_row_width(XC2Device::XC2C128) * INPUTS_PER_ANDTERM + INPUTS_PER_ANDTERM * 2 * ANDTERMS_PER_FB + ANDTERMS_PER_FB * MCS_PER_FB;
+        let mcoff = large_get_macrocell_offset(XC2Device::XC2C128, fb as usize, mc as usize);
+        [(fboff as isize) + (everythingelseoff as isize) + mcoff as isize]
+    })]
+    #[frag(outer_frag_variant = Jed, inner_frag_variant = iob::Jed)]
+
     #[arr_off(variant = Crbit, |iob| {
         let (fb, mc) = iob_num_to_fb_mc_num(XC2Device::XC2C128, iob as u32).unwrap();
         let (x, y, _mirror) = mc_block_loc(XC2Device::XC2C128, fb);
@@ -714,23 +731,30 @@ pub struct XC2BitsXC2C128 {
     #[frag(outer_frag_variant = Crbit, inner_frag_variant = iob::CrbitLarge)]
     iobs: [[XC2MCLargeIOB; 25]; 4],
 
+    #[frag(outer_frag_variant = Jed, inner_frag_variant = globalbits::JedXC2C128)]
     #[frag(outer_frag_variant = Crbit, inner_frag_variant = globalbits::CrbitXC2C128)]
     global_nets: XC2GlobalNets,
 
+    #[offset(variant = Jed, [clock_div_fuse_idx(XC2Device::XC2C128) as isize])]
+    #[frag(outer_frag_variant = Jed, inner_frag_variant = globalbits::JedCommon)]
     #[frag(outer_frag_variant = Crbit, inner_frag_variant = globalbits::CrbitXC2C128)]
     clock_div: XC2ClockDiv,
 
     /// Whether the DataGate feature is used
+    #[pat_bits(frag_variant = Jed, "0" = !55335)]
     #[pat_bits(frag_variant = Crbit, "0" = !(371, 67))]
     data_gate: bool,
 
     /// Whether I/O standards with VREF are used
+    #[pat_bits(frag_variant = Jed, "0" = !55340)]
     #[pat_bits(frag_variant = Crbit, "0" = !(10, 67))]
     use_vref: bool,
 
     /// Voltage level control for each I/O bank
     ///
     /// `false` = low, `true` = high
+    #[arr_off(variant = Jed, |i| [[55336], [55337]][i])]
+    #[pat_bits(frag_variant = Jed, "0" = !0)]
     #[arr_off(variant = Crbit, |i| [[8, 67], [368, 67]][i])]
     #[pat_bits(frag_variant = Crbit, "0" = !(0, 0))]
     ivoltage: [bool; 2],
@@ -738,6 +762,8 @@ pub struct XC2BitsXC2C128 {
     /// Voltage level control for each I/O bank
     ///
     /// `false` = low, `true` = high
+    #[arr_off(variant = Jed, |i| [[55338], [55339]][i])]
+    #[pat_bits(frag_variant = Jed, "0" = !0)]
     #[arr_off(variant = Crbit, |i| [[9, 67], [369, 67]][i])]
     #[pat_bits(frag_variant = Crbit, "0" = !(0, 0))]
     ovoltage: [bool; 2],
@@ -1441,41 +1467,6 @@ fn read_bitstream_logical_common_large(fuses: &[bool], device: XC2Device,
     };
 
     Ok(())
-}
-
-/// Internal function for parsing an XC2C128 bitstream
-fn read_128_bitstream_logical(fuses: &[bool]) -> Result<XC2BitstreamBits, XC2BitError> {
-    let mut fb = [XC2BitstreamFB::default(); 8];
-    let mut iobs = [XC2MCLargeIOB::default(); 100];
-    
-    read_bitstream_logical_common_large(fuses, XC2Device::XC2C128, &mut fb, &mut iobs)?;
-
-    let global_nets = <XC2GlobalNets as BitFragment<globalbits::JedXC2C128>>::decode(
-        fuses, [0], [false], ()).unwrap();
-
-    let mut iobs2 = [[XC2MCLargeIOB::default(); 25]; 4];
-    for i in 0..iobs.len() {
-        iobs2[i / 25][i % 25] = iobs[i];
-    }
-
-    Ok(XC2BitstreamBits::XC2C128(XC2BitsXC2C128 {
-        fb,
-        iobs: iobs2,
-        global_nets,
-        clock_div:
-            <XC2ClockDiv as BitFragment<globalbits::JedCommon>>::decode(
-                fuses, [clock_div_fuse_idx(XC2Device::XC2C128) as isize], [false], ()).unwrap(),
-        data_gate: !fuses[55335],
-        use_vref: !fuses[55340],
-        ivoltage: [
-            !fuses[55336],
-            !fuses[55337],
-        ],
-        ovoltage: [
-            !fuses[55338],
-            !fuses[55339],
-        ]
-    }))
 }
 
 /// Internal function for parsing an XC2C256 bitstream
