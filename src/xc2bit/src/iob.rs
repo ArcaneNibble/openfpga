@@ -417,29 +417,6 @@ impl fmt::Display for XC2MCLargeIOB {
 }
 
 impl XC2MCLargeIOB {
-    /// Write the crbit representation of the settings for this IO pin to the given `fuse_array`.
-    /// `device` must be the device type this FB was extracted from.
-    /// `iob` must be the index of this IO pin.
-    pub fn to_crbit(&self, device: XC2Device, iob: u32, fuse_array: &mut FuseArray) {
-        let (fb, mc) = iob_num_to_fb_mc_num(device, iob).unwrap();
-        let (x, y, mirror) = mc_block_loc(device, fb);
-        match device {
-            XC2Device::XC2C256 => {
-                // The "256" variant
-                // each macrocell is 3 rows high
-                let y = y + (mc as usize) * 3;
-                <Self as BitFragment::<Crbit256>>::encode(&self, fuse_array, [x as isize, y as isize], [mirror, false], ());
-            },
-            XC2Device::XC2C128 | XC2Device::XC2C384 | XC2Device::XC2C512 => {
-                // The "common large macrocell" variant
-                // we need this funny lookup table, but otherwise macrocells are 2x15
-                let y = y + MC_TO_ROW_MAP_LARGE[mc as usize];
-                <Self as BitFragment::<CrbitLarge>>::encode(&self, fuse_array, [x as isize, y as isize], [mirror, false], ());
-            },
-            _ => unreachable!(),
-        }
-    }
-
     /// Read the crbit representation of the settings for this IO pin from the given `fuse_array`.
     /// `device` must be the device type this FB was extracted from.
     /// `iob` must be the index of this IO pin.
