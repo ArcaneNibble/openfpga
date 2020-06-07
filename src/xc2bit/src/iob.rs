@@ -225,29 +225,6 @@ impl fmt::Display for XC2MCSmallIOB {
 }
 
 impl XC2MCSmallIOB {
-    /// Write the crbit representation of the settings for this IO pin to the given `fuse_array`.
-    /// `device` must be the device type this FB was extracted from.
-    /// `iob` must be the index of this IO pin.
-    pub fn to_crbit(&self, device: XC2Device, iob: u32, fuse_array: &mut FuseArray) {
-        let (fb, mc) = iob_num_to_fb_mc_num(device, iob).unwrap();
-        let (x, y, mirror) = mc_block_loc(device, fb);
-        match device {
-            XC2Device::XC2C32 | XC2Device::XC2C32A => {
-                // The "32" variant
-                // each macrocell is 3 rows high
-                let y = y + (mc as usize) * 3;
-                <Self as BitFragment::<Crbit32>>::encode(&self, fuse_array, [x as isize, y as isize], [mirror, false], ());
-            },
-            XC2Device::XC2C64 | XC2Device::XC2C64A => {
-                // The "64" variant
-                // each macrocell is 3 rows high
-                let y = y + (mc as usize) * 3;
-                <Self as BitFragment::<Crbit64>>::encode(&self, fuse_array, [x as isize, y as isize], [mirror, false], ());
-            },
-            _ => unreachable!(),
-        }
-    }
-
     /// Read the crbit representation of the settings for this IO pin from the given `fuse_array`.
     /// `device` must be the device type this FB was extracted from.
     /// `iob` must be the index of this IO pin.
