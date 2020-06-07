@@ -198,67 +198,75 @@ impl XC2Bitstream {
 
         match dev {
             XC2Device::XC2C32 => {
-                let bits = read_32_bitstream_physical(fuse_array)?;
+                let bits = <XC2BitsXC2C32 as BitFragment<Crbit>>::decode(
+                    fuse_array, [0, 0], [false, false], ())?;
                 Ok(XC2Bitstream {
                     speed_grade: spd,
                     package: pkg,
-                    bits,
+                    bits: XC2BitstreamBits::XC2C32(bits),
                 })
             },
             XC2Device::XC2C32A => {
-                let bits = read_32a_bitstream_physical(fuse_array)?;
+                let bits = <XC2BitsXC2C32A as BitFragment<Crbit>>::decode(
+                    fuse_array, [0, 0], [false, false], ())?;
                 Ok(XC2Bitstream {
                     speed_grade: spd,
                     package: pkg,
-                    bits,
+                    bits: XC2BitstreamBits::XC2C32A(bits),
                 })
             },
             XC2Device::XC2C64 => {
-                let bits = read_64_bitstream_physical(fuse_array)?;
+                let bits = <XC2BitsXC2C64 as BitFragment<Crbit>>::decode(
+                    fuse_array, [0, 0], [false, false], ())?;
                 Ok(XC2Bitstream {
                     speed_grade: spd,
                     package: pkg,
-                    bits,
+                    bits: XC2BitstreamBits::XC2C64(bits),
                 })
             },
             XC2Device::XC2C64A => {
-                let bits = read_64a_bitstream_physical(fuse_array)?;
+                let bits = <XC2BitsXC2C64A as BitFragment<Crbit>>::decode(
+                    fuse_array, [0, 0], [false, false], ())?;
                 Ok(XC2Bitstream {
                     speed_grade: spd,
                     package: pkg,
-                    bits,
+                    bits: XC2BitstreamBits::XC2C64A(bits),
                 })
             },
             XC2Device::XC2C128 => {
-                let bits = read_128_bitstream_physical(fuse_array)?;
+                let bits = <XC2BitsXC2C128 as BitFragment<Crbit>>::decode(
+                    fuse_array, [0, 0], [false, false], ())?;
                 Ok(XC2Bitstream {
                     speed_grade: spd,
                     package: pkg,
-                    bits,
+                    bits: XC2BitstreamBits::XC2C128(bits),
                 })
             },
             XC2Device::XC2C256 => {
-                let bits = read_256_bitstream_physical(fuse_array)?;
+                let bits = <XC2BitsXC2C256 as BitFragment<Crbit>>::decode(
+                    fuse_array, [0, 0], [false, false], ())?;
                 Ok(XC2Bitstream {
                     speed_grade: spd,
                     package: pkg,
-                    bits,
+                    bits: XC2BitstreamBits::XC2C256(bits),
                 })
             },
             XC2Device::XC2C384 => {
-                let bits = read_384_bitstream_physical(fuse_array)?;
+                let bits = <XC2BitsXC2C384 as BitFragment<Crbit>>::decode(
+                    fuse_array, [0, 0], [false, false], ())?;
                 Ok(XC2Bitstream {
                     speed_grade: spd,
                     package: pkg,
-                    bits,
+                    bits: XC2BitstreamBits::XC2C384(bits),
                 })
             },
             XC2Device::XC2C512 => {
-                let bits = read_512_bitstream_physical(fuse_array)?;
+                let bits = <XC2BitsXC2C512 as BitFragment<Crbit>>::decode(
+                    fuse_array, [0, 0], [false, false], ())?;
                 Ok(XC2Bitstream {
                     speed_grade: spd,
                     package: pkg,
-                    bits,
+                    bits: XC2BitstreamBits::XC2C512(bits),
                 })
             },
         }
@@ -1668,26 +1676,11 @@ fn read_bitstream_physical_common_large(fuse_array: &FuseArray, device: XC2Devic
     Ok(())
 }
 
-/// Internal function for parsing an XC2C32 bitstream
-fn read_32_bitstream_physical(fuse_array: &FuseArray) -> Result<XC2BitstreamBits, XC2BitError> {
-    let mut fb = [XC2BitstreamFB::default(); 2];
-    let mut iobs = [XC2MCSmallIOB::default(); 32];
-    
-    read_bitstream_physical_common_small(fuse_array, XC2Device::XC2C32, &mut fb, &mut iobs)?;
-
-    let inpin = <XC2ExtraIBuf as BitFragment<iob::Crbit>>::decode(fuse_array, [0, 0], [false, false], ()).unwrap();
-
-    let global_nets = XC2GlobalNets::from_crbit(XC2Device::XC2C32, fuse_array);
-
-    Ok(XC2BitstreamBits::XC2C32(XC2BitsXC2C32 {
-        fb,
-        iobs,
-        inpin,
-        global_nets,
-        ovoltage: !fuse_array.get(130, 24),
-        ivoltage: !fuse_array.get(130, 25),
-    }))
-}
+// /// Internal function for parsing an XC2C32 bitstream
+// fn read_32_bitstream_physical(fuse_array: &FuseArray) -> Result<XC2BitstreamBits, XC2BitError> {
+//     Ok(XC2BitstreamBits::XC2C32(<XC2BitsXC2C32 as BitFragment<Crbit>>::decode(
+//         fuse_array, [0, 0], [false, false], ())?))
+// }
 
 /// Internal function for parsing an XC2C32A bitstream
 fn read_32a_bitstream_physical(fuse_array: &FuseArray) -> Result<XC2BitstreamBits, XC2BitError> {
