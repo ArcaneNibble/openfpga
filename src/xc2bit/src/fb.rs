@@ -658,26 +658,26 @@ impl XC2BitstreamFB {
     /// `device` must be the device type this FB was extracted from and is needed to encode the ZIA.
     /// `fuse_base` must be the starting fuse number of this function block.
     pub fn to_jed(&self, device: XC2Device, fuse_base: usize, jed: &mut JEDECFile, linebreaks: &mut LinebreakSet, fb_i: usize) {
-        match device {
-            XC2Device::XC2C32 | XC2Device::XC2C32A => {
-                <Self as BitFragment<JedXC2C32>>::encode(&self, &mut jed.f, [fuse_base as isize], [false], ());
-            },
-            XC2Device::XC2C64 | XC2Device::XC2C64A => {
-                <Self as BitFragment<JedXC2C64>>::encode(&self, &mut jed.f, [fuse_base as isize], [false], ());
-            },
-            XC2Device::XC2C128 => {
-                <Self as BitFragment<JedXC2C128>>::encode(&self, &mut jed.f, [fuse_base as isize], [false], fb_i);
-            },
-            XC2Device::XC2C256 => {
-                <Self as BitFragment<JedXC2C256>>::encode(&self, &mut jed.f, [fuse_base as isize], [false], fb_i);
-            },
-            XC2Device::XC2C384 => {
-                <Self as BitFragment<JedXC2C384>>::encode(&self, &mut jed.f, [fuse_base as isize], [false], fb_i);
-            },
-            XC2Device::XC2C512 => {
-                <Self as BitFragment<JedXC2C512>>::encode(&self, &mut jed.f, [fuse_base as isize], [false], fb_i);
-            },
-        }
+        // match device {
+        //     XC2Device::XC2C32 | XC2Device::XC2C32A => {
+        //         <Self as BitFragment<JedXC2C32>>::encode(&self, &mut jed.f, [fuse_base as isize], [false], ());
+        //     },
+        //     XC2Device::XC2C64 | XC2Device::XC2C64A => {
+        //         <Self as BitFragment<JedXC2C64>>::encode(&self, &mut jed.f, [fuse_base as isize], [false], ());
+        //     },
+        //     XC2Device::XC2C128 => {
+        //         <Self as BitFragment<JedXC2C128>>::encode(&self, &mut jed.f, [fuse_base as isize], [false], fb_i);
+        //     },
+        //     XC2Device::XC2C256 => {
+        //         <Self as BitFragment<JedXC2C256>>::encode(&self, &mut jed.f, [fuse_base as isize], [false], fb_i);
+        //     },
+        //     XC2Device::XC2C384 => {
+        //         <Self as BitFragment<JedXC2C384>>::encode(&self, &mut jed.f, [fuse_base as isize], [false], fb_i);
+        //     },
+        //     XC2Device::XC2C512 => {
+        //         <Self as BitFragment<JedXC2C512>>::encode(&self, &mut jed.f, [fuse_base as isize], [false], fb_i);
+        //     },
+        // }
 
         // Linebreaks
 
