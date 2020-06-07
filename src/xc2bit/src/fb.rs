@@ -28,11 +28,8 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 use std::io;
 use std::io::Write;
 
-use jedec::*;
-
 use crate::*;
 use crate::fusemap_physical::{zia_block_loc, and_block_loc, or_block_loc, mc_block_loc};
-use crate::util::{LinebreakSet};
 use crate::zia::{zia_get_row_width};
 
 pub enum JedXC2C32 {}
@@ -652,97 +649,6 @@ impl XC2BitstreamFB {
         }
 
         Ok(())
-    }
-
-    /// Write the .JED representation of the settings for this FB to the given `jed` object.
-    /// `device` must be the device type this FB was extracted from and is needed to encode the ZIA.
-    /// `fuse_base` must be the starting fuse number of this function block.
-    pub fn to_jed(&self, device: XC2Device, fuse_base: usize, jed: &mut JEDECFile, linebreaks: &mut LinebreakSet, fb_i: usize) {
-        // match device {
-        //     XC2Device::XC2C32 | XC2Device::XC2C32A => {
-        //         <Self as BitFragment<JedXC2C32>>::encode(&self, &mut jed.f, [fuse_base as isize], [false], ());
-        //     },
-        //     XC2Device::XC2C64 | XC2Device::XC2C64A => {
-        //         <Self as BitFragment<JedXC2C64>>::encode(&self, &mut jed.f, [fuse_base as isize], [false], ());
-        //     },
-        //     XC2Device::XC2C128 => {
-        //         <Self as BitFragment<JedXC2C128>>::encode(&self, &mut jed.f, [fuse_base as isize], [false], fb_i);
-        //     },
-        //     XC2Device::XC2C256 => {
-        //         <Self as BitFragment<JedXC2C256>>::encode(&self, &mut jed.f, [fuse_base as isize], [false], fb_i);
-        //     },
-        //     XC2Device::XC2C384 => {
-        //         <Self as BitFragment<JedXC2C384>>::encode(&self, &mut jed.f, [fuse_base as isize], [false], fb_i);
-        //     },
-        //     XC2Device::XC2C512 => {
-        //         <Self as BitFragment<JedXC2C512>>::encode(&self, &mut jed.f, [fuse_base as isize], [false], fb_i);
-        //     },
-        // }
-
-        // Linebreaks
-
-        // ZIA
-        let zia_row_width = zia_get_row_width(device);
-
-        if fuse_base != 0 {
-            linebreaks.add(fuse_base);
-        }
-        for i in 0..INPUTS_PER_ANDTERM {
-            let zia_fuse_base = fuse_base + i * zia_row_width;
-            if zia_fuse_base != 0 {
-                linebreaks.add(zia_fuse_base);
-            }
-        }
-
-        // AND terms
-        linebreaks.add(fuse_base + zia_row_width * INPUTS_PER_ANDTERM);
-        for i in 0..ANDTERMS_PER_FB {
-            let and_fuse_base = fuse_base + zia_row_width * INPUTS_PER_ANDTERM + i * INPUTS_PER_ANDTERM * 2;
-            linebreaks.add(and_fuse_base);
-        }
-
-        // OR terms
-        linebreaks.add(fuse_base + zia_row_width * INPUTS_PER_ANDTERM + ANDTERMS_PER_FB * INPUTS_PER_ANDTERM * 2);
-        for i in 0..ANDTERMS_PER_FB {
-            let or_fuse_base = fuse_base + zia_row_width * INPUTS_PER_ANDTERM +
-                ANDTERMS_PER_FB * INPUTS_PER_ANDTERM * 2 + i * MCS_PER_FB;
-            linebreaks.add(or_fuse_base);
-        }
-
-        // macrocell line breaks
-        match device {
-            XC2Device::XC2C32 | XC2Device::XC2C32A |
-            XC2Device::XC2C64 | XC2Device::XC2C64A => {
-                for i in 0..MCS_PER_FB {
-                    let mc_fuse_base = fuse_base + zia_row_width * INPUTS_PER_ANDTERM +
-                        ANDTERMS_PER_FB * INPUTS_PER_ANDTERM * 2 + ANDTERMS_PER_FB * MCS_PER_FB + i * 27;
-
-                    linebreaks.add(mc_fuse_base);
-                    if i == 0 {
-                        linebreaks.add(mc_fuse_base);
-                    }
-                }
-            },
-            XC2Device::XC2C128 | XC2Device::XC2C256 |
-            XC2Device::XC2C384 | XC2Device::XC2C512 => {
-                let mut current_fuse_offset = fuse_base + zia_row_width * INPUTS_PER_ANDTERM +
-                    ANDTERMS_PER_FB * INPUTS_PER_ANDTERM * 2 + ANDTERMS_PER_FB * MCS_PER_FB;
-
-                linebreaks.add(current_fuse_offset);
-
-                for i in 0..MCS_PER_FB {
-                    linebreaks.add(current_fuse_offset);
-
-                    let iob = fb_mc_num_to_iob_num(device, fb_i as u32, i as u32);
-
-                    if iob.is_some() {
-                        current_fuse_offset += 29;
-                    } else {
-                        current_fuse_offset += 16;
-                    }
-                }
-            },
-        }
     }
 }
 

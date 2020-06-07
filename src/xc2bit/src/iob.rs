@@ -27,10 +27,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 use core::fmt;
 
-use jedec::*;
-
 use crate::*;
-use crate::zia::{zia_get_row_width};
 
 /// Mux selection for the ZIA input from this I/O pin's input. The ZIA input can be chosen to come from either the
 /// input pin directly or from the output of the register in the macrocell corresponding to this I/O pin. The latter
@@ -222,17 +219,6 @@ impl fmt::Display for XC2MCSmallIOB {
     }
 }
 
-impl XC2MCSmallIOB {
-    /// Helper that prints the IOB and macrocell configuration on the "small" parts
-    pub fn to_jed(&self, jed: &mut JEDECFile, device: XC2Device, fuse_base: usize, i: usize) {
-        let zia_row_width = zia_get_row_width(device);
-        let mc_fuse_base = fuse_base + zia_row_width * INPUTS_PER_ANDTERM +
-            ANDTERMS_PER_FB * INPUTS_PER_ANDTERM * 2 + ANDTERMS_PER_FB * MCS_PER_FB + i * 27;
-
-        <Self as BitFragment::<Jed>>::encode(&self, &mut jed.f, [mc_fuse_base as isize], [false], ());
-    }
-}
-
 /// Input mode selection on larger parts with VREF
 #[bitpattern]
 #[derive(Copy, Clone, Eq, PartialEq, Hash, Debug, Serialize, Deserialize)]
@@ -383,13 +369,6 @@ impl fmt::Display for XC2MCLargeIOB {
         write!(f, "DataGate used: {}\n", if self.uses_data_gate {"yes"} else {"no"})?;
 
         Ok(())
-    }
-}
-
-impl XC2MCLargeIOB {
-    /// Helper that prints the IOB configuration on the "large" parts
-    pub fn to_jed(&self, jed: &mut JEDECFile, fuse_base: usize) {
-        <Self as BitFragment::<Jed>>::encode(&self, &mut jed.f, [fuse_base as isize], [false], ());
     }
 }
 
