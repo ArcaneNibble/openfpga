@@ -67,8 +67,8 @@ pub fn produce_bitstream(device_type: XC2DeviceSpeedPackage, g: &InputGraph, go:
             if (device_type.dev == XC2Device::XC2C32 || device_type.dev == XC2Device::XC2C32A) && fb_i == 2 && mc_i == 0 {
                 // Special input-only pin
                 match result.bits {
-                    XC2BitstreamBits::XC2C32{inpin: ref mut extra_inpin, ..} |
-                    XC2BitstreamBits::XC2C32A{inpin: ref mut extra_inpin, ..} => {
+                    XC2BitstreamBits::XC2C32(XC2BitsXC2C32{inpin: ref mut extra_inpin, ..}) |
+                    XC2BitstreamBits::XC2C32A(XC2BitsXC2C32A{inpin: ref mut extra_inpin, ..}) => {
                         extra_inpin.schmitt_trigger = io_bits.schmitt_trigger;
                         extra_inpin.termination_enabled = io_bits.termination_enabled;
                     },
@@ -306,8 +306,8 @@ pub fn produce_bitstream(device_type: XC2DeviceSpeedPackage, g: &InputGraph, go:
     }
 
     // XXX TODO other global bits
-    if let XC2BitstreamBits::XC2C32A{ref mut legacy_ivoltage, ref mut legacy_ovoltage,
-        ref mut ivoltage, ref mut ovoltage, ..} = result.bits {
+    if let XC2BitstreamBits::XC2C32A(XC2BitsXC2C32A{ref mut legacy_ivoltage, ref mut legacy_ovoltage,
+        ref mut ivoltage, ref mut ovoltage, ..}) = result.bits {
 
         *legacy_ivoltage = false;
         *legacy_ovoltage = false;

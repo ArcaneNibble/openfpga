@@ -530,14 +530,14 @@ pub struct XC2BitsXC2C32A {
     /// `false` = low, `true` = high
     #[pat_bits(frag_variant = Jed, "0" = !12271)]
     #[pat_bits(frag_variant = Crbit, "0" = !(130, 24))]
-    legacy_ivoltage: bool,
+    pub legacy_ivoltage: bool,
 
     /// Legacy voltage level control, should almost always be set to `false`
     ///
     /// `false` = low, `true` = high
     #[pat_bits(frag_variant = Jed, "0" = !12270)]
     #[pat_bits(frag_variant = Crbit, "0" = !(130, 25))]
-    legacy_ovoltage: bool,
+    pub legacy_ovoltage: bool,
 
     /// Voltage level control for each I/O bank
     ///
@@ -546,7 +546,7 @@ pub struct XC2BitsXC2C32A {
     #[pat_bits(frag_variant = Jed, "0" = !0)]
     #[arr_off(variant = Crbit, |i| [[131, 25], [133, 25]][i])]
     #[pat_bits(frag_variant = Crbit, "0" = !(0, 0))]
-    ivoltage: [bool; 2],
+    pub ivoltage: [bool; 2],
 
     /// Voltage level control for each I/O bank
     ///
@@ -555,7 +555,7 @@ pub struct XC2BitsXC2C32A {
     #[pat_bits(frag_variant = Jed, "0" = !0)]
     #[arr_off(variant = Crbit, |i| [[132, 25], [134, 25]][i])]
     #[pat_bits(frag_variant = Crbit, "0" = !(0, 0))]
-    ovoltage: [bool; 2],
+    pub ovoltage: [bool; 2],
 }
 
 #[bitfragment(variant = Jed, dimensions = 1, errtype = XC2BitError)]
@@ -569,7 +569,7 @@ pub struct XC2BitsXC2C64 {
     #[frag(outer_frag_variant = Crbit, inner_frag_variant = fb::CrbitXC2C64)]
     #[encode_sub_extra_data(variant = Crbit, arr_elem_i)]
     #[decode_sub_extra_data(variant = Crbit, arr_elem_i)]
-    fb: [XC2BitstreamFB; 4],
+    pub fb: [XC2BitstreamFB; 4],
 
     // XXX this offset is here whereas the fb offset is automagic
     #[arr_off(variant = Jed, |iob| {
@@ -595,25 +595,25 @@ pub struct XC2BitsXC2C64 {
         [mirror, false]
     })]
     #[frag(outer_frag_variant = Crbit, inner_frag_variant = iob::Crbit64)]
-    iobs: [[XC2MCSmallIOB; 32]; 2],
+    pub iobs: [[XC2MCSmallIOB; 32]; 2],
 
     #[frag(outer_frag_variant = Jed, inner_frag_variant = globalbits::JedXC2C64)]
     #[frag(outer_frag_variant = Crbit, inner_frag_variant = globalbits::CrbitXC2C64)]
-    global_nets: XC2GlobalNets,
+    pub global_nets: XC2GlobalNets,
 
     /// Voltage level control
     ///
     /// `false` = low, `true` = high
     #[pat_bits(frag_variant = Jed, "0" = !25807)]
     #[pat_bits(frag_variant = Crbit, "0" = !(138, 23))]
-    ivoltage: bool,
+    pub ivoltage: bool,
 
     /// Voltage level control
     ///
     /// `false` = low, `true` = high
     #[pat_bits(frag_variant = Jed, "0" = !25806)]
     #[pat_bits(frag_variant = Crbit, "0" = !(137, 23))]
-    ovoltage: bool,
+    pub ovoltage: bool,
 }
 
 #[bitfragment(variant = Jed, dimensions = 1, errtype = XC2BitError)]
@@ -627,7 +627,7 @@ pub struct XC2BitsXC2C64A {
     #[frag(outer_frag_variant = Crbit, inner_frag_variant = fb::CrbitXC2C64)]
     #[encode_sub_extra_data(variant = Crbit, arr_elem_i)]
     #[decode_sub_extra_data(variant = Crbit, arr_elem_i)]
-    fb: [XC2BitstreamFB; 4],
+    pub fb: [XC2BitstreamFB; 4],
 
     // XXX this offset is here whereas the fb offset is automagic
     #[arr_off(variant = Jed, |iob| {
@@ -653,25 +653,25 @@ pub struct XC2BitsXC2C64A {
         [mirror, false]
     })]
     #[frag(outer_frag_variant = Crbit, inner_frag_variant = iob::Crbit64)]
-    iobs: [[XC2MCSmallIOB; 32]; 2],
+    pub iobs: [[XC2MCSmallIOB; 32]; 2],
 
     #[frag(outer_frag_variant = Jed, inner_frag_variant = globalbits::JedXC2C64)]
     #[frag(outer_frag_variant = Crbit, inner_frag_variant = globalbits::CrbitXC2C64)]
-    global_nets: XC2GlobalNets,
+    pub global_nets: XC2GlobalNets,
 
     /// Legacy voltage level control, should almost always be set to `false`
     ///
     /// `false` = low, `true` = high
     #[pat_bits(frag_variant = Jed, "0" = !25807)]
     #[pat_bits(frag_variant = Crbit, "0" = !(138, 23))]
-    legacy_ivoltage: bool,
+    pub legacy_ivoltage: bool,
 
     /// Legacy voltage level control, should almost always be set to `false`
     ///
     /// `false` = low, `true` = high
     #[pat_bits(frag_variant = Jed, "0" = !25806)]
     #[pat_bits(frag_variant = Crbit, "0" = !(137, 23))]
-    legacy_ovoltage: bool,
+    pub legacy_ovoltage: bool,
 
     /// Voltage level control for each I/O bank
     ///
@@ -680,7 +680,7 @@ pub struct XC2BitsXC2C64A {
     #[pat_bits(frag_variant = Jed, "0" = !0)]
     #[arr_off(variant = Crbit, |i| [[139, 23], [141, 23]][i])]
     #[pat_bits(frag_variant = Crbit, "0" = !(0, 0))]
-    ivoltage: [bool; 2],
+    pub ivoltage: [bool; 2],
 
     /// Voltage level control for each I/O bank
     ///
@@ -689,7 +689,7 @@ pub struct XC2BitsXC2C64A {
     #[pat_bits(frag_variant = Jed, "0" = !0)]
     #[arr_off(variant = Crbit, |i| [[140, 23], [142, 23]][i])]
     #[pat_bits(frag_variant = Crbit, "0" = !(0, 0))]
-    ovoltage: [bool; 2],
+    pub ovoltage: [bool; 2],
 }
 
 #[bitfragment(variant = Jed, dimensions = 1, errtype = XC2BitError)]
@@ -705,7 +705,7 @@ pub struct XC2BitsXC2C128 {
     #[frag(outer_frag_variant = Crbit, inner_frag_variant = fb::CrbitXC2C128)]
     #[encode_sub_extra_data(variant = Crbit, arr_elem_i)]
     #[decode_sub_extra_data(variant = Crbit, arr_elem_i)]
-    fb: [XC2BitstreamFB; 8],
+    pub fb: [XC2BitstreamFB; 8],
 
     // XXX this offset is here whereas the fb offset is automagic
     #[arr_off(variant = Jed, |iob| {
@@ -732,26 +732,26 @@ pub struct XC2BitsXC2C128 {
         [mirror, false]
     })]
     #[frag(outer_frag_variant = Crbit, inner_frag_variant = iob::CrbitLarge)]
-    iobs: [[XC2MCLargeIOB; 25]; 4],
+    pub iobs: [[XC2MCLargeIOB; 25]; 4],
 
     #[frag(outer_frag_variant = Jed, inner_frag_variant = globalbits::JedXC2C128)]
     #[frag(outer_frag_variant = Crbit, inner_frag_variant = globalbits::CrbitXC2C128)]
-    global_nets: XC2GlobalNets,
+    pub global_nets: XC2GlobalNets,
 
     #[offset(variant = Jed, [clock_div_fuse_idx(XC2Device::XC2C128) as isize])]
     #[frag(outer_frag_variant = Jed, inner_frag_variant = globalbits::JedCommon)]
     #[frag(outer_frag_variant = Crbit, inner_frag_variant = globalbits::CrbitXC2C128)]
-    clock_div: XC2ClockDiv,
+    pub clock_div: XC2ClockDiv,
 
     /// Whether the DataGate feature is used
     #[pat_bits(frag_variant = Jed, "0" = !55335)]
     #[pat_bits(frag_variant = Crbit, "0" = !(371, 67))]
-    data_gate: bool,
+    pub data_gate: bool,
 
     /// Whether I/O standards with VREF are used
     #[pat_bits(frag_variant = Jed, "0" = !55340)]
     #[pat_bits(frag_variant = Crbit, "0" = !(10, 67))]
-    use_vref: bool,
+    pub use_vref: bool,
 
     /// Voltage level control for each I/O bank
     ///
@@ -760,7 +760,7 @@ pub struct XC2BitsXC2C128 {
     #[pat_bits(frag_variant = Jed, "0" = !0)]
     #[arr_off(variant = Crbit, |i| [[8, 67], [368, 67]][i])]
     #[pat_bits(frag_variant = Crbit, "0" = !(0, 0))]
-    ivoltage: [bool; 2],
+    pub ivoltage: [bool; 2],
 
     /// Voltage level control for each I/O bank
     ///
@@ -769,7 +769,7 @@ pub struct XC2BitsXC2C128 {
     #[pat_bits(frag_variant = Jed, "0" = !0)]
     #[arr_off(variant = Crbit, |i| [[9, 67], [369, 67]][i])]
     #[pat_bits(frag_variant = Crbit, "0" = !(0, 0))]
-    ovoltage: [bool; 2],
+    pub ovoltage: [bool; 2],
 }
 
 #[bitfragment(variant = Jed, dimensions = 1, errtype = XC2BitError)]
@@ -785,7 +785,7 @@ pub struct XC2BitsXC2C256 {
     #[frag(outer_frag_variant = Crbit, inner_frag_variant = fb::CrbitXC2C256)]
     #[encode_sub_extra_data(variant = Crbit, arr_elem_i)]
     #[decode_sub_extra_data(variant = Crbit, arr_elem_i)]
-    fb: [XC2BitstreamFB; 16],
+    pub fb: [XC2BitstreamFB; 16],
 
     // XXX this offset is here whereas the fb offset is automagic
     #[arr_off(variant = Jed, |iob| {
@@ -812,26 +812,26 @@ pub struct XC2BitsXC2C256 {
         [mirror, false]
     })]
     #[frag(outer_frag_variant = Crbit, inner_frag_variant = iob::Crbit256)]
-    iobs: [[XC2MCLargeIOB; 23]; 8],
+    pub iobs: [[XC2MCLargeIOB; 23]; 8],
 
     #[frag(outer_frag_variant = Jed, inner_frag_variant = globalbits::JedXC2C256)]
     #[frag(outer_frag_variant = Crbit, inner_frag_variant = globalbits::CrbitXC2C256)]
-    global_nets: XC2GlobalNets,
+    pub global_nets: XC2GlobalNets,
 
     #[offset(variant = Jed, [clock_div_fuse_idx(XC2Device::XC2C256) as isize])]
     #[frag(outer_frag_variant = Jed, inner_frag_variant = globalbits::JedCommon)]
     #[frag(outer_frag_variant = Crbit, inner_frag_variant = globalbits::CrbitXC2C256)]
-    clock_div: XC2ClockDiv,
+    pub clock_div: XC2ClockDiv,
 
     /// Whether the DataGate feature is used
     #[pat_bits(frag_variant = Jed, "0" = !123243)]
     #[pat_bits(frag_variant = Crbit, "0" = !(518, 23))]
-    data_gate: bool,
+    pub data_gate: bool,
 
     /// Whether I/O standards with VREF are used
     #[pat_bits(frag_variant = Jed, "0" = !123248)]
     #[pat_bits(frag_variant = Crbit, "0" = !(177, 23))]
-    use_vref: bool,
+    pub use_vref: bool,
 
     /// Voltage level control for each I/O bank
     ///
@@ -840,7 +840,7 @@ pub struct XC2BitsXC2C256 {
     #[pat_bits(frag_variant = Jed, "0" = !0)]
     #[arr_off(variant = Crbit, |i| [[175, 23], [515, 23]][i])]
     #[pat_bits(frag_variant = Crbit, "0" = !(0, 0))]
-    ivoltage: [bool; 2],
+    pub ivoltage: [bool; 2],
 
     /// Voltage level control for each I/O bank
     ///
@@ -849,7 +849,7 @@ pub struct XC2BitsXC2C256 {
     #[pat_bits(frag_variant = Jed, "0" = !0)]
     #[arr_off(variant = Crbit, |i| [[176, 23], [516, 23]][i])]
     #[pat_bits(frag_variant = Crbit, "0" = !(0, 0))]
-    ovoltage: [bool; 2],
+    pub ovoltage: [bool; 2],
 }
 
 #[bitfragment(variant = Jed, dimensions = 1, errtype = XC2BitError)]
@@ -865,7 +865,7 @@ pub struct XC2BitsXC2C384 {
     #[frag(outer_frag_variant = Crbit, inner_frag_variant = fb::CrbitXC2C384)]
     #[encode_sub_extra_data(variant = Crbit, arr_elem_i)]
     #[decode_sub_extra_data(variant = Crbit, arr_elem_i)]
-    fb: [XC2BitstreamFB; 24],
+    pub fb: [XC2BitstreamFB; 24],
 
     // XXX this offset is here whereas the fb offset is automagic
     #[arr_off(variant = Jed, |iob| {
@@ -892,26 +892,26 @@ pub struct XC2BitsXC2C384 {
         [mirror, false]
     })]
     #[frag(outer_frag_variant = Crbit, inner_frag_variant = iob::CrbitLarge)]
-    iobs: [[XC2MCLargeIOB; 24]; 10],
+    pub iobs: [[XC2MCLargeIOB; 24]; 10],
 
     #[frag(outer_frag_variant = Jed, inner_frag_variant = globalbits::JedXC2C384)]
     #[frag(outer_frag_variant = Crbit, inner_frag_variant = globalbits::CrbitXC2C384)]
-    global_nets: XC2GlobalNets,
+    pub global_nets: XC2GlobalNets,
 
     #[offset(variant = Jed, [clock_div_fuse_idx(XC2Device::XC2C384) as isize])]
     #[frag(outer_frag_variant = Jed, inner_frag_variant = globalbits::JedCommon)]
     #[frag(outer_frag_variant = Crbit, inner_frag_variant = globalbits::CrbitXC2C384)]
-    clock_div: XC2ClockDiv,
+    pub clock_div: XC2ClockDiv,
 
     /// Whether the DataGate feature is used
     #[pat_bits(frag_variant = Jed, "0" = !209347)]
     #[pat_bits(frag_variant = Crbit, "0" = !(932, 17))]
-    data_gate: bool,
+    pub data_gate: bool,
 
     /// Whether I/O standards with VREF are used
     #[pat_bits(frag_variant = Jed, "0" = !209356)]
     #[pat_bits(frag_variant = Crbit, "0" = !(3, 17))]
-    use_vref: bool,
+    pub use_vref: bool,
 
     /// Voltage level control for each I/O bank
     ///
@@ -920,7 +920,7 @@ pub struct XC2BitsXC2C384 {
     #[pat_bits(frag_variant = Jed, "0" = !0)]
     #[arr_off(variant = Crbit, |i| [[936, 17], [1864, 17], [1, 17], [929, 17]][i])]
     #[pat_bits(frag_variant = Crbit, "0" = !(0, 0))]
-    ivoltage: [bool; 4],
+    pub ivoltage: [bool; 4],
 
     /// Voltage level control for each I/O bank
     ///
@@ -929,7 +929,7 @@ pub struct XC2BitsXC2C384 {
     #[pat_bits(frag_variant = Jed, "0" = !0)]
     #[arr_off(variant = Crbit, |i| [[937, 17], [1865, 17], [2, 17], [930, 17]][i])]
     #[pat_bits(frag_variant = Crbit, "0" = !(0, 0))]
-    ovoltage: [bool; 4],
+    pub ovoltage: [bool; 4],
 }
 
 #[bitfragment(variant = Jed, dimensions = 1, errtype = XC2BitError)]
@@ -945,7 +945,7 @@ pub struct XC2BitsXC2C512 {
     #[frag(outer_frag_variant = Crbit, inner_frag_variant = fb::CrbitXC2C512)]
     #[encode_sub_extra_data(variant = Crbit, arr_elem_i)]
     #[decode_sub_extra_data(variant = Crbit, arr_elem_i)]
-    fb: [XC2BitstreamFB; 32],
+    pub fb: [XC2BitstreamFB; 32],
 
     // XXX this offset is here whereas the fb offset is automagic
     #[arr_off(variant = Jed, |iob| {
@@ -972,26 +972,26 @@ pub struct XC2BitsXC2C512 {
         [mirror, false]
     })]
     #[frag(outer_frag_variant = Crbit, inner_frag_variant = iob::CrbitLarge)]
-    iobs: [[XC2MCLargeIOB; 27]; 10],
+    pub iobs: [[XC2MCLargeIOB; 27]; 10],
 
     #[frag(outer_frag_variant = Jed, inner_frag_variant = globalbits::JedXC2C512)]
     #[frag(outer_frag_variant = Crbit, inner_frag_variant = globalbits::CrbitXC2C512)]
-    global_nets: XC2GlobalNets,
+    pub global_nets: XC2GlobalNets,
 
     #[offset(variant = Jed, [clock_div_fuse_idx(XC2Device::XC2C512) as isize])]
     #[frag(outer_frag_variant = Jed, inner_frag_variant = globalbits::JedCommon)]
     #[frag(outer_frag_variant = Crbit, inner_frag_variant = globalbits::CrbitXC2C512)]
-    clock_div: XC2ClockDiv,
+    pub clock_div: XC2ClockDiv,
 
     /// Whether the DataGate feature is used
     #[pat_bits(frag_variant = Jed, "0" = !296393)]
     #[pat_bits(frag_variant = Crbit, "0" = !(982, 147))]
-    data_gate: bool,
+    pub data_gate: bool,
 
     /// Whether I/O standards with VREF are used
     #[pat_bits(frag_variant = Jed, "0" = !296402)]
     #[pat_bits(frag_variant = Crbit, "0" = !(1, 147))]
-    use_vref: bool,
+    pub use_vref: bool,
 
     /// Voltage level control for each I/O bank
     ///
@@ -1000,7 +1000,7 @@ pub struct XC2BitsXC2C512 {
     #[pat_bits(frag_variant = Jed, "0" = 0)]
     #[arr_off(variant = Crbit, |i| [[992, 147], [1965, 147], [3, 147], [985, 147]][i])]
     #[pat_bits(frag_variant = Crbit, "0" = (0, 0))]
-    ivoltage: [bool; 4],
+    pub ivoltage: [bool; 4],
 
     /// Voltage level control for each I/O bank
     ///
@@ -1009,7 +1009,7 @@ pub struct XC2BitsXC2C512 {
     #[pat_bits(frag_variant = Jed, "0" = 0)]
     #[arr_off(variant = Crbit, |i| [[991, 147], [1964, 147], [2, 147], [984, 147]][i])]
     #[pat_bits(frag_variant = Crbit, "0" = (0, 0))]
-    ovoltage: [bool; 4],
+    pub ovoltage: [bool; 4],
 }
 
 /// The actual bitstream bits for each possible Coolrunner-II part
