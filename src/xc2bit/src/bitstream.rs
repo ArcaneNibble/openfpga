@@ -109,11 +109,12 @@ impl XC2Bitstream {
 
         match dev {
             XC2Device::XC2C32 => {
-                let bits = read_32_bitstream_logical(fuses)?;
+                let bits = <XC2BitsXC2C32 as BitFragment<Jed>>::decode(
+                    fuses, [0], [false], ())?;
                 Ok(XC2Bitstream {
                     speed_grade: spd,
                     package: pkg,
-                    bits,
+                    bits: XC2BitstreamBits::XC2C32(bits),
                 })
             },
             XC2Device::XC2C32A => {
@@ -409,17 +410,29 @@ impl XC2Bitstream {
 pub enum Jed {}
 pub enum Crbit{}
 
+#[bitfragment(variant = Jed, dimensions = 1, errtype = XC2BitError)]
 #[bitfragment(variant = Crbit, dimensions = 2, errtype = XC2BitError)]
 #[derive(Copy, Clone, Eq, PartialEq, Hash, Debug, Serialize, Deserialize)]
 pub struct XC2BitsXC2C32 {
+    #[arr_off(variant = Jed, |i| [fb_fuse_idx(XC2Device::XC2C32, i as u32)])]
+    #[frag(outer_frag_variant = Jed, inner_frag_variant = fb::JedXC2C32)]
+
     #[arr_off(variant = Crbit, |_| [0, 0])]
     #[frag(outer_frag_variant = Crbit, inner_frag_variant = fb::CrbitXC2C32)]
     #[encode_sub_extra_data(variant = Crbit, arr_elem_i)]
     #[decode_sub_extra_data(variant = Crbit, arr_elem_i)]
     pub fb: [XC2BitstreamFB; 2],
 
-
     // XXX this offset is here whereas the fb offset is automagic
+    #[arr_off(variant = Jed, |iob| {
+        // XXX wtf
+        let (fb, mc) = iob_num_to_fb_mc_num(XC2Device::XC2C32, iob as u32).unwrap();
+        let fboff = fb_fuse_idx(XC2Device::XC2C32, fb);
+        let everythingelseoff = zia_get_row_width(XC2Device::XC2C32) * INPUTS_PER_ANDTERM + INPUTS_PER_ANDTERM * 2 * ANDTERMS_PER_FB + ANDTERMS_PER_FB * MCS_PER_FB;
+        [(fboff as isize) + (everythingelseoff as isize) + (mc as isize) * 27]
+    })]
+    #[frag(outer_frag_variant = Jed, inner_frag_variant = iob::Jed)]
+
     #[arr_off(variant = Crbit, |iob| {
         let (fb, mc) = iob_num_to_fb_mc_num(XC2Device::XC2C32, iob as u32).unwrap();
         let (x, y, _mirror) = mc_block_loc(XC2Device::XC2C32, fb);
@@ -436,21 +449,25 @@ pub struct XC2BitsXC2C32 {
     #[frag(outer_frag_variant = Crbit, inner_frag_variant = iob::Crbit32)]
     pub iobs: [XC2MCSmallIOB; 32],
 
+    #[frag(outer_frag_variant = Jed, inner_frag_variant = iob::Jed)]
     #[frag(outer_frag_variant = Crbit, inner_frag_variant = iob::Crbit)]
     pub inpin: XC2ExtraIBuf,
 
+    #[frag(outer_frag_variant = Jed, inner_frag_variant = globalbits::JedXC2C32)]
     #[frag(outer_frag_variant = Crbit, inner_frag_variant = globalbits::CrbitXC2C32)]
     pub global_nets: XC2GlobalNets,
 
     /// Voltage level control
     ///
     /// `false` = low, `true` = high
+    #[pat_bits(frag_variant = Jed, "0" = !12271)]
     #[pat_bits(frag_variant = Crbit, "0" = !(130, 24))]
     pub ivoltage: bool,
 
     /// Voltage level control
     ///
     /// `false` = low, `true` = high
+    #[pat_bits(frag_variant = Jed, "0" = !12270)]
     #[pat_bits(frag_variant = Crbit, "0" = !(130, 25))]
     pub ovoltage: bool,
 }
@@ -1411,57 +1428,6 @@ fn read_bitstream_logical_common_large(fuses: &[bool], device: XC2Device,
     };
 
     Ok(())
-}
-/// Internal function for parsing an XC2C32 bitstream
-fn read_32_bitstream_logical(fuses: &[bool]) -> Result<XC2BitstreamBits, XC2BitError> {
-    let mut fb = [XC2BitstreamFB::default(); 2];
-    let mut iobs = [XC2MCSmallIOB::default(); 32];
-    
-    read_bitstream_logical_common_small(fuses, XC2Device::XC2C32, &mut fb, &mut iobs)?;
-
-    let inpin = <XC2ExtraIBuf as BitFragment<iob::Jed>>::decode(fuses, [0], [false], ()).unwrap();
-
-    let global_nets = <XC2GlobalNets as BitFragment<globalbits::JedXC2C32>>::decode(
-        fuses, [0], [false], ()).unwrap();
-
-    Ok(XC2BitstreamBits::XC2C32(XC2BitsXC2C32 {
-        fb,
-        iobs,
-        inpin,
-        global_nets,
-        ovoltage: !fuses[12270],
-        ivoltage: !fuses[12271],
-    }))
-}
-
-/// Internal function for parsing an XC2C32A bitstream
-fn read_32a_bitstream_logical(fuses: &[bool]) -> Result<XC2BitstreamBits, XC2BitError> {
-    let mut fb = [XC2BitstreamFB::default(); 2];
-    let mut iobs = [XC2MCSmallIOB::default(); 32];
-    
-    read_bitstream_logical_common_small(fuses, XC2Device::XC2C32A, &mut fb, &mut iobs)?;
-
-    let inpin = <XC2ExtraIBuf as BitFragment<iob::Jed>>::decode(fuses, [0], [false], ()).unwrap();
-
-    let global_nets = <XC2GlobalNets as BitFragment<globalbits::JedXC2C32>>::decode(
-        fuses, [0], [false], ()).unwrap();
-
-    Ok(XC2BitstreamBits::XC2C32A(XC2BitsXC2C32A {
-        fb,
-        iobs,
-        inpin,
-        global_nets,
-        legacy_ovoltage: !fuses[12270],
-        legacy_ivoltage: !fuses[12271],
-        ivoltage: [
-            !fuses[12274],
-            !fuses[12276],
-        ],
-        ovoltage: [
-            !fuses[12275],
-            !fuses[12277],
-        ]
-    }))
 }
 
 /// Internal function for parsing an XC2C64 bitstream
