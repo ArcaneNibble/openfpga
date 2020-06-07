@@ -66,7 +66,13 @@ pub const NUM_BUFG_GTS: usize = 4;
 pub const NUM_BUFG_GSR: usize = 1;
 
 mod bitstream;
-pub use crate::bitstream::{XC2Bitstream, XC2BitstreamBits, XC2BitsXC2C32, XC2BitsXC2C32A};
+pub use crate::bitstream::{XC2Bitstream, XC2BitstreamBits,
+    XC2BitsXC2C32, XC2BitsXC2C32A,
+    XC2BitsXC2C64, XC2BitsXC2C64A,
+    XC2BitsXC2C128,
+    XC2BitsXC2C256,
+    XC2BitsXC2C384,
+    XC2BitsXC2C512};
 
 mod crbit;
 pub use crate::crbit::{FuseArray};
