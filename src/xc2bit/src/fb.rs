@@ -654,56 +654,6 @@ impl XC2BitstreamFB {
         Ok(())
     }
 
-    /// Reads the crbit representation of the settings for this FB from the given `fuse_array`.
-    /// `device` must be the device type this FB was extracted from.
-    /// `fb` must be the index of this function block.
-    pub fn from_crbit(device: XC2Device, fb: u32, fuse_array: &FuseArray) -> Result<Self, XC2BitError> {
-        match device {
-            XC2Device::XC2C32 | XC2Device::XC2C32A => {
-                <Self as BitFragment<CrbitXC2C32>>::decode(
-                    fuse_array,
-                    [0, 0],
-                    [false, false],
-                    fb as usize)
-            },
-            XC2Device::XC2C64 | XC2Device::XC2C64A => {
-                <Self as BitFragment<CrbitXC2C64>>::decode(
-                    fuse_array,
-                    [0, 0],
-                    [false, false],
-                    fb as usize)
-            },
-            XC2Device::XC2C128 => {
-                <Self as BitFragment<CrbitXC2C128>>::decode(
-                    fuse_array,
-                    [0, 0],
-                    [false, false],
-                    fb as usize)
-            },
-            XC2Device::XC2C256 => {
-                <Self as BitFragment<CrbitXC2C256>>::decode(
-                    fuse_array,
-                    [0, 0],
-                    [false, false],
-                    fb as usize)
-            },
-            XC2Device::XC2C384 => {
-                <Self as BitFragment<CrbitXC2C384>>::decode(
-                    fuse_array,
-                    [0, 0],
-                    [false, false],
-                    fb as usize)
-            },
-            XC2Device::XC2C512 => {
-                <Self as BitFragment<CrbitXC2C512>>::decode(
-                    fuse_array,
-                    [0, 0],
-                    [false, false],
-                    fb as usize)
-            },
-        }
-    }
-
     /// Write the .JED representation of the settings for this FB to the given `jed` object.
     /// `device` must be the device type this FB was extracted from and is needed to encode the ZIA.
     /// `fuse_base` must be the starting fuse number of this function block.

@@ -297,38 +297,6 @@ impl fmt::Display for XC2GlobalNets {
     }
 }
 
-impl XC2GlobalNets {
-    /// Internal function to read the global nets
-    pub fn from_crbit(device: XC2Device, fuse_array: &FuseArray) -> Self {
-        match device {
-            XC2Device::XC2C32 | XC2Device::XC2C32A => {
-                <Self as BitFragment<CrbitXC2C32>>::decode(
-                    fuse_array, [0, 0], [false, false], ()).unwrap()
-            },
-            XC2Device::XC2C64 | XC2Device::XC2C64A => {
-                <Self as BitFragment<CrbitXC2C64>>::decode(
-                    fuse_array, [0, 0], [false, false], ()).unwrap()
-            },
-            XC2Device::XC2C128 => {
-                <Self as BitFragment<CrbitXC2C128>>::decode(
-                    fuse_array, [0, 0], [false, false], ()).unwrap()
-            },
-            XC2Device::XC2C256 => {
-                <Self as BitFragment<CrbitXC2C256>>::decode(
-                    fuse_array, [0, 0], [false, false], ()).unwrap()
-            },
-            XC2Device::XC2C384 => {
-                <Self as BitFragment<CrbitXC2C384>>::decode(
-                    fuse_array, [0, 0], [false, false], ()).unwrap()
-            },
-            XC2Device::XC2C512 => {
-                <Self as BitFragment<CrbitXC2C512>>::decode(
-                    fuse_array, [0, 0], [false, false], ()).unwrap()
-            },
-        }
-    }
-}
-
 /// Possible clock divide ratios for the programmable clock divider
 #[bitpattern]
 #[derive(Copy, Clone, Eq, PartialEq, Hash, Debug, Serialize, Deserialize)]

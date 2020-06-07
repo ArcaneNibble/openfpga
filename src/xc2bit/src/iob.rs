@@ -30,8 +30,6 @@ use core::fmt;
 use jedec::*;
 
 use crate::*;
-use crate::fusemap_physical::{mc_block_loc};
-use crate::fb::{MC_TO_ROW_MAP_LARGE};
 use crate::zia::{zia_get_row_width};
 
 /// Mux selection for the ZIA input from this I/O pin's input. The ZIA input can be chosen to come from either the
@@ -225,29 +223,6 @@ impl fmt::Display for XC2MCSmallIOB {
 }
 
 impl XC2MCSmallIOB {
-    /// Read the crbit representation of the settings for this IO pin from the given `fuse_array`.
-    /// `device` must be the device type this FB was extracted from.
-    /// `iob` must be the index of this IO pin.
-    pub fn from_crbit(device: XC2Device, iob: u32, fuse_array: &FuseArray) -> Result<Self, XC2BitError> {
-        let (fb, mc) = iob_num_to_fb_mc_num(device, iob).unwrap();
-        let (x, y, mirror) = mc_block_loc(device, fb);
-        match device {
-            XC2Device::XC2C32 | XC2Device::XC2C32A => {
-                // The "32" variant
-                // each macrocell is 3 rows high
-                let y = y + (mc as usize) * 3;
-                <Self as BitFragment::<Crbit32>>::decode(fuse_array, [x as isize, y as isize], [mirror, false], ())
-            },
-            XC2Device::XC2C64 | XC2Device::XC2C64A => {
-                // The "64" variant
-                // each macrocell is 3 rows high
-                let y = y + (mc as usize) * 3;
-                <Self as BitFragment::<Crbit64>>::decode(fuse_array, [x as isize, y as isize], [mirror, false], ())
-            },
-            _ => unreachable!(),
-        }
-    }
-
     /// Internal function that reads only the IO-related bits from the macrocell configuration
     pub fn from_jed(fuses: &[bool], fuse_idx: usize) -> Result<Self, XC2BitError> {
         <Self as BitFragment::<Jed>>::decode(fuses, [fuse_idx as isize], [false], ())
@@ -417,29 +392,6 @@ impl fmt::Display for XC2MCLargeIOB {
 }
 
 impl XC2MCLargeIOB {
-    /// Read the crbit representation of the settings for this IO pin from the given `fuse_array`.
-    /// `device` must be the device type this FB was extracted from.
-    /// `iob` must be the index of this IO pin.
-    pub fn from_crbit(device: XC2Device, iob: u32, fuse_array: &FuseArray) -> Result<Self, XC2BitError> {
-        let (fb, mc) = iob_num_to_fb_mc_num(device, iob).unwrap();
-        let (x, y, mirror) = mc_block_loc(device, fb);
-        match device {
-            XC2Device::XC2C256 => {
-                // The "256" variant
-                // each macrocell is 3 rows high
-                let y = y + (mc as usize) * 3;
-                <Self as BitFragment::<Crbit256>>::decode(fuse_array, [x as isize, y as isize], [mirror, false], ())
-            },
-            XC2Device::XC2C128 | XC2Device::XC2C384 | XC2Device::XC2C512 => {
-                // The "common large macrocell" variant
-                // we need this funny lookup table, but otherwise macrocells are 2x15
-                let y = y + MC_TO_ROW_MAP_LARGE[mc as usize];
-                <Self as BitFragment::<CrbitLarge>>::decode(fuse_array, [x as isize, y as isize], [mirror, false], ())
-            },
-            _ => unreachable!(),
-        }
-    }
-
     /// Internal function that reads only the IO-related bits from the macrocell configuration
     pub fn from_jed(fuses: &[bool], fuse_idx: usize) -> Result<Self, XC2BitError> {
         <Self as BitFragment::<Jed>>::decode(fuses, [fuse_idx as isize], [false], ())
