@@ -117,11 +117,12 @@ impl XC2Bitstream {
                 })
             },
             XC2Device::XC2C32A => {
-                let bits = read_32a_bitstream_logical(fuses)?;
+                let bits = <XC2BitsXC2C32A as BitFragment<Jed>>::decode(
+                    fuses, [0], [false], ())?;
                 Ok(XC2Bitstream {
                     speed_grade: spd,
                     package: pkg,
-                    bits,
+                    bits: XC2BitstreamBits::XC2C32A(bits),
                 })
             },
             XC2Device::XC2C64 => {
@@ -454,9 +455,13 @@ pub struct XC2BitsXC2C32 {
     pub ovoltage: bool,
 }
 
+#[bitfragment(variant = Jed, dimensions = 1, errtype = XC2BitError)]
 #[bitfragment(variant = Crbit, dimensions = 2, errtype = XC2BitError)]
 #[derive(Copy, Clone, Eq, PartialEq, Hash, Debug, Serialize, Deserialize)]
 pub struct XC2BitsXC2C32A {
+    #[arr_off(variant = Jed, |i| [fb_fuse_idx(XC2Device::XC2C32A, i as u32)])]
+    #[frag(outer_frag_variant = Jed, inner_frag_variant = fb::JedXC2C32)]
+
     #[arr_off(variant = Crbit, |_| [0, 0])]
     #[frag(outer_frag_variant = Crbit, inner_frag_variant = fb::CrbitXC2C32)]
     #[encode_sub_extra_data(variant = Crbit, arr_elem_i)]
@@ -464,6 +469,15 @@ pub struct XC2BitsXC2C32A {
     pub fb: [XC2BitstreamFB; 2],
 
     // XXX this offset is here whereas the fb offset is automagic
+    #[arr_off(variant = Jed, |iob| {
+        // XXX wtf
+        let (fb, mc) = iob_num_to_fb_mc_num(XC2Device::XC2C32A, iob as u32).unwrap();
+        let fboff = fb_fuse_idx(XC2Device::XC2C32A, fb);
+        let everythingelseoff = zia_get_row_width(XC2Device::XC2C32A) * INPUTS_PER_ANDTERM + INPUTS_PER_ANDTERM * 2 * ANDTERMS_PER_FB + ANDTERMS_PER_FB * MCS_PER_FB;
+        [(fboff as isize) + (everythingelseoff as isize) + (mc as isize) * 27]
+    })]
+    #[frag(outer_frag_variant = Jed, inner_frag_variant = iob::Jed)]
+
     #[arr_off(variant = Crbit, |iob| {
         let (fb, mc) = iob_num_to_fb_mc_num(XC2Device::XC2C32A, iob as u32).unwrap();
         let (x, y, _mirror) = mc_block_loc(XC2Device::XC2C32A, fb);
@@ -480,27 +494,33 @@ pub struct XC2BitsXC2C32A {
     #[frag(outer_frag_variant = Crbit, inner_frag_variant = iob::Crbit32)]
     pub iobs: [XC2MCSmallIOB; 32],
 
+    #[frag(outer_frag_variant = Jed, inner_frag_variant = iob::Jed)]
     #[frag(outer_frag_variant = Crbit, inner_frag_variant = iob::Crbit)]
     pub inpin: XC2ExtraIBuf,
 
+    #[frag(outer_frag_variant = Jed, inner_frag_variant = globalbits::JedXC2C32)]
     #[frag(outer_frag_variant = Crbit, inner_frag_variant = globalbits::CrbitXC2C32)]
     pub global_nets: XC2GlobalNets,
 
     /// Legacy voltage level control, should almost always be set to `false`
     ///
     /// `false` = low, `true` = high
+    #[pat_bits(frag_variant = Jed, "0" = !12271)]
     #[pat_bits(frag_variant = Crbit, "0" = !(130, 24))]
     legacy_ivoltage: bool,
 
     /// Legacy voltage level control, should almost always be set to `false`
     ///
     /// `false` = low, `true` = high
+    #[pat_bits(frag_variant = Jed, "0" = !12270)]
     #[pat_bits(frag_variant = Crbit, "0" = !(130, 25))]
     legacy_ovoltage: bool,
 
     /// Voltage level control for each I/O bank
     ///
     /// `false` = low, `true` = high
+    #[arr_off(variant = Jed, |i| [[12274], [12276]][i])]
+    #[pat_bits(frag_variant = Jed, "0" = !0)]
     #[arr_off(variant = Crbit, |i| [[131, 25], [133, 25]][i])]
     #[pat_bits(frag_variant = Crbit, "0" = !(0, 0))]
     ivoltage: [bool; 2],
@@ -508,6 +528,8 @@ pub struct XC2BitsXC2C32A {
     /// Voltage level control for each I/O bank
     ///
     /// `false` = low, `true` = high
+    #[arr_off(variant = Jed, |i| [[12275], [12276]][i])]
+    #[pat_bits(frag_variant = Jed, "0" = !0)]
     #[arr_off(variant = Crbit, |i| [[132, 25], [134, 25]][i])]
     #[pat_bits(frag_variant = Crbit, "0" = !(0, 0))]
     ovoltage: [bool; 2],
